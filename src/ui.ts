@@ -11,13 +11,21 @@ import { verifyQuestions } from './questions';
 
 /** Embed с ответами анкеты для канала модерации. */
 export function buildApplicationEmbed(user: User, answers: Record<string, string>): EmbedBuilder {
+  const createdTs = Math.floor(user.createdTimestamp / 1000);
+
   const embed = new EmbedBuilder()
     .setTitle('Новая заявка на верификацию')
-    .setAuthor({ name: user.tag, iconURL: user.displayAvatarURL() })
+    .setAuthor({ name: 'Заявка на верификацию' })
     .setThumbnail(user.displayAvatarURL())
     .setColor(0xfee75c)
     .setFooter({ text: `ID: ${user.id}` })
     .setTimestamp();
+
+  // Добавляем информацию об участнике в начале
+  embed.addFields(
+    { name: 'Участник', value: `<@${user.id}>`, inline: false },
+    { name: 'Дата создания аккаунта', value: `<t:${createdTs}:R>`, inline: false },
+  );
 
   for (const q of verifyQuestions.slice(0, 5)) {
     const value = (answers[q.id] ?? '').trim() || '—';
