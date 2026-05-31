@@ -14,7 +14,6 @@ export function buildApplicationEmbed(user: User, answers: Record<string, string
   const createdTs = Math.floor(user.createdTimestamp / 1000);
 
   const embed = new EmbedBuilder()
-    .setTitle('Новая заявка на верификацию')
     .setAuthor({ name: 'Заявка на верификацию' })
     .setThumbnail(user.displayAvatarURL())
     .setColor(0xfee75c)
@@ -28,7 +27,8 @@ export function buildApplicationEmbed(user: User, answers: Record<string, string
   );
 
   for (const q of verifyQuestions.slice(0, 5)) {
-    const value = (answers[q.id] ?? '').trim() || '—';
+    const rawValue = (answers[q.id] ?? '').trim() || '—';
+    const value = rawValue === '—' ? rawValue : `\`${rawValue}\``;
     embed.addFields({
       name: q.label,
       value: value.length > 1024 ? value.slice(0, 1021) + '...' : value,
@@ -94,7 +94,6 @@ export function buildWelcomeEmbed(member: GuildMember): EmbedBuilder {
   const createdTs = Math.floor(user.createdTimestamp / 1000);
 
   return new EmbedBuilder()
-    .setAuthor({ name: user.tag, iconURL: user.displayAvatarURL() })
     .setTitle('🎉  Добро пожаловать!')
     .setDescription(`<@${user.id}>, добро пожаловать на **${guild.name}**!`)
     .setThumbnail(user.displayAvatarURL())
