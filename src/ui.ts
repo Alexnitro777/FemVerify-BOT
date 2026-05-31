@@ -98,7 +98,7 @@ export function buildWelcomeEmbed(member: GuildMember): EmbedBuilder {
     .setDescription(`<@${user.id}>, добро пожаловать на **${guild.name}**!`)
     .setThumbnail(user.displayAvatarURL())
     .addFields(
-      { name: '👥  Участник №', value: `${guild.memberCount}`, inline: true },
+      { name: '👥  Участник №', value: `\`${guild.memberCount}\``, inline: true },
       { name: '🗓  Аккаунт создан', value: `<t:${createdTs}:R>`, inline: true },
     )
     .setColor(0x57f287)
