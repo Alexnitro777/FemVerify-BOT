@@ -88,7 +88,7 @@ export function buildWelcomeEmbed(member: GuildMember): EmbedBuilder {
   return new EmbedBuilder()
     .setAuthor({ name: user.tag, iconURL: user.displayAvatarURL() })
     .setTitle('🎉  Добро пожаловать!')
-    .setDescription(`Добро пожаловать на **${guild.name}**!`)
+    .setDescription(`<@${user.id}>, добро пожаловать на **${guild.name}**!`)
     .setThumbnail(user.displayAvatarURL())
     .addFields(
       { name: '👥  Участник №', value: `${guild.memberCount}`, inline: true },

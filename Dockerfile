@@ -16,4 +16,5 @@ COPY --from=builder /app/dist ./dist
 RUN mkdir -p /app/data
 VOLUME ["/app/data"]
 # Флаг --experimental-sqlite — для единообразия с npm-скриптом start (баг #9).
-CMD ["node", "--experimental-sqlite", "dist/index.js"]
+# Сначала деплоим команды, затем запускаем бота.
+CMD ["sh", "-c", "node --experimental-sqlite dist/deploy-commands.js && node --experimental-sqlite dist/index.js"]
