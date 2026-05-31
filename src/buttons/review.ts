@@ -192,10 +192,16 @@ const handler: ButtonHandler = {
       try {
         const welcomeChannel = await guild.channels.fetch(config.channels.welcome);
         if (welcomeChannel?.isTextBased()) {
-          await welcomeChannel.send({
+          // Сначала отправляем пинг отдельным сообщением
+          const pingMessage = await welcomeChannel.send({
             content: `<@${userId}>`,
-            embeds: [buildWelcomeEmbed(member)],
             allowedMentions: { users: [userId] },
+          });
+          // Удаляем пинг
+          await pingMessage.delete();
+          // Отправляем embed без пинга
+          await welcomeChannel.send({
+            embeds: [buildWelcomeEmbed(member)],
           });
         }
       } catch (e) {
