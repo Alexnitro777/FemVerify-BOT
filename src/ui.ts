@@ -127,6 +127,21 @@ export function buildProcessedButtonRow(kind: DecisionKind): ActionRowBuilder<Bu
   );
 }
 
+/**
+ * Серая неактивная кнопка «Покинул сервер».
+ * Ставится вместо всех кнопок заявки/апелляции, когда участник вышел с сервера,
+ * не дождавшись разбора. Нажать нельзя (disabled).
+ */
+export function buildLeftServerButtonRow(): ActionRowBuilder<ButtonBuilder> {
+  return new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder()
+      .setCustomId('decision:left')
+      .setLabel('Покинул сервер')
+      .setStyle(ButtonStyle.Secondary)
+      .setDisabled(true),
+  );
+}
+
 /** Кнопка-ссылка на оригинал заявки/апелляции для сообщения-решения. */
 export function buildDecisionLinkRow(
   kind: DecisionKind,

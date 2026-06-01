@@ -177,6 +177,17 @@ export function claimApplication(
   return result.changes === 1;
 }
 
+// Атомарно помечает заявку как 'left' (участник покинул сервер), только если она
+// ещё `pending`. Возвращает true лишь у первого вызвавшего — защита от гонки с
+// модератором, обрабатывающим заявку в тот же момент.
+const markAppLeftStmt = db.prepare(
+  "UPDATE applications SET status = 'left' WHERE userId = ? AND status = 'pending'",
+);
+
+export function markApplicationLeft(userId: string): boolean {
+  return markAppLeftStmt.run(userId).changes === 1;
+}
+
 // --- Appeals ---
 
 interface AppealRow {
@@ -284,4 +295,14 @@ export function claimAppeal(
     resolvedAt,
   });
   return result.changes === 1;
+}
+
+// Атомарно помечает апелляцию как 'left' (участник покинул сервер), только если
+// она ещё `pending`. Возвращает true лишь у первого вызвавшего.
+const markAppealLeftStmt = db.prepare(
+  "UPDATE appeals SET status = 'left' WHERE userId = ? AND status = 'pending'",
+);
+
+export function markAppealLeft(userId: string): boolean {
+  return markAppealLeftStmt.run(userId).changes === 1;
 }

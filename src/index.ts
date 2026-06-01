@@ -5,6 +5,7 @@ import { loadCommands, loadButtons, loadModals } from './handlers/loader';
 import { handleInteraction } from './handlers/interactionCreate';
 import { closeDb } from './storage';
 import { registerTagRoleEvents, syncAllTagRoles } from './roleTag';
+import { registerLeaveCleanupEvents } from './leaveCleanup';
 
 async function bootstrap(): Promise<void> {
   console.log('[boot] starting...');
@@ -29,6 +30,9 @@ async function bootstrap(): Promise<void> {
 
   // Автовыдача роли за тег сервера: подписываемся на события до логина.
   registerTagRoleEvents(client);
+
+  // Очистка незавершённых заявок/апелляций при выходе участника с сервера.
+  registerLeaveCleanupEvents(client);
 
   client.once('clientReady', (c) => {
     console.log(`Logged in as ${c.user.tag}`);

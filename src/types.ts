@@ -35,9 +35,11 @@ export type ApplicationStatus =
   | 'pending'
   | 'approved'
   | 'rejected'
-  | 'blacklisted';
+  | 'blacklisted'
+  // Участник покинул сервер, не дождавшись разбора заявки.
+  | 'left';
 
-export type AppealStatus = 'pending' | 'amnestied' | 'denied';
+export type AppealStatus = 'pending' | 'amnestied' | 'denied' | 'left';
 
 export interface Application {
   userId: string;
