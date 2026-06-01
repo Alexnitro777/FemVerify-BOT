@@ -152,7 +152,7 @@ const handler: ButtonHandler = {
     if (!claimed) {
       const fresh = getApplication(userId);
       await interaction.followUp({
-        content: `Заявка уже обработана (${fresh?.status ?? 'не найдена'}).`,
+        content: `Заявка уже обработана (${fresh?.status ?? 'не ��айдена'}).`,
         flags: MessageFlags.Ephemeral,
       });
       return;
@@ -198,6 +198,16 @@ const handler: ButtonHandler = {
       targetUserId: userId,
       reviewMessageUrl: app.reviewMessageUrl ?? interaction.message.url,
     });
+
+    // После решения удаляем приватный канал-вопрос этого участника, если он создавался.
+    if (app.questionChannelId) {
+      const questionChannel = await guild.channels.fetch(app.questionChannelId).catch(() => null);
+      await questionChannel?.delete().catch((e) => {
+        console.error('[review] failed to delete question channel', e);
+        return null;
+      });
+      updateApplication(userId, { questionChannelId: undefined });
+    }
 
     // Приветственный embed в общий канал (если настроен WELCOME_CHANNEL_ID).
     if (config.channels.welcome) {

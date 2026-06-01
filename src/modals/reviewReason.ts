@@ -91,6 +91,17 @@ const handler: ModalHandler = {
       reviewMessageUrl: app.reviewMessageUrl,
     });
 
+    // После решения удаляем приватный канал-вопрос этого участника, если он создавался.
+    if (app.questionChannelId) {
+      const questionChannel = await interaction.guild?.channels
+        .fetch(app.questionChannelId)
+        .catch(() => null);
+      await questionChannel?.delete().catch((e) => {
+        console.error('[reviewReason] failed to delete question channel', e);
+        return null;
+      });
+    }
+
     await interaction.editReply({
       content: action === 'blacklist' ? 'Участник добавлен в ЧС.' : 'Заявка отклонена.',
     });
