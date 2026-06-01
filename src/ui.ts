@@ -159,7 +159,11 @@ export function buildDecisionEmbed(
     .addFields({ name: 'Участник', value: `<@${targetUserId}>`, inline: true });
 
   if (reason) {
-    embed.addFields({ name: reason.title, value: reason.text || '—', inline: true });
+    embed.addFields({
+      name: reason.title,
+      value: reason.text ? `\`${reason.text}\`` : '—',
+      inline: true,
+    });
   } else {
     embed.addFields({ name: 'Решение', value: label, inline: true });
   }
