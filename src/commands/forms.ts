@@ -10,9 +10,11 @@ import { listPendingApplications } from '../storage';
 
 const command: SlashCommand = {
   data: new SlashCommandBuilder()
-    .setName('forms')
+    .setName('формы')
     .setDescription('Показать все непринятые анкеты на верификацию')
-    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator) as unknown as SlashCommand['data'],
+    .setDefaultMemberPermissions(PermissionFlagsBits.ManageNicknames) as unknown as SlashCommand['data'],
+
+  access: 'mod',
 
   async execute(interaction: ChatInputCommandInteraction): Promise<void> {
     const pending = listPendingApplications();

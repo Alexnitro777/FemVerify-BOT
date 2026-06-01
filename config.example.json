@@ -1,22 +1,24 @@
 {
-  "token": "",
-  "clientId": "",
-  "guildId": "",
+  "token": "",    // токен бота (Discord Developer Portal → Bot → Token)
+  "clientId": "", // id бота (Application ID)
+  "guildId": "",  // id сервера (Server ID)
 
   "roles": {
-    "verified": "",
-    "blacklist": "",
-    "mod": ["", ""],
-    "roleTag": ""
+    "verified": "",  // роль верифицированного участника
+    "blacklist": "", // роль чёрного списка (ЧС)
+    "admin": ["", ""], // роли админов (видят все команды бота)
+    "mod": ["", ""],   // роли модераторов (видят /тег /формы /формычсп)
+    "roleTag": ""      // роль за тег сервера (необязательно)
   },
 
   "channels": {
-    "review": "",
-    "appealReview": "",
-    "welcome": "",
-    "decisions": "",
-    "appeal": ""
+    "review": "",       // канал заявок на верификацию
+    "appealReview": "", // канал рассмотрения апелляций
+    "welcome": "",      // канал приветствий (необязательно)
+    "decisions": "",    // канал решений админов (необязательно)
+    "appeal": "",       // канал подачи апелляций (необязательно)
+    "tagLog": ""        // канал логов роли за тег (необязательно)
   },
 
-  "questionCategoryId": ""
+  "questionCategoryId": "" // категория для каналов-вопросов
 }

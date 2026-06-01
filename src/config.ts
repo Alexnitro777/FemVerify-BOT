@@ -9,6 +9,8 @@ type RawConfig = {
     verified?: string;
     // Можно указать одну роль (строкой) или несколько (массивом).
     mod?: string | string[];
+    // Роли администраторов: видят и используют все команды бота.
+    admin?: string | string[];
     blacklist?: string;
     // Роль, которая автоматически выдаётся участникам с тегом этого сервера.
     roleTag?: string;
@@ -22,9 +24,66 @@ type RawConfig = {
     decisions?: string;
     // Канал, где участники могут подать апелляцию (ссылка в ЛС при ЧС).
     appeal?: string;
+    // Канал для embed-логов выдачи/снятия роли за тег сервера.
+    tagLog?: string;
   };
   questionCategoryId?: string;
 };
+
+// Убирает комментарии (// и /* */) из JSON, не трогая содержимое строк.
+// Это позволяет держать пояснения прямо в config.json (формат JSONC).
+function stripJsonComments(input: string): string {
+  let result = '';
+  let inString = false;
+  let inSingleLine = false;
+  let inMultiLine = false;
+  let escaped = false;
+
+  for (let i = 0; i < input.length; i++) {
+    const ch = input[i];
+    const next = input[i + 1];
+
+    if (inSingleLine) {
+      if (ch === '\n') {
+        inSingleLine = false;
+        result += ch;
+      }
+      continue;
+    }
+    if (inMultiLine) {
+      if (ch === '*' && next === '/') {
+        inMultiLine = false;
+        i++;
+      }
+      continue;
+    }
+    if (inString) {
+      result += ch;
+      if (escaped) escaped = false;
+      else if (ch === '\\') escaped = true;
+      else if (ch === '"') inString = false;
+      continue;
+    }
+    if (ch === '"') {
+      inString = true;
+      result += ch;
+      continue;
+    }
+    if (ch === '/' && next === '/') {
+      inSingleLine = true;
+      i++;
+      continue;
+    }
+    if (ch === '/' && next === '*') {
+      inMultiLine = true;
+      i++;
+      continue;
+    }
+    result += ch;
+  }
+
+  return result;
+}
 
 // Ищем config.json: переменная CONFIG_PATH → корень проекта (cwd) → рядом с dist/.
 function loadRawConfig(): RawConfig {
@@ -38,7 +97,7 @@ function loadRawConfig(): RawConfig {
   for (const file of candidates) {
     try {
       const content = readFileSync(file, 'utf-8');
-      return JSON.parse(content) as RawConfig;
+      return JSON.parse(stripJsonComments(content)) as RawConfig;
     } catch (err) {
       const e = err as NodeJS.ErrnoException;
       if (e.code === 'ENOENT') continue;
@@ -84,7 +143,9 @@ export const config = {
   roles: {
     verified: required(raw.roles?.verified, 'roles.verified'),
     blacklist: required(raw.roles?.blacklist, 'roles.blacklist'),
-    // Список ролей модерации: можно одну или несколько.
+    // Список ролей администраторов: видят все команды бота.
+    admin: requiredList(raw.roles?.admin, 'roles.admin'),
+    // Список ролей модерации: видят /тег /формы /формычсп.
     mod: requiredList(raw.roles?.mod, 'roles.mod'),
     // Роль за тег сервера. Необязательна: если не задана — автовыдача отключена.
     roleTag: optional(raw.roles?.roleTag),
@@ -100,6 +161,8 @@ export const config = {
     decisions: optional(raw.channels?.decisions),
     // Канал подачи апелляций — на него ссылаемся в ЛС при добавлении в ЧС.
     appeal: optional(raw.channels?.appeal),
+    // Канал для embed-логов роли за тег сервера. Если не задан — логи не отправляются.
+    tagLog: optional(raw.channels?.tagLog),
   },
 
   questionCategoryId: required(raw.questionCategoryId, 'questionCategoryId'),

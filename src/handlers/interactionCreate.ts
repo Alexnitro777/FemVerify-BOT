@@ -1,11 +1,21 @@
 import { Interaction, MessageFlags } from 'discord.js';
 import { BotClient } from '../types';
+import { hasCommandAccess } from '../permissions';
 
 export async function handleInteraction(client: BotClient, interaction: Interaction): Promise<void> {
   try {
     if (interaction.isChatInputCommand()) {
       const cmd = client.commands.get(interaction.commandName);
       if (!cmd) return;
+      // Разграничение доступа через конфиг: admin видит всё, mod — только mod-команды.
+      const required = cmd.access ?? 'admin';
+      if (!hasCommandAccess(interaction, required)) {
+        await interaction.reply({
+          content: '⛔ У тебя нет доступа к этой команде.',
+          flags: MessageFlags.Ephemeral,
+        });
+        return;
+      }
       await cmd.execute(interaction);
       return;
     }

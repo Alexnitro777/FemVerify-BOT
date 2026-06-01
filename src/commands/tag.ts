@@ -1,6 +1,7 @@
 import {
   SlashCommandBuilder,
   ChatInputCommandInteraction,
+  PermissionFlagsBits,
   EmbedBuilder,
   MessageFlags,
 } from 'discord.js';
@@ -9,8 +10,11 @@ import { hasServerTag, getPrimaryGuild } from '../roleTag';
 
 const command: SlashCommand = {
   data: new SlashCommandBuilder()
-    .setName('tag')
-    .setDescription('Статистика по тегу сервера: сколько участников его носят') as unknown as SlashCommand['data'],
+    .setName('тег')
+    .setDescription('Статистика по тегу сервера: сколько участников его носят')
+    .setDefaultMemberPermissions(PermissionFlagsBits.ManageNicknames) as unknown as SlashCommand['data'],
+
+  access: 'mod',
 
   async execute(interaction: ChatInputCommandInteraction): Promise<void> {
     if (!interaction.inGuild() || !interaction.guild) {
@@ -54,7 +58,7 @@ const command: SlashCommand = {
           : 'Показывает, сколько участников носят тег этого сервера.',
       )
       .addFields(
-        { name: '🏷️ Носят тег сервера', value: `**${withTag}**`, inline: true },
+        { name: '🎗️ Носят тег сервера', value: `**${withTag}**`, inline: true },
         { name: '👥 Всего участников', value: `**${humans}**`, inline: true },
         { name: '📊 Доля', value: `**${percent}%**`, inline: true },
       )

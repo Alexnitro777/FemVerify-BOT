@@ -13,9 +13,11 @@ import { SlashCommand } from '../types';
 
 const command: SlashCommand = {
   data: new SlashCommandBuilder()
-    .setName('verify')
+    .setName('верификация')
     .setDescription('Разместить сообщение с кнопкой верификации в текущем канале')
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator) as unknown as SlashCommand['data'],
+
+  access: 'admin',
 
   async execute(interaction: ChatInputCommandInteraction): Promise<void> {
     if (!interaction.channel || interaction.channel.type !== ChannelType.GuildText) {

@@ -9,6 +9,9 @@ import {
 
 export interface SlashCommand {
   data: Omit<SlashCommandBuilder, 'addSubcommand' | 'addSubcommandGroup'>;
+  // Уровень доступа к команде. Если не задан — считается 'admin'.
+  // 'admin' — только администраторы; 'mod' — администраторы и модераторы.
+  access?: 'admin' | 'mod';
   execute: (interaction: ChatInputCommandInteraction) => Promise<void>;
 }
 
