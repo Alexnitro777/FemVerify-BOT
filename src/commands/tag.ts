@@ -5,7 +5,7 @@ import {
   MessageFlags,
 } from 'discord.js';
 import { SlashCommand } from '../types';
-import { hasServerTag, getPrimaryGuild } from '../serverTag';
+import { hasServerTag, getPrimaryGuild } from '../roleTag';
 
 const command: SlashCommand = {
   data: new SlashCommandBuilder()

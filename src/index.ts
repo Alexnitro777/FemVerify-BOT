@@ -4,7 +4,7 @@ import { BotClient } from './types';
 import { loadCommands, loadButtons, loadModals } from './handlers/loader';
 import { handleInteraction } from './handlers/interactionCreate';
 import { closeDb } from './storage';
-import { registerTagRoleEvents, syncAllTagRoles } from './serverTag';
+import { registerTagRoleEvents, syncAllTagRoles } from './roleTag';
 
 async function bootstrap(): Promise<void> {
   console.log('[boot] starting...');
