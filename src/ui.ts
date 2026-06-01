@@ -141,24 +141,35 @@ export function buildDecisionLinkRow(
   );
 }
 
-/** Embed с решением админов для отдельного канала решений. Причина не указывается. */
+/**
+ * Embed с решением админов для отдельного канала решений.
+ * При отклонении/ЧС вместо поля «Решение» показывается «Причина …» с текстом причины.
+ */
 export function buildDecisionEmbed(
   kind: DecisionKind,
   label: string,
   color: number,
   reviewerId: string,
   targetUserId: string,
+  reason?: { title: string; text: string },
 ): EmbedBuilder {
-  return new EmbedBuilder()
+  const embed = new EmbedBuilder()
     .setAuthor({ name: kind === 'appeal' ? 'Решение по апелляции' : 'Решение по заявке' })
     .setColor(color)
-    .addFields(
-      { name: 'Участник', value: `<@${targetUserId}>`, inline: true },
-      { name: 'Решение', value: label, inline: true },
-      { name: 'Модератор', value: `<@${reviewerId}>`, inline: false },
-    )
+    .addFields({ name: 'Участник', value: `<@${targetUserId}>`, inline: true });
+
+  if (reason) {
+    embed.addFields({ name: reason.title, value: reason.text || '—', inline: true });
+  } else {
+    embed.addFields({ name: 'Решение', value: label, inline: true });
+  }
+
+  embed
+    .addFields({ name: 'Модератор', value: `<@${reviewerId}>`, inline: false })
     .setFooter({ text: `ID: ${targetUserId}` })
     .setTimestamp();
+
+  return embed;
 }
 
 /**
@@ -175,6 +186,7 @@ export async function postDecisionMessage(
     reviewerId: string;
     targetUserId: string;
     reviewMessageUrl?: string;
+    reason?: { title: string; text: string };
   },
 ): Promise<void> {
   if (!channelId) return;
@@ -184,7 +196,14 @@ export async function postDecisionMessage(
       console.error('[decision] decisions channel unavailable:', channelId);
       return;
     }
-    const embed = buildDecisionEmbed(kind, opts.label, opts.color, opts.reviewerId, opts.targetUserId);
+    const embed = buildDecisionEmbed(
+      kind,
+      opts.label,
+      opts.color,
+      opts.reviewerId,
+      opts.targetUserId,
+      opts.reason,
+    );
     const linkRow = buildDecisionLinkRow(kind, opts.reviewMessageUrl);
     await (channel as TextChannel).send({
       embeds: [embed],

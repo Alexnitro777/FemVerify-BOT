@@ -18,6 +18,8 @@ type RawConfig = {
     // Канал, куда отправляется отдельное сообщение с решением админов
     // (со ссылкой на оригинал заявки/апелляции).
     decisions?: string;
+    // Канал, где участники могут подать апелляцию (ссылка в ЛС при ЧС).
+    appeal?: string;
   };
   questionCategoryId?: string;
 };
@@ -92,6 +94,8 @@ export const config = {
     // Канал, куда отправляется сообщение с решением админов после обработки
     // заявки или апелляции. Если не задан — сообщение-решение не отправляется.
     decisions: optional(raw.channels?.decisions),
+    // Канал подачи апелляций — на него ссылаемся в ЛС при добавлении в ЧС.
+    appeal: optional(raw.channels?.appeal),
   },
 
   questionCategoryId: required(raw.questionCategoryId, 'questionCategoryId'),

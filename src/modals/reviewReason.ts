@@ -42,7 +42,9 @@ const handler: ModalHandler = {
           embeds: [
             buildDmEmbed(
               '🚫 Вы добавлены в чёрный список',
-              `Причина: ${reason}\n\nВы можете подать аппеляцию в соответствующем канале.`,
+              `Причина: ${reason}\n\nВы можете подать аппеляцию в ${
+                config.channels.appeal ? `<#${config.channels.appeal}>` : 'соответствующем канале'
+              }.`,
               0x992d22,
             ),
           ],
@@ -89,6 +91,10 @@ const handler: ModalHandler = {
       reviewerId: interaction.user.id,
       targetUserId: userId,
       reviewMessageUrl: app.reviewMessageUrl,
+      reason: {
+        title: action === 'blacklist' ? 'Причина ЧС' : 'Причина отклонения',
+        text: reason,
+      },
     });
 
     // После решения удаляем приватный канал-вопрос этого участника, если он создавался.
