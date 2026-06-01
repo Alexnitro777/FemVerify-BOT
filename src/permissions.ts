@@ -16,7 +16,7 @@ export function isMod(interaction: ButtonInteraction): boolean {
   if (!member) return false;
   return (
     member.permissions.has(PermissionFlagsBits.ManageRoles) ||
-    member.roles.cache.has(config.roles.mod)
+    config.roles.mod.some((roleId) => member.roles.cache.has(roleId))
   );
 }
 

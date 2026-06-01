@@ -8,9 +8,9 @@ import { closeDb } from './storage';
 async function bootstrap(): Promise<void> {
   console.log('[boot] starting...');
   console.log('[boot] node', process.version);
-  console.log('[boot] token present:', Boolean(process.env.DISCORD_TOKEN));
-  console.log('[boot] clientId present:', Boolean(process.env.CLIENT_ID));
-  console.log('[boot] guildId present:', Boolean(process.env.GUILD_ID));
+  console.log('[boot] token present:', Boolean(config.token));
+  console.log('[boot] clientId present:', Boolean(config.clientId));
+  console.log('[boot] guildId present:', Boolean(config.guildId));
 
   const client = new Client({
     intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers],

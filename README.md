@@ -28,7 +28,7 @@ src/
     reviewReason     причина отказа / ЧС
     appealSubmit     приём аппеляции
   handlers/        автозагрузка + роутер interactionCreate
-  config.ts        чтение/валидация .env
+  config.ts        чтение/валидация config.json
   questions.ts     вопросы анкеты и аппеляции (до 5 полей — лимит Discord)
   storage.ts       SQLite (встроенный node:sqlite): applications + appeals
   ui.ts            построение embed и кнопок
@@ -44,7 +44,7 @@ src/
 ## Запуск (локально / разработка)
 
 1. `npm install`
-2. Скопируйте `.env.example` → `.env`, заполните ID ролей, каналов и категории.
+2. Скопируйте `config.example.json` → `config.json`, заполните токен, ID ролей, каналов и категории.
 3. `npm run deploy` — регистрация slash-команд.
 4. `npm run dev` (разработка) или `npm run build && npm start`.
 
@@ -65,9 +65,9 @@ cd femverify-bot
 npm ci
 npm run build
 
-# 4. Создать .env
-cp .env.example .env
-nano .env   # вписать DISCORD_TOKEN, CLIENT_ID, GUILD_ID, ID ролей/каналов/категории
+# 4. Создать config.json
+cp config.example.json config.json
+nano config.json   # вписать token, clientId, guildId, ID ролей/каналов/категории
 
 # 5. Зарегистрировать slash-команды (один раз и при изменениях)
 npm run deploy
@@ -89,10 +89,10 @@ curl -fsSL https://get.docker.com | sudo sh
 #   sudo usermod -aG docker $USER && newgrp docker
 # Под root этот шаг пропускается.
 
-# 2. Клонировать и настроить .env
+# 2. Клонировать и настроить config.json
 git clone <ваш-репозиторий> femverify-bot && cd femverify-bot
-cp .env.example .env
-nano .env
+cp config.example.json config.json
+nano config.json   # config.json подключается в контейнер как volume (см. docker-compose.yml)
 
 # 3. Зарегистрировать slash-команды (разово, до запуска контейнера)
 docker compose run --rm bot node dist/deploy-commands.js
@@ -132,7 +132,8 @@ WorkingDirectory=/home/verifybot/femverify-bot
 ExecStart=/usr/bin/node --experimental-sqlite dist/index.js
 Restart=on-failure
 RestartSec=5
-EnvironmentFile=/home/verifybot/femverify-bot/.env
+# Настройки читаются из config.json в WorkingDirectory.
+# При необходимости укажите путь явно: Environment=CONFIG_PATH=/home/verifybot/femverify-bot/config.json
 
 [Install]
 WantedBy=multi-user.target

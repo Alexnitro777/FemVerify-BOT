@@ -1,0 +1,19 @@
+{
+  "token": "",
+  "clientId": "",
+  "guildId": "",
+
+  "roles": {
+    "verified": "",
+    "blacklist": "",
+    "mod": ["", ""]
+  },
+
+  "channels": {
+    "review": "",
+    "appealReview": "",
+    "welcome": ""
+  },
+
+  "questionCategoryId": ""
+}

@@ -11,7 +11,7 @@ const handler: ButtonHandler = {
     const allowed =
       member &&
       (member.permissions.has(PermissionFlagsBits.ManageChannels) ||
-        member.roles.cache.has(config.roles.mod));
+        config.roles.mod.some((roleId) => member.roles.cache.has(roleId)));
     if (!allowed) {
       await interaction.reply({ content: 'Недостаточно прав.', flags: MessageFlags.Ephemeral });
       return;

@@ -94,14 +94,14 @@ const handler: ButtonHandler = {
               PermissionFlagsBits.ReadMessageHistory,
             ],
           },
-          {
-            id: config.roles.mod,
+          ...config.roles.mod.map((roleId) => ({
+            id: roleId,
             allow: [
               PermissionFlagsBits.ViewChannel,
               PermissionFlagsBits.SendMessages,
               PermissionFlagsBits.ReadMessageHistory,
             ],
-          },
+          })),
         ],
       });
 
