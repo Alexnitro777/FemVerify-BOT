@@ -74,7 +74,6 @@ async function sendTagLog(member: GuildMember, action: 'added' | 'removed'): Pro
     if (!channel || !channel.isTextBased()) return;
 
     const added = action === 'added';
-    const tag = getPrimaryGuild(member.user)?.tag ?? null;
 
     const embed = new EmbedBuilder()
       .setColor(added ? 0x57f287 : 0xed4245)
@@ -90,13 +89,31 @@ async function sendTagLog(member: GuildMember, action: 'added' | 'removed'): Pro
           inline: false,
         },
       )
-      .setFooter({ text: added && tag ? `Тег: ${tag}` : 'Тег сервера' })
+      .setFooter({ text: 'Тег сервера' })
       .setTimestamp();
 
     await (channel as TextChannel).send({ embeds: [embed] });
   } catch (err) {
     console.error(`[roleTag] не удалось отправить лог для ${member.id}:`, err);
   }
+}
+
+// Очередь операций по каждому участнику. Одно изменение тега порождает сразу
+// несколько событий (guildMemberUpdate / userUpdate / raw GUILD_MEMBER_UPDATE),
+// которые приходят почти одновременно. Без сериализации они все
+// видят «роли ещё нет» и дублируют выдачу и лог. Очередь гарантирует,
+// что операции для одного участника идут строго по очереди.
+const tagRoleLocks = new Map<string, Promise<void>>();
+
+function runExclusive(key: string, task: () => Promise<void>): Promise<void> {
+  const prev = tagRoleLocks.get(key) ?? Promise.resolve();
+  const next = prev.catch(() => undefined).then(task);
+  tagRoleLocks.set(key, next);
+  // Чистим Map после завершения, чтобы он не рос бесконечно.
+  void next.finally(() => {
+    if (tagRoleLocks.get(key) === next) tagRoleLocks.delete(key);
+  });
+  return next;
 }
 
 /** Выдаёт или снимает роль roleTag у участника в зависимости от shouldHave. */
@@ -106,21 +123,27 @@ async function applyTagRole(member: GuildMember, shouldHave: boolean): Promise<v
   if (member.user.bot) return;
   if (member.guild.id !== config.guildId) return;
 
-  const hasRole = member.roles.cache.has(roleId);
+  const key = `${member.guild.id}:${member.id}`;
+  await runExclusive(key, async () => {
+    // Берём актуального участника из кэша: после предыдущей операции
+    // в очереди состояние ролей уже обновлено.
+    const fresh = member.guild.members.cache.get(member.id) ?? member;
+    const hasRole = fresh.roles.cache.has(roleId);
 
-  try {
-    if (shouldHave && !hasRole) {
-      await member.roles.add(roleId, 'Надел тег сервера');
-      console.log(`[roleTag] выдана роль ${member.user.tag} (${member.id})`);
-      await sendTagLog(member, 'added');
-    } else if (!shouldHave && hasRole) {
-      await member.roles.remove(roleId, 'Снял тег сервера');
-      console.log(`[roleTag] снята роль ${member.user.tag} (${member.id})`);
-      await sendTagLog(member, 'removed');
+    try {
+      if (shouldHave && !hasRole) {
+        await fresh.roles.add(roleId, 'Надел тег сервера');
+        console.log(`[roleTag] выдана роль ${fresh.user.tag} (${fresh.id})`);
+        await sendTagLog(fresh, 'added');
+      } else if (!shouldHave && hasRole) {
+        await fresh.roles.remove(roleId, 'Снял тег сервера');
+        console.log(`[roleTag] снята роль ${fresh.user.tag} (${fresh.id})`);
+        await sendTagLog(fresh, 'removed');
+      }
+    } catch (err) {
+      console.error(`[roleTag] не удалось обновить роль для ${fresh.id}:`, err);
     }
-  } catch (err) {
-    console.error(`[roleTag] не удалось обновить роль для ${member.id}:`, err);
-  }
+  });
 }
 
 /**
