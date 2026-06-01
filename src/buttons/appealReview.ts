@@ -6,7 +6,7 @@ import {
 import { ButtonHandler } from '../types';
 import { config } from '../config';
 import { getAppeal, claimAppeal } from '../storage';
-import { buildResolvedEmbed, buildDmEmbed } from '../ui';
+import { buildResolvedEmbed, buildDmEmbed, postDecisionMessage } from '../ui';
 import { isMod, getGuild } from '../permissions';
 
 // appeal:<amnesty|deny>:<userId>
@@ -86,6 +86,15 @@ const handler: ButtonHandler = {
       interaction.user.id,
     );
     await interaction.editReply({ embeds: [resolved], components: [] });
+
+    // Отдельное сообщение-решение в канал решений (со ссылкой на апелляцию).
+    await postDecisionMessage(interaction.client, config.channels.decisions, 'appeal', {
+      label: action === 'amnesty' ? 'Амнистия принята' : 'В амнистии отказано',
+      color: action === 'amnesty' ? 0x57f287 : 0xed4245,
+      reviewerId: interaction.user.id,
+      targetUserId: userId,
+      reviewMessageUrl: appeal.reviewMessageUrl ?? interaction.message.url,
+    });
 
     if (warning) {
       await interaction.followUp({ content: warning, flags: MessageFlags.Ephemeral });

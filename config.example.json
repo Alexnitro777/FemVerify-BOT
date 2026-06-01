@@ -12,7 +12,8 @@
   "channels": {
     "review": "",
     "appealReview": "",
-    "welcome": ""
+    "welcome": "",
+    "decisions": ""
   },
 
   "questionCategoryId": ""

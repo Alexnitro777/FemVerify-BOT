@@ -5,6 +5,8 @@ import {
   ButtonStyle,
   User,
   GuildMember,
+  Client,
+  TextChannel,
 } from 'discord.js';
 import { Application } from './types';
 import { verifyQuestions } from './questions';
@@ -69,13 +71,12 @@ export function buildResolvedEmbed(
   label: string,
   color: number,
   reviewerId: string,
-  reason?: string,
 ): EmbedBuilder {
   return EmbedBuilder.from(original.data)
     .setColor(color)
     .addFields({
       name: label,
-      value: reason ? `<@${reviewerId}>\nПричина: ${reason}` : `<@${reviewerId}>`,
+      value: `<@${reviewerId}>`,
     });
 }
 
@@ -107,3 +108,85 @@ export function buildWelcomeEmbed(member: GuildMember): EmbedBuilder {
 }
 
 export type ReviewAction = 'approve' | 'reject' | 'question' | 'blacklist';
+
+// Тип объекта, по которому принято решение.
+export type DecisionKind = 'application' | 'appeal';
+
+/**
+ * Кнопки под сообщением-решением:
+ *  1) ссылка-кнопка, которая перекидывает на оригинал заявки/апелляции;
+ *  2) неактивная серая кнопка-метка «Анкета/Апелляция обработана».
+ */
+export function buildDecisionButtons(
+  kind: DecisionKind,
+  reviewMessageUrl?: string,
+): ActionRowBuilder<ButtonBuilder> {
+  const row = new ActionRowBuilder<ButtonBuilder>();
+  if (reviewMessageUrl) {
+    row.addComponents(
+      new ButtonBuilder()
+        .setLabel(kind === 'appeal' ? 'Открыть апелляцию' : 'Открыть анкету')
+        .setStyle(ButtonStyle.Link)
+        .setURL(reviewMessageUrl),
+    );
+  }
+  row.addComponents(
+    new ButtonBuilder()
+      .setCustomId(`decision:processed:${kind}`)
+      .setLabel(kind === 'appeal' ? 'Апелляция обработана' : 'Анкета обработана')
+      .setStyle(ButtonStyle.Secondary)
+      .setDisabled(true),
+  );
+  return row;
+}
+
+/** Embed с решением админов для отдельного канала решений. Причина не указывается. */
+export function buildDecisionEmbed(
+  kind: DecisionKind,
+  label: string,
+  color: number,
+  reviewerId: string,
+  targetUserId: string,
+): EmbedBuilder {
+  return new EmbedBuilder()
+    .setAuthor({ name: kind === 'appeal' ? 'Решение по апелляции' : 'Решение по заявке' })
+    .setColor(color)
+    .addFields(
+      { name: 'Участник', value: `<@${targetUserId}>`, inline: true },
+      { name: 'Решение', value: label, inline: true },
+      { name: 'Модератор', value: `<@${reviewerId}>`, inline: false },
+    )
+    .setFooter({ text: `ID: ${targetUserId}` })
+    .setTimestamp();
+}
+
+/**
+ * Отправляет сообщение-решение в канал решений (если он настроен в конфиге).
+ * Кидает embed с решением админов, кнопку-ссылку на оригинал и серую метку «обработана».
+ */
+export async function postDecisionMessage(
+  client: Client,
+  channelId: string | undefined,
+  kind: DecisionKind,
+  opts: {
+    label: string;
+    color: number;
+    reviewerId: string;
+    targetUserId: string;
+    reviewMessageUrl?: string;
+  },
+): Promise<void> {
+  if (!channelId) return;
+  try {
+    const channel = await client.channels.fetch(channelId).catch(() => null);
+    if (!channel || !channel.isTextBased()) {
+      console.error('[decision] decisions channel unavailable:', channelId);
+      return;
+    }
+    const embed = buildDecisionEmbed(kind, opts.label, opts.color, opts.reviewerId, opts.targetUserId);
+    const row = buildDecisionButtons(kind, opts.reviewMessageUrl);
+    await (channel as TextChannel).send({ embeds: [embed], components: [row] });
+  } catch (e) {
+    console.error('[decision] failed to post decision message', e);
+  }
+}

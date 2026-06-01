@@ -15,6 +15,9 @@ type RawConfig = {
     review?: string;
     appealReview?: string;
     welcome?: string;
+    // Канал, куда отправляется отдельное сообщение с решением админов
+    // (со ссылкой на оригинал заявки/апелляции).
+    decisions?: string;
   };
   questionCategoryId?: string;
 };
@@ -86,6 +89,9 @@ export const config = {
     appealReview: required(raw.channels?.appealReview, 'channels.appealReview'),
     // Канал, куда отправляется приветственный embed после принятия верификации.
     welcome: optional(raw.channels?.welcome),
+    // Канал, куда отправляется сообщение с решением админов после обработки
+    // заявки или апелляции. Если не задан — сообщение-решение не отправляется.
+    decisions: optional(raw.channels?.decisions),
   },
 
   questionCategoryId: required(raw.questionCategoryId, 'questionCategoryId'),

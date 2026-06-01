@@ -2,7 +2,7 @@ import { ModalSubmitInteraction, EmbedBuilder, TextChannel, MessageFlags } from 
 import { ModalHandler } from '../types';
 import { config } from '../config';
 import { getApplication, claimApplication } from '../storage';
-import { buildResolvedEmbed, buildDmEmbed } from '../ui';
+import { buildResolvedEmbed, buildDmEmbed, postDecisionMessage } from '../ui';
 
 // review:reason:<reject|blacklist>:<userId>
 const handler: ModalHandler = {
@@ -74,12 +74,20 @@ const handler: ModalHandler = {
             action === 'blacklist' ? 'ЧС' : 'Отклонено',
             action === 'blacklist' ? 0x992d22 : 0xed4245,
             interaction.user.id,
-            reason,
           );
           await msg.edit({ embeds: [resolved], components: [] }).catch(() => null);
         }
       }
     }
+
+    // Отдельное сообщение-решение в канал решений (со ссылкой на анкету, без причины).
+    await postDecisionMessage(interaction.client, config.channels.decisions, 'application', {
+      label: action === 'blacklist' ? 'ЧС' : 'Отклонено',
+      color: action === 'blacklist' ? 0x992d22 : 0xed4245,
+      reviewerId: interaction.user.id,
+      targetUserId: userId,
+      reviewMessageUrl: app.reviewMessageUrl,
+    });
 
     await interaction.editReply({
       content: action === 'blacklist' ? 'Участник добавлен в ЧС.' : 'Заявка отклонена.',
