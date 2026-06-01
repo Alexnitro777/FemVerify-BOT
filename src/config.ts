@@ -10,6 +10,8 @@ type RawConfig = {
     // Можно указать одну роль (строкой) или несколько (массивом).
     mod?: string | string[];
     blacklist?: string;
+    // Роль, которая автоматически выдаётся участникам с тегом этого сервера.
+    serverTag?: string;
   };
   channels?: {
     review?: string;
@@ -84,6 +86,8 @@ export const config = {
     blacklist: required(raw.roles?.blacklist, 'roles.blacklist'),
     // Список ролей модерации: можно одну или несколько.
     mod: requiredList(raw.roles?.mod, 'roles.mod'),
+    // Роль за тег сервера. Необязательна: если не задана — автовыдача отключена.
+    serverTag: optional(raw.roles?.serverTag),
   },
 
   channels: {

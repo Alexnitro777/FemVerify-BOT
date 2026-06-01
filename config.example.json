@@ -6,7 +6,8 @@
   "roles": {
     "verified": "",
     "blacklist": "",
-    "mod": ["", ""]
+    "mod": ["", ""],
+    "serverTag": ""
   },
 
   "channels": {

@@ -4,6 +4,7 @@ import { BotClient } from './types';
 import { loadCommands, loadButtons, loadModals } from './handlers/loader';
 import { handleInteraction } from './handlers/interactionCreate';
 import { closeDb } from './storage';
+import { registerTagRoleEvents, syncAllTagRoles } from './serverTag';
 
 async function bootstrap(): Promise<void> {
   console.log('[boot] starting...');
@@ -26,8 +27,13 @@ async function bootstrap(): Promise<void> {
   await loadModals(client);
   console.log('[boot] handlers loaded, logging in...');
 
+  // Автовыдача роли за тег сервера: подписываемся на события до логина.
+  registerTagRoleEvents(client);
+
   client.once('clientReady', (c) => {
     console.log(`Logged in as ${c.user.tag}`);
+    // Разовая синхронизация ролей за тег после старта.
+    void syncAllTagRoles(c);
   });
 
   client.on('error', (err) => console.error('[client error]', err));
