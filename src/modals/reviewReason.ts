@@ -2,7 +2,7 @@ import { ModalSubmitInteraction, EmbedBuilder, TextChannel, MessageFlags } from 
 import { ModalHandler } from '../types';
 import { config } from '../config';
 import { getApplication, claimApplication } from '../storage';
-import { buildResolvedEmbed, buildDmEmbed, postDecisionMessage } from '../ui';
+import { buildResolvedEmbed, buildDmEmbed, postDecisionMessage, buildProcessedButtonRow } from '../ui';
 
 // review:reason:<reject|blacklist>:<userId>
 const handler: ModalHandler = {
@@ -75,7 +75,9 @@ const handler: ModalHandler = {
             action === 'blacklist' ? 0x992d22 : 0xed4245,
             interaction.user.id,
           );
-          await msg.edit({ embeds: [resolved], components: [] }).catch(() => null);
+          await msg
+            .edit({ embeds: [resolved], components: [buildProcessedButtonRow('application')] })
+            .catch(() => null);
         }
       }
     }

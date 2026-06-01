@@ -14,7 +14,7 @@ import {
 import { ButtonHandler } from '../types';
 import { config } from '../config';
 import { getApplication, claimApplication, updateApplication } from '../storage';
-import { buildResolvedEmbed, buildDmEmbed, buildWelcomeEmbed, postDecisionMessage } from '../ui';
+import { buildResolvedEmbed, buildDmEmbed, buildWelcomeEmbed, postDecisionMessage, buildProcessedButtonRow } from '../ui';
 import { isMod, getGuild } from '../permissions';
 
 // review:<action>:<userId>
@@ -185,7 +185,10 @@ const handler: ButtonHandler = {
       0x57f287,
       interaction.user.id,
     );
-    await interaction.editReply({ embeds: [resolved], components: [] });
+    await interaction.editReply({
+      embeds: [resolved],
+      components: [buildProcessedButtonRow('application')],
+    });
 
     // Отдельное сообщение-решение в канал решений (со ссылкой на анкету).
     await postDecisionMessage(interaction.client, config.channels.decisions, 'application', {

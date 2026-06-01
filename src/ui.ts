@@ -113,31 +113,32 @@ export type ReviewAction = 'approve' | 'reject' | 'question' | 'blacklist';
 export type DecisionKind = 'application' | 'appeal';
 
 /**
- * Кнопки под сообщением-решением:
- *  1) ссылка-кнопка, которая перекидывает на оригинал заявки/апелляции;
- *  2) неактивная серая кнопка-метка «Анкета/Апелляция обработана».
+ * Серая неактивная кнопка-метка «Анкета/Апелляция обработана».
+ * Остаётся на сообщении заявки/апелляции в каналах review / appealReview после обработки.
+ * Нажать нельзя (disabled).
  */
-export function buildDecisionButtons(
-  kind: DecisionKind,
-  reviewMessageUrl?: string,
-): ActionRowBuilder<ButtonBuilder> {
-  const row = new ActionRowBuilder<ButtonBuilder>();
-  if (reviewMessageUrl) {
-    row.addComponents(
-      new ButtonBuilder()
-        .setLabel(kind === 'appeal' ? 'Открыть апелляцию' : 'Открыть анкету')
-        .setStyle(ButtonStyle.Link)
-        .setURL(reviewMessageUrl),
-    );
-  }
-  row.addComponents(
+export function buildProcessedButtonRow(kind: DecisionKind): ActionRowBuilder<ButtonBuilder> {
+  return new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder()
       .setCustomId(`decision:processed:${kind}`)
       .setLabel(kind === 'appeal' ? 'Апелляция обработана' : 'Анкета обработана')
       .setStyle(ButtonStyle.Secondary)
       .setDisabled(true),
   );
-  return row;
+}
+
+/** Кнопка-ссылка на оригинал заявки/апелляции для сообщения-решения. */
+export function buildDecisionLinkRow(
+  kind: DecisionKind,
+  reviewMessageUrl?: string,
+): ActionRowBuilder<ButtonBuilder> | undefined {
+  if (!reviewMessageUrl) return undefined;
+  return new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder()
+      .setLabel(kind === 'appeal' ? 'Открыть апелляцию' : 'Открыть анкету')
+      .setStyle(ButtonStyle.Link)
+      .setURL(reviewMessageUrl),
+  );
 }
 
 /** Embed с решением админов для отдельного канала решений. Причина не указывается. */
@@ -184,8 +185,11 @@ export async function postDecisionMessage(
       return;
     }
     const embed = buildDecisionEmbed(kind, opts.label, opts.color, opts.reviewerId, opts.targetUserId);
-    const row = buildDecisionButtons(kind, opts.reviewMessageUrl);
-    await (channel as TextChannel).send({ embeds: [embed], components: [row] });
+    const linkRow = buildDecisionLinkRow(kind, opts.reviewMessageUrl);
+    await (channel as TextChannel).send({
+      embeds: [embed],
+      components: linkRow ? [linkRow] : [],
+    });
   } catch (e) {
     console.error('[decision] failed to post decision message', e);
   }

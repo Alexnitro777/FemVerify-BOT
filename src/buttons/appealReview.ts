@@ -6,7 +6,7 @@ import {
 import { ButtonHandler } from '../types';
 import { config } from '../config';
 import { getAppeal, claimAppeal } from '../storage';
-import { buildResolvedEmbed, buildDmEmbed, postDecisionMessage } from '../ui';
+import { buildResolvedEmbed, buildDmEmbed, postDecisionMessage, buildProcessedButtonRow } from '../ui';
 import { isMod, getGuild } from '../permissions';
 
 // appeal:<amnesty|deny>:<userId>
@@ -85,7 +85,10 @@ const handler: ButtonHandler = {
       action === 'amnesty' ? 0x57f287 : 0xed4245,
       interaction.user.id,
     );
-    await interaction.editReply({ embeds: [resolved], components: [] });
+    await interaction.editReply({
+      embeds: [resolved],
+      components: [buildProcessedButtonRow('appeal')],
+    });
 
     // Отдельное сообщение-решение в канал решений (со ссылкой на апелляцию).
     await postDecisionMessage(interaction.client, config.channels.decisions, 'appeal', {
