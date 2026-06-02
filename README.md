@@ -1,178 +1,93 @@
-# VerifyBOT
+Discord-бот для верификации участников через анкеты, с модерацией заявок и апелляциями. Дополнительно автоматически выдаёт роль за тег сервера (Server Tag). Команды — слеш-команды (`/верификация`, `/апелляции`, `/тег`), данные хранятся в SQLite через встроенный модуль `node:sqlite`.
 
-Discord-бот для верификации участников через анкеты, с модерацией и аппеляциями.
-
-## Возможности
-
-- **Верификация**: `/верификация` (только админ) размещает embed с кнопкой. Участник заполняет анкету (modal), заявка падает в канал модерации.
-- **Модерация** — 4 кнопки под заявкой:
-  - **Принять** → выдаётся роль верифицированного + ЛС участнику.
-  - **Отклонить** → модалка с причиной → ЛС-embed с отказом.
-  - **Задать вопрос** → создаётся приватный канал (участник + модерация) с кнопкой-ссылкой на анкету и кнопкой удаления канала.
-  - **ЧС** → модалка с причиной → выдаётся роль ЧСП + ЛС-embed с причиной.
-- **Аппеляция**: `/апелляции` (только админ) размещает embed с кнопкой. Участник из ЧС подаёт форму, она падает в канал аппеляций с кнопками «Принять амнистию» (снимает роль ЧС) и «Отказать».
-- **Тег сервера (Server Tag)**:
-  - **Автовыдача роли** — участникам, которые носят тег этого сервера (`guildId` из конфига), автоматически выдаётся роль `roles.roleTag`; при снятии тега роль убирается. Синхронизация идёт по событиям (вход на сервер, изменение участника/пользователя) и одним полным проходом при старте бота. Если `roles.roleTag` не задана — автовыдача отключена.
-  - **`/тег`** — выводит embed со статистикой: сколько участников носят тег сервера и сколько всего участников (боты не учитываются).
-  - **Логирование** — каждая выдача/снятие роли за тег отправляется embed-сообщением в канал `channels.tagLog` (участник, роль, действие, время). Если канал не задан — логи не шлются.
-
-## Доступ к командам (роли в конфиге)
-
-Команды разделены на два уровня доступа, которые задаются ролями в `config.json`:
-
-- **Админы** (`roles.admin`) — видят и используют **все** команды: `/верификация`, `/апелляции`, `/формы`, `/формычсп`, `/тег`.
-- **Модераторы** (`roles.mod`) — видят и используют только `/тег`, `/формы`, `/формычсп`.
-
-Проверка прав выполняется в рантайме по ролям из конфига (`src/permissions.ts`): админом считается участник с ролью из `roles.admin` либо с правом Discord «Administrator»; модератором — участник с ролью из `roles.mod`. Если прав не хватает, бот отвечает отказом.
-
-Видимость команд в меню Discord дополнительно ограничена через `default_member_permissions`: админ-команды показываются обладателям права «Administrator», а mod-команды — обладателям права «Manage Roles». Чтобы видимость совпала с ролями из конфига, выдайте роли админа право «Administrator», а роли модератора — «Manage Roles» (либо донастройте видимость в «Server Settings → Integrations»). Платформа Discord не позволяет боту привязать видимость команды к конкретной роли напрямую — поэтому авторитетная проверка идёт по конфигу в рантайме.
-
-После изменения имён команд обязательно выполните повторный деплой: `npm run deploy`.
-
-## Структура
+## 1. Структура проекта
 
 ```
-src/
-  commands/        /верификация, /апелляции (только админ), /формы, /формычсп, /тег
-  roleTag.ts     детект тега сервера + автовыдача/снятие роли
-  buttons/
-    verifyStart      открытие анкеты
-    review           4 кнопки модерации (approve/reject/question/blacklist)
-    questionClose    удаление приватного канала-вопроса
-    appealStart      открытие формы аппеляции
-    appealReview     амнистия / отказ
-  modals/
-    verifySubmit     приём анкеты
-    reviewReason     причина отказа / ЧС
-    appealSubmit     приём аппеляции
-  handlers/        автозагрузка + роутер interactionCreate
-  config.ts        чтение/валидация config.json
-  questions.ts     вопросы анкеты и аппеляции (до 5 полей — лимит Discord)
-  storage.ts       SQLite (встроенный node:sqlite): applications + appeals
-  ui.ts            построение embed и кнопок
-  types.ts         общие типы
-  deploy-commands.ts  регистрация slash-команд
-  index.ts         точка входа
+FemVerify-BOT/
+├── src/
+│   ├── commands/           Слеш-команды (/верификация, /апелляции — админ, /формы, /формычсп, /тег)
+│   ├── buttons/            Кнопки (verifyStart, review — 4 решения, questionClose, appealStart, appealReview)
+│   ├── modals/             Модалки (verifySubmit, reviewReason, appealSubmit)
+│   ├── handlers/           Автозагрузка обработчиков и роутер interactionCreate
+│   ├── roleTag.ts          Детект тега сервера + автовыдача/снятие роли
+│   ├── config.ts           Чтение и валидация config.json
+│   ├── permissions.ts      Проверка прав (admin / mod) по ролям из конфига
+│   ├── questions.ts        Вопросы анкеты и апелляции (до 5 полей — лимит Discord)
+│   ├── storage.ts          Хранилище SQLite (node:sqlite): applications + appeals
+│   ├── ui.ts               Построение embed и кнопок
+│   ├── types.ts            Общие типы
+│   ├── deploy-commands.ts  Регистрация slash-команд
+│   └── index.ts            Точка входа
+├── config.example.json     Шаблон конфига (токен, роли, каналы, категория)
+├── config.json             Реальный конфиг (не в git, монтируется в Docker как volume)
+├── Dockerfile              Сборка образа
+├── docker-compose.yml      Описание сервиса bot
+├── tsconfig.json           Настройки TypeScript
+├── package.json            Зависимости и npm-скрипты
+└── README.md
 ```
 
-## Требования
+## 2. Быстрый старт с Docker
 
-- **Node.js ≥ 22.5** (нужен встроенный модуль `node:sqlite`). На 22.x запускается с флагом `--experimental-sqlite` (уже прописан в npm-скриптах). На Node 24+ работает без флага.
+### 2.1. Предварительные требования
 
-## Запуск (локально / разработка)
+- Установленный Docker (вместе с Docker Compose).
+- В Discord Developer Portal включён интент **Server Members Intent**, у бота есть права **Manage Roles** и **Manage Channels**, а его роль выше управляемых ролей.
 
-1. `npm install`
-2. Скопируйте `config.example.json` → `config.json`, заполните токен, ID ролей, каналов и категории.
-3. `npm run deploy` — регистрация slash-команд.
-4. `npm run dev` (разработка) или `npm run build && npm start`.
-
-## Запуск на Linux-сервере
-
-Пример для Ubuntu 22.04/24.04 / Debian 12. От пользователя без root.
+Если Docker ещё не установлен, поставь его одной командой:
 
 ```bash
-# 1. Node.js 24 (LTS) через NodeSource
-curl -fsSL https://deb.nodesource.com/setup_24.x | sudo -E bash -
-sudo apt-get install -y nodejs git
-
-# 2. Клонировать проект
-git clone <ваш-репозиторий> femverify-bot
-cd femverify-bot
-
-# 3. Установить зависимости и собрать
-npm ci
-npm run build
-
-# 4. Создать config.json
-cp config.example.json config.json
-nano config.json   # вписать token, clientId, guildId, ID ролей/каналов/категории
-
-# 5. Зарегистрировать slash-команды (один раз и при изменениях)
-npm run deploy
-
-# 6. Запустить
-npm start
+curl -fsSL https://get.docker.com -o get-docker.sh
+sh get-docker.sh
 ```
 
-## Запуск в Docker (рекомендуется для сервера)
+### 2.2. Установка и запуск
 
-Docker сам перезапускает контейнер при падении и при ребуте хоста — отдельный systemd не нужен.
+1. **Клонируй репозиторий:**
+    
+    ```bash
+    git clone https://github.com/Alexnitro777/FemVerify-BOT.git
+    cd FemVerify-BOT
+    ```
+    
+2. **Настрой конфиг:**
+    
+    ```bash
+    cp config.example.json config.json
+    ```
+    
+    Впиши в `config.json` `token`, `clientId`, `guildId`, ID ролей, каналов и категорию для каналов-вопросов.
+    
+3. **Запусти бота:**
+    
+    ```bash
+    docker compose up -d --build
+    ```
+    
+    При старте контейнер автоматически регистрирует слеш-команды (`node dist/deploy-commands.js`) и запускает бота. База SQLite сохраняется в `./data/bot.db` на хосте.
+    
+
+## 3. Управление контейнером
 
 ```bash
-# 1. Установить Docker (Ubuntu/Debian)
-curl -fsSL https://get.docker.com | sudo sh
+# Просмотр логов в реальном времени
+docker compose logs -f
 
-# Если работаете НЕ под root — добавьте текущего пользователя в группу docker,
-# иначе `docker` команды потребуют sudo:
-#   sudo usermod -aG docker $USER && newgrp docker
-# Под root этот шаг пропускается.
+# Остановка бота
+docker compose stop
 
-# 2. Клонировать и настроить config.json
-git clone <ваш-репозиторий> femverify-bot && cd femverify-bot
-cp config.example.json config.json
-nano config.json   # config.json подключается в контейнер как volume (см. docker-compose.yml)
+# Запуск ранее собранного контейнера
+docker compose start
 
-# 3. Зарегистрировать slash-команды (разово, до запуска контейнера)
-docker compose run --rm bot node dist/deploy-commands.js
+# Перезапуск (например, после правки config.json)
+docker compose restart
 
-# 4. Собрать образ и запустить
+# Пересборка после изменений в коде
 docker compose up -d --build
 
-# Логи / статус / рестарт
-docker compose logs -f
-docker compose ps
-docker compose restart
-docker compose down            # остановить
-docker compose up -d --build   # обновить после git pull
+# Остановка и удаление контейнера
+docker compose down
 ```
 
-База SQLite лежит в `./data/bot.db` на хосте (примонтирована как volume), поэтому переживает пересборку образа.
-
-`restart: unless-stopped` в `docker-compose.yml` обеспечивает:
-- автоматический рестарт при крэше;
-- автоподнятие при перезагрузке сервера;
-- остановку только по явной команде `docker compose stop/down`.
-
-### Альтернатива: автозапуск через systemd (без Docker)
-
-Создайте `/etc/systemd/system/femverify-bot.service`:
-
-```ini
-[Unit]
-Description=VerifyBOT Discord bot
-After=network-online.target
-Wants=network-online.target
-
-[Service]
-Type=simple
-User=verifybot
-WorkingDirectory=/home/verifybot/femverify-bot
-ExecStart=/usr/bin/node --experimental-sqlite dist/index.js
-Restart=on-failure
-RestartSec=5
-# Настройки читаются из config.json в WorkingDirectory.
-# При необходимости укажите путь явно: Environment=CONFIG_PATH=/home/verifybot/femverify-bot/config.json
-
-[Install]
-WantedBy=multi-user.target
-```
-
-Активация:
-
-```bash
-sudo systemctl daemon-reload
-sudo systemctl enable --now femverify-bot
-sudo systemctl status femverify-bot
-sudo journalctl -u femverify-bot -f   # просмотр логов
-```
-
-База SQLite создаётся в `./data/bot.db` рядом с проектом — убедитесь, что у пользователя сервиса есть права на запись в эту директорию.
-
-## Требования Discord
-
-- В Developer Portal включить интент **Server Members Intent** (для выдачи ролей).
-- Бот должен иметь права: Manage Roles, Manage Channels, и роль бота выше управляемых ролей.
-
-## Настройка вопросов
-
-Редактируйте `src/questions.ts` — `verifyQuestions` и `appealQuestions`. Максимум 5 полей на форму.
+> `config.json` смонтирован в контейнер как volume (read-only), база лежит в `./data/bot.db` и переживает пересборку образа. Перезапуск нужен при изменении `config.json`, а пересборка — при изменении кода или добавлении новых команд.
+>
