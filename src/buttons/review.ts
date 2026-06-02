@@ -14,7 +14,13 @@ import {
 import { ButtonHandler } from '../types';
 import { config } from '../config';
 import { getApplication, claimApplication, updateApplication } from '../storage';
-import { buildResolvedEmbed, buildDmEmbed, buildWelcomeEmbed, postDecisionMessage, buildProcessedButtonRow } from '../ui';
+import {
+  buildResolvedEmbed,
+  buildDmEmbed,
+  buildWelcomeEmbed,
+  postDecisionMessage,
+  buildProcessedButtonRow,
+} from '../ui';
 import { isMod, getGuild } from '../permissions';
 
 const handler: ButtonHandler = {
@@ -28,7 +34,10 @@ const handler: ButtonHandler = {
 
     const guild = getGuild(interaction);
     if (!guild) {
-      await interaction.reply({ content: 'Действие доступно только на сервере.', flags: MessageFlags.Ephemeral });
+      await interaction.reply({
+        content: 'Действие доступно только на сервере.',
+        flags: MessageFlags.Ephemeral,
+      });
       return;
     }
 
@@ -41,7 +50,10 @@ const handler: ButtonHandler = {
 
     if (action === 'reject' || action === 'blacklist') {
       if (app.status !== 'pending') {
-        await interaction.reply({ content: `Заявка уже обработана (${app.status}).`, flags: MessageFlags.Ephemeral });
+        await interaction.reply({
+          content: `Заявка уже обработана (${app.status}).`,
+          flags: MessageFlags.Ephemeral,
+        });
         return;
       }
       const modal = new ModalBuilder()
@@ -64,7 +76,9 @@ const handler: ButtonHandler = {
       if (app.questionChannelId) {
         const existing = await guild.channels.fetch(app.questionChannelId).catch(() => null);
         if (existing) {
-          await interaction.editReply({ content: `Канал с вопросом уже существует: <#${existing.id}>` });
+          await interaction.editReply({
+            content: `Канал с вопросом уже существует: <#${existing.id}>`,
+          });
           return;
         }
       }
@@ -122,9 +136,10 @@ const handler: ButtonHandler = {
           .setEmoji('🗑️'),
       );
 
+      const mentionUserIds = [...new Set([userId, interaction.user.id])];
       const pingMsg = await channel.send({
-        content: `<@${userId}> <@${interaction.user.id}>`,
-        allowedMentions: { users: [userId, interaction.user.id] },
+        content: mentionUserIds.map((id) => `<@${id}>`).join(' '),
+        allowedMentions: { users: mentionUserIds },
       });
       await channel.send({ embeds: [embed], components: [row] });
       await pingMsg.delete().catch(() => null);
@@ -136,7 +151,10 @@ const handler: ButtonHandler = {
 
     const member = await guild.members.fetch(userId).catch(() => null);
     if (!member) {
-      await interaction.followUp({ content: 'Пользователь покинул сервер.', flags: MessageFlags.Ephemeral });
+      await interaction.followUp({
+        content: 'Пользователь покинул сервер.',
+        flags: MessageFlags.Ephemeral,
+      });
       return;
     }
 
@@ -156,7 +174,8 @@ const handler: ButtonHandler = {
       console.error('[review] roles.add failed', e);
       updateApplication(userId, { status: 'pending', reviewerId: undefined });
       await interaction.followUp({
-        content: '❌ Не удалось выдать роль — проверьте, что роль бота выше выдаваемой. Статус заявки возвращён в ожидание.',
+        content:
+          '❌ Не удалось выдать роль — проверьте, что роль бота выше выдаваемой. Статус заявки возвращён в ожидание.',
         flags: MessageFlags.Ephemeral,
       });
       return;
