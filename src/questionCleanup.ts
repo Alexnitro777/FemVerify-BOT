@@ -2,7 +2,7 @@ import { Client } from 'discord.js';
 import { config } from './config';
 import { listApplicationsWithQuestionChannel, updateApplication } from './storage';
 
-const QUESTION_TTL_MS = 1 * 60_000;
+const QUESTION_TTL_MS = 24 * 60 * 60_000;
 
 const SWEEP_INTERVAL_MS = Math.min(
   5 * 60_000,
