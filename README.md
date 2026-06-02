@@ -34,7 +34,6 @@ FemVerify-BOT/
 ### 2.1. Предварительные требования
 
 - Установленный Docker (вместе с Docker Compose).
-- В Discord Developer Portal включён интент **Server Members Intent**, у бота есть права **Manage Roles** и **Manage Channels**, а его роль выше управляемых ролей.
 
 Если Docker ещё не установлен, поставь его одной командой:
 
