@@ -57,8 +57,6 @@ sh get-docker.sh
     cp config.example.json config.json
     ```
     
-    Впиши в `config.json` `token`, `clientId`, `guildId`, ID ролей, каналов и категорию для каналов-вопросов.
-    
 3. **Запусти бота:**
     
     ```bash
