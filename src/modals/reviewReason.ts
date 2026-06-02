@@ -1,10 +1,9 @@
 import { ModalSubmitInteraction, EmbedBuilder, TextChannel, MessageFlags } from 'discord.js';
 import { ModalHandler } from '../types';
 import { config } from '../config';
-import { getApplication, claimApplication } from '../storage';
+import { getApplication, claimApplication, updateApplication } from '../storage';
 import { buildResolvedEmbed, buildDmEmbed, postDecisionMessage, buildProcessedButtonRow } from '../ui';
 
-// review:reason:<reject|blacklist>:<userId>
 const handler: ModalHandler = {
   customId: /^review:reason:(reject|blacklist):\d+$/,
 
@@ -12,7 +11,6 @@ const handler: ModalHandler = {
     const [, , action, userId] = interaction.customId.split(':');
     const reason = interaction.fields.getTextInputValue('reason').trim();
 
-    // Деферим заранее: дальше идут сетевые вызовы (баг #1).
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
     const app = getApplication(userId);
@@ -22,7 +20,6 @@ const handler: ModalHandler = {
     }
 
     const newStatus = action === 'blacklist' ? 'blacklisted' : 'rejected';
-    // Атомарно переводим из pending — защита от двойной обработки.
     const claimed = claimApplication(userId, newStatus, interaction.user.id, reason);
     if (!claimed) {
       const fresh = getApplication(userId);
@@ -35,8 +32,20 @@ const handler: ModalHandler = {
     const guild = interaction.guild;
     const member = guild ? await guild.members.fetch(userId).catch(() => null) : null;
 
+    let blacklistWarning: string | undefined;
     if (action === 'blacklist') {
-      await member?.roles.add(config.roles.blacklist).catch(() => null);
+      if (member) {
+        const added = await member.roles
+          .add(config.roles.blacklist)
+          .then(() => true)
+          .catch((e) => {
+            console.error('[reviewReason] roles.add blacklist failed', e);
+            return false;
+          });
+        if (!added) {
+          blacklistWarning = '⚠️ Не удалось выдать роль ЧС — проверьте иерархию ролей бота.';
+        }
+      }
       await member
         ?.send({
           embeds: [
@@ -64,27 +73,28 @@ const handler: ModalHandler = {
         .catch(() => null);
     }
 
-    // Обновляем исходное сообщение заявки в канале модерации
     if (app.reviewMessageUrl) {
-      const reviewChannel = await interaction.client.channels.fetch(config.channels.review).catch(() => null);
-      if (reviewChannel?.isTextBased()) {
-        const messageId = app.reviewMessageUrl.split('/').pop()!;
-        const msg = await (reviewChannel as TextChannel).messages.fetch(messageId).catch(() => null);
-        if (msg && msg.embeds[0]) {
-          const resolved = buildResolvedEmbed(
-            EmbedBuilder.from(msg.embeds[0]),
-            action === 'blacklist' ? 'ЧС' : 'Отклонено',
-            action === 'blacklist' ? 0x992d22 : 0xed4245,
-            interaction.user.id,
-          );
-          await msg
-            .edit({ embeds: [resolved], components: [buildProcessedButtonRow('application')] })
-            .catch(() => null);
+      const parsed = app.reviewMessageUrl.match(/channels\/(\d+)\/(\d+)\/(\d+)/);
+      if (parsed) {
+        const [, , channelId, messageId] = parsed;
+        const reviewChannel = await interaction.client.channels.fetch(channelId).catch(() => null);
+        if (reviewChannel?.isTextBased()) {
+          const msg = await (reviewChannel as TextChannel).messages.fetch(messageId).catch(() => null);
+          if (msg && msg.embeds[0]) {
+            const resolved = buildResolvedEmbed(
+              EmbedBuilder.from(msg.embeds[0]),
+              action === 'blacklist' ? 'ЧС' : 'Отклонено',
+              action === 'blacklist' ? 0x992d22 : 0xed4245,
+              interaction.user.id,
+            );
+            await msg
+              .edit({ embeds: [resolved], components: [buildProcessedButtonRow('application')] })
+              .catch(() => null);
+          }
         }
       }
     }
 
-    // Отдельное сообщение-решение в канал решений (со ссылкой на анкету, без причины).
     await postDecisionMessage(interaction.client, config.channels.decisions, 'application', {
       label: action === 'blacklist' ? 'ЧС' : 'Отклонено',
       color: action === 'blacklist' ? 0x992d22 : 0xed4245,
@@ -97,7 +107,6 @@ const handler: ModalHandler = {
       },
     });
 
-    // После решения удаляем приватный канал-вопрос этого участника, если он создавался.
     if (app.questionChannelId) {
       const questionChannel = await interaction.guild?.channels
         .fetch(app.questionChannelId)
@@ -106,10 +115,12 @@ const handler: ModalHandler = {
         console.error('[reviewReason] failed to delete question channel', e);
         return null;
       });
+      updateApplication(userId, { questionChannelId: undefined });
     }
 
+    const baseReply = action === 'blacklist' ? 'Участник добавлен в ЧС.' : 'Заявка отклонена.';
     await interaction.editReply({
-      content: action === 'blacklist' ? 'Участник добавлен в ЧС.' : 'Заявка отклонена.',
+      content: blacklistWarning ? `${baseReply}\n${blacklistWarning}` : baseReply,
     });
   },
 };

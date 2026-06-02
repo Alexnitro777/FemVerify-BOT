@@ -28,15 +28,12 @@ async function bootstrap(): Promise<void> {
   await loadModals(client);
   console.log('[boot] handlers loaded, logging in...');
 
-  // Автовыдача роли за тег сервера: подписываемся на события до логина.
   registerTagRoleEvents(client);
 
-  // Очистка незавершённых заявок/апелляций при выходе участника с сервера.
   registerLeaveCleanupEvents(client);
 
   client.once('clientReady', (c) => {
     console.log(`Logged in as ${c.user.tag}`);
-    // Разовая синхронизация ролей за тег после старта.
     void syncAllTagRoles(c);
   });
 
@@ -45,18 +42,19 @@ async function bootstrap(): Promise<void> {
 
   client.on('interactionCreate', (interaction) => handleInteraction(client, interaction));
 
-  // Graceful shutdown: закрываем соединение с БД и Discord по сигналу (баг #10).
   let shuttingDown = false;
-  const shutdown = (signal: string) => {
+  const shutdown = async (signal: string): Promise<void> => {
     if (shuttingDown) return;
     shuttingDown = true;
     console.log(`[shutdown] received ${signal}, closing...`);
     closeDb();
-    client.destroy();
+    await client.destroy();
     process.exit(0);
   };
   for (const sig of ['SIGINT', 'SIGTERM'] as const) {
-    process.on(sig, () => shutdown(sig));
+    process.on(sig, () => {
+      void shutdown(sig);
+    });
   }
 
   await client.login(config.token);

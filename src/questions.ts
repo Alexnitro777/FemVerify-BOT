@@ -10,9 +10,7 @@ export interface Question {
   placeholder?: string;
 }
 
-// Discord modal limit: максимум 5 полей на одно модальное окно.
 
-// Вопросы анкеты верификации
 export const verifyQuestions: Question[] = [
   {
     id: 'source',
@@ -41,7 +39,6 @@ export const verifyQuestions: Question[] = [
   },
 ];
 
-// Вопросы формы апелляции
 export const appealQuestions: Question[] = [
   {
     id: 'text',

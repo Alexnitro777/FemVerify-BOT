@@ -5,9 +5,6 @@ services:
     container_name: femverify-bot
     restart: unless-stopped
     tty: true
-    # Если используете WARP/прокси на хосте, раскомментируйте:
-    # network_mode: host
     volumes:
-      # Конфиг подключается с хоста (только чтение), чтобы не вшивать секреты в образ.
       - ./config.json:/app/config.json:ro
       - ./data:/app/data

@@ -11,9 +11,6 @@ import {
 import { SlashCommand } from '../types';
 import { hasServerTag, getPrimaryGuild } from '../roleTag';
 
-// Полная выборка участников через шлюз (opcode 8) дорогая и ограничивается
-// по частоте (GatewayRateLimitError). Кэшируем результат: повторные вызовы
-// /тег в течение TTL берут уже загруженный в кэш список и не дёргают шлюз.
 const MEMBERS_TTL_MS = 5 * 60 * 1000;
 const lastFullFetch = new Map<string, number>();
 
@@ -23,7 +20,6 @@ async function getGuildMembers(
   const last = lastFullFetch.get(guild.id) ?? 0;
   const fresh = Date.now() - last < MEMBERS_TTL_MS;
 
-  // Если недавно уже выгружали всех — используем кэш, чтобы не слать opcode 8.
   if (fresh && guild.members.cache.size > 1) {
     return guild.members.cache;
   }
@@ -33,7 +29,6 @@ async function getGuildMembers(
     lastFullFetch.set(guild.id, Date.now());
     return members;
   } catch (err) {
-    // На rate-limit шлюза (opcode 8) откатываемся на то, что есть в кэше.
     if (guild.members.cache.size > 0) {
       console.warn(
         '[tag] members.fetch ограничен по частоте, используем кэш:',
@@ -62,7 +57,6 @@ const command: SlashCommand = {
       return;
     }
 
-    // Подсчёт может занять время (подгрузка всех участников) — откладываем ответ.
     await interaction.deferReply();
 
     const guild = interaction.guild;

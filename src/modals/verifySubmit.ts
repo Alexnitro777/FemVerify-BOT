@@ -18,7 +18,6 @@ const handler: ModalHandler = {
       }
     }
 
-    // Долгая часть — деферим, чтобы уложиться в окно ответа Discord (баг #1).
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
     const embed = buildApplicationEmbed(interaction.user, answers);
@@ -26,8 +25,6 @@ const handler: ModalHandler = {
 
     const channel = await interaction.client.channels.fetch(config.channels.review).catch(() => null);
     if (!channel || !channel.isTextBased()) {
-      // Канал модерации недоступен — не сохраняем заявку, иначе она зависнет
-      // в pending без сообщения, которое модерация может увидеть (баг #4).
       console.error('[verifySubmit] review channel unavailable:', config.channels.review);
       await interaction.editReply({
         content: '❌ Не удалось отправить заявку: канал модерации недоступен. Сообщите администрации.',

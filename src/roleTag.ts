@@ -1,19 +1,12 @@
 import { Client, EmbedBuilder, GuildMember, TextChannel, User } from 'discord.js';
 import { config } from './config';
 
-/**
- * Данные о "теге сервера" (Server Tag / primary guild) пользователя.
- * Discord отдаёт их в объекте user.primary_guild. В зависимости от версии
- * discord.js поле может называться camelCase (primaryGuild) или приходить
- * сырым snake_case (primary_guild) — поэтому читаем максимально устойчиво.
- */
 export interface PrimaryGuildInfo {
   identityGuildId: string | null;
   identityEnabled: boolean | null;
   tag: string | null;
 }
 
-/** Нормализует сырой объект primary_guild / primaryGuild в PrimaryGuildInfo. */
 function normalizePrimaryGuild(pg: Record<string, unknown> | null | undefined): PrimaryGuildInfo | null {
   if (!pg) return null;
   const identityGuildId =
@@ -28,7 +21,6 @@ function normalizePrimaryGuild(pg: Record<string, unknown> | null | undefined): 
   return { identityGuildId, identityEnabled, tag };
 }
 
-/** Достаёт информацию о теге сервера у пользователя (или null, если её нет). */
 export function getPrimaryGuild(user: User): PrimaryGuildInfo | null {
   const anyUser = user as unknown as {
     primaryGuild?: Record<string, unknown> | null;
@@ -37,21 +29,15 @@ export function getPrimaryGuild(user: User): PrimaryGuildInfo | null {
   return normalizePrimaryGuild(anyUser.primaryGuild ?? anyUser.primary_guild ?? null);
 }
 
-/** true, если инфо о теге указывает на тег ИМЕННО нашего сервера и он включён. */
 function infoIsOurTag(pg: PrimaryGuildInfo | null): boolean {
   if (!pg) return false;
   return pg.identityEnabled === true && pg.identityGuildId === config.guildId;
 }
 
-/**
- * true, если пользователь сейчас носит тег ИМЕННО нашего сервера
- * (guildId из конфига) и тег включён.
- */
 export function hasServerTag(user: User): boolean {
   return infoIsOurTag(getPrimaryGuild(user));
 }
 
-/** То же самое, но по СЫРОМУ объекту user из gateway-пакета (актуальные данные). */
 function rawUserHasServerTag(rawUser: Record<string, unknown> | undefined | null): boolean {
   if (!rawUser) return false;
   const pg = (rawUser.primary_guild ?? rawUser.primaryGuild) as
@@ -61,7 +47,6 @@ function rawUserHasServerTag(rawUser: Record<string, unknown> | undefined | null
   return infoIsOurTag(normalizePrimaryGuild(pg));
 }
 
-/** Отправляет embed-лог о выдаче/снятии роли за тег в канал channels.tagLog (если задан). */
 async function sendTagLog(member: GuildMember, action: 'added' | 'removed'): Promise<void> {
   const channelId = config.channels.tagLog;
   if (!channelId) return;
@@ -98,25 +83,18 @@ async function sendTagLog(member: GuildMember, action: 'added' | 'removed'): Pro
   }
 }
 
-// Очередь операций по каждому участнику. Одно изменение тега порождает сразу
-// несколько событий (guildMemberUpdate / userUpdate / raw GUILD_MEMBER_UPDATE),
-// которые приходят почти одновременно. Без сериализации они все
-// видят «роли ещё нет» и дублируют выдачу и лог. Очередь гарантирует,
-// что операции для одного участника идут строго по очереди.
 const tagRoleLocks = new Map<string, Promise<void>>();
 
 function runExclusive(key: string, task: () => Promise<void>): Promise<void> {
   const prev = tagRoleLocks.get(key) ?? Promise.resolve();
   const next = prev.catch(() => undefined).then(task);
   tagRoleLocks.set(key, next);
-  // Чистим Map после завершения, чтобы он не рос бесконечно.
   void next.finally(() => {
     if (tagRoleLocks.get(key) === next) tagRoleLocks.delete(key);
   });
   return next;
 }
 
-/** Выдаёт или снимает роль roleTag у участника в зависимости от shouldHave. */
 async function applyTagRole(member: GuildMember, shouldHave: boolean): Promise<void> {
   const roleId = config.roles.roleTag;
   if (!roleId) return;
@@ -125,8 +103,6 @@ async function applyTagRole(member: GuildMember, shouldHave: boolean): Promise<v
 
   const key = `${member.guild.id}:${member.id}`;
   await runExclusive(key, async () => {
-    // Берём актуального участника из кэша: после предыдущей операции
-    // в очереди состояние ролей уже обновлено.
     const fresh = member.guild.members.cache.get(member.id) ?? member;
     const hasRole = fresh.roles.cache.has(roleId);
 
@@ -146,18 +122,10 @@ async function applyTagRole(member: GuildMember, shouldHave: boolean): Promise<v
   });
 }
 
-/**
- * Синхронизирует роль за тег сервера по текущему состоянию участника.
- */
 export async function syncMemberTagRole(member: GuildMember): Promise<void> {
   await applyTagRole(member, hasServerTag(member.user));
 }
 
-/**
- * Полная синхронизация по всем участникам сервера. Запускается один раз
- * при старте, чтобы привести роли в актуальное состояние (на случай, если
- * кто-то надел/снял тег, пока бот был офлайн).
- */
 export async function syncAllTagRoles(client: Client): Promise<void> {
   if (!config.roles.roleTag) return;
 
@@ -180,9 +148,6 @@ export async function syncAllTagRoles(client: Client): Promise<void> {
   }
 }
 
-/**
- * Подписывает клиент на события, по которым нужно пересчитывать роль за тег.
- */
 export function registerTagRoleEvents(client: Client): void {
   if (!config.roles.roleTag) {
     console.warn(
@@ -191,21 +156,18 @@ export function registerTagRoleEvents(client: Client): void {
     return;
   }
 
-  // Новый участник: сразу проверяем тег.
   client.on('guildMemberAdd', async (member) => {
     if (member.guild.id !== config.guildId) return;
     const m = member.partial ? await member.fetch().catch(() => null) : member;
     if (m) await syncMemberTagRole(m);
   });
 
-  // Участник обновил профиль (ник, тег и т.д.) — высокоуровневое событие.
   client.on('guildMemberUpdate', async (_oldMember, newMember) => {
     if (newMember.guild.id !== config.guildId) return;
     const m = newMember.partial ? await newMember.fetch().catch(() => null) : newMember;
     if (m) await syncMemberTagRole(m);
   });
 
-  // Пользователь изменился глобально (ник/аватар/тег) — находим его участником.
   client.on('userUpdate', async (_oldUser, newUser) => {
     const guild = client.guilds.cache.get(config.guildId);
     if (!guild) return;
@@ -213,10 +175,6 @@ export function registerTagRoleEvents(client: Client): void {
     if (member) await syncMemberTagRole(member);
   });
 
-  // Низкоуровневый надёжный fallback: сырое gateway-событие обновления участника.
-  // Читаем АКТУАЛЬНЫЙ тег прямо из пакета Discord (d.user.primary_guild) — это работает
-  // даже если версия discord.js не разбирает primary_guild на высоком уровне.
-  // Операции идемпотентны: повторный вызов с тем же состоянием ничего не меняет.
   client.on('raw', async (packet: { t?: string; d?: Record<string, unknown> }) => {
     if (!packet || packet.t !== 'GUILD_MEMBER_UPDATE') return;
     const data = packet.d;

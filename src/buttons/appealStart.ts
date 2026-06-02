@@ -11,8 +11,6 @@ import { appealQuestions } from '../questions';
 import { config } from '../config';
 import { getAppeal } from '../storage';
 
-// Cooldown после отказа: новую апелляцию можно подать только через 48 часов
-// (соответствует тексту в embed апелляции).
 const DENY_COOLDOWN_MS = 48 * 60 * 60 * 1000;
 
 const handler: ButtonHandler = {
@@ -34,8 +32,6 @@ const handler: ButtonHandler = {
       return;
     }
 
-    // Cooldown 48 ч. после отказа. resolvedAt проставляется при обработке;
-    // если его нет (старые записи), cooldown не применяем.
     if (existing?.status === 'denied' && existing.resolvedAt) {
       const availableAt = existing.resolvedAt + DENY_COOLDOWN_MS;
       if (Date.now() < availableAt) {

@@ -17,7 +17,6 @@ import { getApplication, claimApplication, updateApplication } from '../storage'
 import { buildResolvedEmbed, buildDmEmbed, buildWelcomeEmbed, postDecisionMessage, buildProcessedButtonRow } from '../ui';
 import { isMod, getGuild } from '../permissions';
 
-// review:<action>:<userId>
 const handler: ButtonHandler = {
   customId: /^review:(approve|reject|question|blacklist):\d+$/,
 
@@ -40,7 +39,6 @@ const handler: ButtonHandler = {
       return;
     }
 
-    // reject / blacklist требуют причину -> открываем модалку
     if (action === 'reject' || action === 'blacklist') {
       if (app.status !== 'pending') {
         await interaction.reply({ content: `Заявка уже обработана (${app.status}).`, flags: MessageFlags.Ephemeral });
@@ -60,12 +58,9 @@ const handler: ButtonHandler = {
       return;
     }
 
-    // question -> создаём приватный канал, не меняя статус заявки
     if (action === 'question') {
       await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
-      // Защита от дублей: если канал уже создан и ещё существует — вернём
-      // ссылку на него вместо создания нового (баг #5).
       if (app.questionChannelId) {
         const existing = await guild.channels.fetch(app.questionChannelId).catch(() => null);
         if (existing) {
@@ -137,7 +132,6 @@ const handler: ButtonHandler = {
       return;
     }
 
-    // approve — редактируем исходное сообщение, поэтому deferUpdate (баг #1).
     await interaction.deferUpdate();
 
     const member = await guild.members.fetch(userId).catch(() => null);
@@ -146,20 +140,16 @@ const handler: ButtonHandler = {
       return;
     }
 
-    // Атомарно «столбим» заявку, чтобы при двойном клике двух модераторов
-    // роль и ЛС выдались ровно один раз (баг #2).
     const claimed = claimApplication(userId, 'approved', interaction.user.id);
     if (!claimed) {
       const fresh = getApplication(userId);
       await interaction.followUp({
-        content: `Заявка уже обработана (${fresh?.status ?? 'не ��айдена'}).`,
+        content: `Заявка уже обработана (${fresh?.status ?? 'не найдена'}).`,
         flags: MessageFlags.Ephemeral,
       });
       return;
     }
 
-    // Проверяем успех выдачи роли — если упало (иерархия ролей), откатываем
-    // статус обратно в pending, чтобы заявка не висела «одобренной» без роли (баг #3).
     try {
       await member.roles.add(config.roles.verified);
     } catch (e) {
@@ -190,7 +180,6 @@ const handler: ButtonHandler = {
       components: [buildProcessedButtonRow('application')],
     });
 
-    // Отдельное сообщение-решение в канал решений (со ссылкой на анкету).
     await postDecisionMessage(interaction.client, config.channels.decisions, 'application', {
       label: 'Принято',
       color: 0x57f287,
@@ -199,7 +188,6 @@ const handler: ButtonHandler = {
       reviewMessageUrl: app.reviewMessageUrl ?? interaction.message.url,
     });
 
-    // После решения удаляем приватный канал-вопрос этого участника, если он создавался.
     if (app.questionChannelId) {
       const questionChannel = await guild.channels.fetch(app.questionChannelId).catch(() => null);
       await questionChannel?.delete().catch((e) => {
@@ -209,19 +197,15 @@ const handler: ButtonHandler = {
       updateApplication(userId, { questionChannelId: undefined });
     }
 
-    // Приветственный embed в общий канал (если настроен WELCOME_CHANNEL_ID).
     if (config.channels.welcome) {
       try {
         const welcomeChannel = await guild.channels.fetch(config.channels.welcome);
         if (welcomeChannel?.isTextBased()) {
-          // Сначала отправляем пинг отдельным сообщением
           const pingMessage = await welcomeChannel.send({
             content: `<@${userId}>`,
             allowedMentions: { users: [userId] },
           });
-          // Удаляем пинг
           await pingMessage.delete();
-          // Отправляем embed без пинга
           await welcomeChannel.send({
             embeds: [buildWelcomeEmbed(member)],
           });

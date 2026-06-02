@@ -2,7 +2,6 @@ import { ButtonInteraction, PermissionFlagsBits, GuildMember, MessageFlags } fro
 import { ButtonHandler } from '../types';
 import { config } from '../config';
 
-// question:close:<channelId>
 const handler: ButtonHandler = {
   customId: /^question:close:\d+$/,
 
@@ -20,7 +19,6 @@ const handler: ButtonHandler = {
     const [, , channelId] = interaction.customId.split(':');
     await interaction.reply({ content: 'Удаляю канал...', flags: MessageFlags.Ephemeral });
 
-    // Удаляем сразу: setTimeout не переживёт перезапуск процесса (баг #6).
     const channel = await interaction.guild?.channels.fetch(channelId).catch(() => null);
     await channel?.delete().catch((e) => {
       console.error('[questionClose] failed to delete channel', e);

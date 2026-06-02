@@ -1,5 +1,3 @@
-// Использует встроенный node:sqlite (Node.js >= 22.5, стабилен в 24+).
-// Не требует нативной компиляции, в отличие от better-sqlite3.
 import { DatabaseSync } from 'node:sqlite';
 import path from 'path';
 import fs from 'fs';
@@ -38,37 +36,28 @@ db.exec(`
   );
 `);
 
-// Миграция для БД, созданных до появления колонки questionChannelId.
 try {
   db.exec('ALTER TABLE applications ADD COLUMN questionChannelId TEXT;');
 } catch {
-  // Колонка уже существует — игнорируем.
 }
 
-// Миграция для БД, созданных до появления колонки reviewMessageUrl у аппеляций.
 try {
   db.exec('ALTER TABLE appeals ADD COLUMN reviewMessageUrl TEXT;');
 } catch {
-  // Колонка уже существует — игнорируем.
 }
 
-// Миграция для БД, созданных до появления колонки resolvedAt у аппеляций.
 try {
   db.exec('ALTER TABLE appeals ADD COLUMN resolvedAt INTEGER;');
 } catch {
-  // Колонка уже существует — игнорируем.
 }
 
-/** Корректно закрывает соединение с БД (для graceful shutdown). */
 export function closeDb(): void {
   try {
     db.close();
   } catch {
-    // Уже закрыто.
   }
 }
 
-// --- Applications ---
 
 interface AppRow {
   userId: string;
@@ -138,7 +127,6 @@ const selectPendingApps = db.prepare(
   "SELECT * FROM applications WHERE status = 'pending' ORDER BY submittedAt ASC",
 );
 
-/** Все необработанные заявки на верификацию (status = pending), старые первыми. */
 export function listPendingApplications(): Application[] {
   const rows = selectPendingApps.all() as unknown as AppRow[];
   return rows.map(rowToApp);
@@ -155,18 +143,11 @@ export function updateApplication(
   return updated;
 }
 
-// Атомарный переход статуса заявки: меняет статус только если она ещё `pending`.
-// Защищает от гонки при одновременном клике двух модераторов — UPDATE с
-// условием выполнится ровно один раз, остальные получат changes === 0.
 const claimApp = db.prepare(
   `UPDATE applications SET status = @to, reviewerId = @reviewerId, reason = @reason
    WHERE userId = @userId AND status = 'pending'`,
 );
 
-/**
- * Пытается «застолбить» заявку, переведя её из `pending` в целевой статус.
- * @returns true только у первого вызвавшего; false если заявка уже обработана.
- */
 export function claimApplication(
   userId: string,
   to: ApplicationStatus,
@@ -177,9 +158,6 @@ export function claimApplication(
   return result.changes === 1;
 }
 
-// Атомарно помечает заявку как 'left' (участник покинул сервер), только если она
-// ещё `pending`. Возвращает true лишь у первого вызвавшего — защита от гонки с
-// модератором, обрабатывающим заявку в тот же момент.
 const markAppLeftStmt = db.prepare(
   "UPDATE applications SET status = 'left' WHERE userId = ? AND status = 'pending'",
 );
@@ -188,7 +166,6 @@ export function markApplicationLeft(userId: string): boolean {
   return markAppLeftStmt.run(userId).changes === 1;
 }
 
-// --- Appeals ---
 
 interface AppealRow {
   userId: string;
@@ -255,7 +232,6 @@ const selectPendingAppeals = db.prepare(
   "SELECT * FROM appeals WHERE status = 'pending' ORDER BY submittedAt ASC",
 );
 
-/** Все необработанные аппеляции (status = pending), старые первыми. */
 export function listPendingAppeals(): Appeal[] {
   const rows = selectPendingAppeals.all() as unknown as AppealRow[];
   return rows.map(rowToAppeal);
@@ -269,17 +245,11 @@ export function updateAppeal(userId: string, patch: Partial<Appeal>): Appeal | u
   return updated;
 }
 
-// Атомарный переход статуса аппеляции (см. claimApplication).
-// Заодно фиксирует resolvedAt — момент, от которого считается cooldown.
 const claimAppealStmt = db.prepare(
   `UPDATE appeals SET status = @to, reviewerId = @reviewerId, reason = @reason, resolvedAt = @resolvedAt
    WHERE userId = @userId AND status = 'pending'`,
 );
 
-/**
- * Пытается «застолбить» аппеляцию, переведя её из `pending` в целевой статус.
- * @returns true только у первого вызвавшего; false если уже обработана.
- */
 export function claimAppeal(
   userId: string,
   to: AppealStatus,
@@ -297,8 +267,6 @@ export function claimAppeal(
   return result.changes === 1;
 }
 
-// Атомарно помечает апелляцию как 'left' (участник покинул сервер), только если
-// она ещё `pending`. Возвращает true лишь у первого вызвавшего.
 const markAppealLeftStmt = db.prepare(
   "UPDATE appeals SET status = 'left' WHERE userId = ? AND status = 'pending'",
 );

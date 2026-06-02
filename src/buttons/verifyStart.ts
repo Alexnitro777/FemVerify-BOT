@@ -15,7 +15,6 @@ const handler: ButtonHandler = {
   customId: 'verify:start',
 
   async execute(interaction: ButtonInteraction): Promise<void> {
-    // Заблокированным в ЧС верификация недоступна — только аппеляция.
     const member = interaction.member as GuildMember | null;
     if (member && member.roles.cache.has(config.roles.blacklist)) {
       await interaction.reply({

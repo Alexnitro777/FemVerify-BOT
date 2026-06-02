@@ -7,7 +7,6 @@ export async function handleInteraction(client: BotClient, interaction: Interact
     if (interaction.isChatInputCommand()) {
       const cmd = client.commands.get(interaction.commandName);
       if (!cmd) return;
-      // Разграничение доступа через конфиг: admin видит всё, mod — только mod-команды.
       const required = cmd.access ?? 'admin';
       if (!hasCommandAccess(interaction, required)) {
         await interaction.reply({
@@ -49,8 +48,6 @@ export async function handleInteraction(client: BotClient, interaction: Interact
     console.error('Interaction error:', err);
     if (!interaction.isRepliable()) return;
     const message = 'Произошла ошибка при обработке.';
-    // Учитываем, что хендлер мог уже сделать defer (баг #1): тогда нужен
-    // editReply/followUp, иначе reply упадёт с "already acknowledged".
     if (interaction.deferred) {
       await interaction.editReply({ content: message }).catch(() => null);
     } else if (interaction.replied) {

@@ -27,7 +27,6 @@ const command: SlashCommand = {
       return;
     }
 
-    // Каждая строка: упоминание + относительное время + ссылка на сообщение модерации.
     const lines = pending.map((app, i) => {
       const ts = Math.floor(app.submittedAt / 1000);
       const link = app.reviewMessageUrl ? ` — [перейти](${app.reviewMessageUrl})` : '';

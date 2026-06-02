@@ -9,7 +9,6 @@ import { getAppeal, claimAppeal } from '../storage';
 import { buildResolvedEmbed, buildDmEmbed, postDecisionMessage, buildProcessedButtonRow } from '../ui';
 import { isMod, getGuild } from '../permissions';
 
-// appeal:<amnesty|deny>:<userId>
 const handler: ButtonHandler = {
   customId: /^appeal:(amnesty|deny):\d+$/,
 
@@ -21,7 +20,6 @@ const handler: ButtonHandler = {
 
     const [, action, userId] = interaction.customId.split(':');
 
-    // Редактируем исходное сообщение -> deferUpdate перед сетевыми вызовами (баг #1).
     await interaction.deferUpdate();
 
     const appeal = getAppeal(userId);
@@ -31,7 +29,6 @@ const handler: ButtonHandler = {
     }
 
     const newStatus = action === 'amnesty' ? 'amnestied' : 'denied';
-    // Атомарно переводим из pending — защита от двойной обработки.
     const claimed = claimAppeal(userId, newStatus, interaction.user.id);
     if (!claimed) {
       const fresh = getAppeal(userId);
@@ -47,7 +44,6 @@ const handler: ButtonHandler = {
 
     let warning: string | undefined;
     if (action === 'amnesty') {
-      // Снимаем только роль ЧС. Проверяем успех — при ошибке предупреждаем модератора.
       const removed = await member?.roles
         .remove(config.roles.blacklist)
         .then(() => true)
@@ -90,7 +86,6 @@ const handler: ButtonHandler = {
       components: [buildProcessedButtonRow('appeal')],
     });
 
-    // Отдельное сообщение-решение в канал решений (со ссылкой на апелляцию).
     await postDecisionMessage(interaction.client, config.channels.decisions, 'appeal', {
       label: action === 'amnesty' ? 'Амнистия принята' : 'В амнистии отказано',
       color: action === 'amnesty' ? 0x57f287 : 0xed4245,

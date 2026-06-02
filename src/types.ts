@@ -9,8 +9,6 @@ import {
 
 export interface SlashCommand {
   data: Omit<SlashCommandBuilder, 'addSubcommand' | 'addSubcommandGroup'>;
-  // Уровень доступа к команде. Если не задан — считается 'admin'.
-  // 'admin' — только администраторы; 'mod' — администраторы и модераторы.
   access?: 'admin' | 'mod';
   execute: (interaction: ChatInputCommandInteraction) => Promise<void>;
 }
@@ -36,7 +34,6 @@ export type ApplicationStatus =
   | 'approved'
   | 'rejected'
   | 'blacklisted'
-  // Участник покинул сервер, не дождавшись разбора заявки.
   | 'left';
 
 export type AppealStatus = 'pending' | 'amnestied' | 'denied' | 'left';
@@ -63,6 +60,5 @@ export interface Appeal {
   reviewMessageUrl?: string;
   reviewerId?: string;
   reason?: string;
-  // Момент обработки модератором (amnesty/deny). От него считается cooldown 48 ч.
   resolvedAt?: number;
 }

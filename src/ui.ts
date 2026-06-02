@@ -11,7 +11,6 @@ import {
 import { Application } from './types';
 import { verifyQuestions } from './questions';
 
-/** Embed с ответами анкеты для канала модерации. */
 export function buildApplicationEmbed(user: User, answers: Record<string, string>): EmbedBuilder {
   const createdTs = Math.floor(user.createdTimestamp / 1000);
 
@@ -22,7 +21,6 @@ export function buildApplicationEmbed(user: User, answers: Record<string, string
     .setFooter({ text: `ID: ${user.id}` })
     .setTimestamp();
 
-  // Добавляем информацию об участнике в начале
   embed.addFields(
     { name: 'Участник', value: `<@${user.id}>`, inline: false },
     { name: 'Дата создания аккаунта', value: `<t:${createdTs}:R>`, inline: false },
@@ -30,16 +28,16 @@ export function buildApplicationEmbed(user: User, answers: Record<string, string
 
   for (const q of verifyQuestions.slice(0, 5)) {
     const rawValue = (answers[q.id] ?? '').trim() || '—';
-    const value = rawValue === '—' ? rawValue : `\`${rawValue}\``;
-    embed.addFields({
-      name: q.label,
-      value: value.length > 1024 ? value.slice(0, 1021) + '...' : value,
-    });
+    if (rawValue === '—') {
+      embed.addFields({ name: q.label, value: '—' });
+      continue;
+    }
+    const truncated = rawValue.length > 1000 ? rawValue.slice(0, 1000) + '...' : rawValue;
+    embed.addFields({ name: q.label, value: `\`${truncated}\`` });
   }
   return embed;
 }
 
-/** Четыре кнопки модерации под заявкой. */
 export function buildReviewButtons(userId: string): ActionRowBuilder<ButtonBuilder> {
   return new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder()
@@ -65,7 +63,6 @@ export function buildReviewButtons(userId: string): ActionRowBuilder<ButtonBuild
   );
 }
 
-/** Помечает embed заявки итоговым статусом и убирает кнопки. Работает с копией, не мутируя исходный. */
 export function buildResolvedEmbed(
   original: EmbedBuilder,
   label: string,
@@ -80,16 +77,10 @@ export function buildResolvedEmbed(
     });
 }
 
-/** ЛС-уведомление участнику. */
 export function buildDmEmbed(title: string, description: string, color: number): EmbedBuilder {
   return new EmbedBuilder().setTitle(title).setDescription(description).setColor(color).setTimestamp();
 }
 
-/**
- * Приветственный embed в общий канал после принятия верификации.
- * Формат по reference: автор — принятый участник, ник-пинг в описании,
- * поля «Участник №» и «Аккаунт создан», футер с названием/иконкой сервера.
- */
 export function buildWelcomeEmbed(member: GuildMember): EmbedBuilder {
   const { guild, user } = member;
   const createdTs = Math.floor(user.createdTimestamp / 1000);
@@ -109,14 +100,8 @@ export function buildWelcomeEmbed(member: GuildMember): EmbedBuilder {
 
 export type ReviewAction = 'approve' | 'reject' | 'question' | 'blacklist';
 
-// Тип объекта, по которому принято решение.
 export type DecisionKind = 'application' | 'appeal';
 
-/**
- * Серая неактивная кнопка-метка «Анкета/Апелляция обработана».
- * Остаётся на сообщении заявки/апелляции в каналах review / appealReview после обработки.
- * Нажать нельзя (disabled).
- */
 export function buildProcessedButtonRow(kind: DecisionKind): ActionRowBuilder<ButtonBuilder> {
   return new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder()
@@ -127,11 +112,6 @@ export function buildProcessedButtonRow(kind: DecisionKind): ActionRowBuilder<Bu
   );
 }
 
-/**
- * Серая неактивная кнопка «Покинул сервер».
- * Ставится вместо всех кнопок заявки/апелляции, когда участник вышел с сервера,
- * не дождавшись разбора. Нажать нельзя (disabled).
- */
 export function buildLeftServerButtonRow(): ActionRowBuilder<ButtonBuilder> {
   return new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder()
@@ -142,7 +122,6 @@ export function buildLeftServerButtonRow(): ActionRowBuilder<ButtonBuilder> {
   );
 }
 
-/** Кнопка-ссылка на оригинал заявки/апелляции для сообщения-решения. */
 export function buildDecisionLinkRow(
   kind: DecisionKind,
   reviewMessageUrl?: string,
@@ -156,10 +135,6 @@ export function buildDecisionLinkRow(
   );
 }
 
-/**
- * Embed с решением админов для отдельного канала решений.
- * При отклонении/ЧС вместо поля «Решение» показывается «Причина …» с текстом причины.
- */
 export function buildDecisionEmbed(
   kind: DecisionKind,
   label: string,
@@ -191,10 +166,6 @@ export function buildDecisionEmbed(
   return embed;
 }
 
-/**
- * Отправляет сообщение-решение в канал решений (если он настроен в конфиге).
- * Кидает embed с решением админов, кнопку-ссылку на оригинал и серую метку «обработана».
- */
 export async function postDecisionMessage(
   client: Client,
   channelId: string | undefined,

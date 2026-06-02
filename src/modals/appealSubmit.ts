@@ -16,21 +16,19 @@ const handler: ModalHandler = {
   customId: 'appeal:submit',
 
   async execute(interaction: ModalSubmitInteraction): Promise<void> {
-    const answers: Record<string, string> = {};
-    for (const q of appealQuestions.slice(0, 5)) {
-      try {
-        answers[q.id] = interaction.fields.getTextInputValue(q.id);
-      } catch {
-        answers[q.id] = '';
-      }
-    }
-
     const text = appealQuestions
       .slice(0, 5)
-      .map((q) => `**${q.label}**\n${(answers[q.id] ?? '').trim() || '—'}`)
+      .map((q) => {
+        let value = '';
+        try {
+          value = interaction.fields.getTextInputValue(q.id);
+        } catch {
+          value = '';
+        }
+        return `**${q.label}**\n${value.trim() || '—'}`;
+      })
       .join('\n\n');
 
-    // Долгая часть — деферим, чтобы уложиться в окно ответа Discord (баг #1).
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
     const embed = new EmbedBuilder()
@@ -58,8 +56,6 @@ const handler: ModalHandler = {
       .fetch(config.channels.appealReview)
       .catch(() => null);
     if (!channel || !channel.isTextBased()) {
-      // Канал ревью аппеляций недоступен — не сохраняем, иначе аппеляция
-      // зависнет в pending без сообщения для модерации (баг #4).
       console.error('[appealSubmit] appeal review channel unavailable:', config.channels.appealReview);
       await interaction.editReply({
         content: '❌ Не удалось отправить аппеляцию: канал модерации недоступен. Сообщите администрации.',
