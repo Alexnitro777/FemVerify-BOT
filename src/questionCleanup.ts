@@ -29,7 +29,10 @@ async function sweep(client: Client): Promise<void> {
       continue;
     }
 
-    const age = now - channel.createdTimestamp;
+    const createdAt = channel.createdTimestamp;
+    if (createdAt === null) continue;
+
+    const age = now - createdAt;
     if (age < QUESTION_TTL_MS) continue;
 
     await channel
