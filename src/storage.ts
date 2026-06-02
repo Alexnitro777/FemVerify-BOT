@@ -11,28 +11,28 @@ db.exec('PRAGMA journal_mode = WAL;');
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS applications (
-    userId          TEXT PRIMARY KEY,
-    username        TEXT NOT NULL,
-    guildId         TEXT NOT NULL,
-    answers         TEXT NOT NULL,
-    submittedAt     INTEGER NOT NULL,
-    status          TEXT NOT NULL,
+    userId TEXT PRIMARY KEY,
+    username TEXT NOT NULL,
+    guildId TEXT NOT NULL,
+    answers TEXT NOT NULL,
+    submittedAt INTEGER NOT NULL,
+    status TEXT NOT NULL,
     reviewMessageUrl TEXT,
-    reviewerId      TEXT,
-    reason          TEXT,
+    reviewerId TEXT,
+    reason TEXT,
     questionChannelId TEXT
   );
 
   CREATE TABLE IF NOT EXISTS appeals (
-    userId      TEXT PRIMARY KEY,
-    username    TEXT NOT NULL,
-    text        TEXT NOT NULL,
+    userId TEXT PRIMARY KEY,
+    username TEXT NOT NULL,
+    text TEXT NOT NULL,
     submittedAt INTEGER NOT NULL,
-    status      TEXT NOT NULL,
+    status TEXT NOT NULL,
     reviewMessageUrl TEXT,
-    reviewerId  TEXT,
-    reason      TEXT,
-    resolvedAt  INTEGER
+    reviewerId TEXT,
+    reason TEXT,
+    resolvedAt INTEGER
   );
 `);
 
@@ -57,7 +57,6 @@ export function closeDb(): void {
   } catch {
   }
 }
-
 
 interface AppRow {
   userId: string;
@@ -132,6 +131,15 @@ export function listPendingApplications(): Application[] {
   return rows.map(rowToApp);
 }
 
+const selectAppsWithQuestionChannel = db.prepare(
+  'SELECT * FROM applications WHERE questionChannelId IS NOT NULL',
+);
+
+export function listApplicationsWithQuestionChannel(): Application[] {
+  const rows = selectAppsWithQuestionChannel.all() as unknown as AppRow[];
+  return rows.map(rowToApp);
+}
+
 export function updateApplication(
   userId: string,
   patch: Partial<Application>,
@@ -165,7 +173,6 @@ const markAppLeftStmt = db.prepare(
 export function markApplicationLeft(userId: string): boolean {
   return markAppLeftStmt.run(userId).changes === 1;
 }
-
 
 interface AppealRow {
   userId: string;
