@@ -20,6 +20,7 @@ import {
   buildWelcomeEmbed,
   postDecisionMessage,
   buildProcessedButtonRow,
+  buildReviewButtons,
 } from '../ui';
 import { isMod, getGuild } from '../permissions';
 
@@ -143,7 +144,13 @@ const handler: ButtonHandler = {
       });
       await channel.send({ embeds: [embed], components: [row] });
       await pingMsg.delete().catch(() => null);
-      await interaction.editReply({ content: `Канал создан: <#${channel.id}>.` });
+
+      await interaction.editReply({
+        content: `Канал создан: <#${channel.id}>.`,
+      });
+
+      const updatedRow = buildReviewButtons(userId, guild.id, channel.id);
+      await interaction.message.edit({ components: [updatedRow] }).catch(() => null);
       return;
     }
 
@@ -205,6 +212,7 @@ const handler: ButtonHandler = {
       reviewerId: interaction.user.id,
       targetUserId: userId,
       reviewMessageUrl: app.reviewMessageUrl ?? interaction.message.url,
+      number: app.number,
     });
 
     if (app.questionChannelId) {
