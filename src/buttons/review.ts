@@ -143,7 +143,17 @@ const handler: ButtonHandler = {
       });
       await channel.send({ embeds: [embed], components: [row] });
       await pingMsg.delete().catch(() => null);
-      await interaction.editReply({ content: `Канал создан: <#${channel.id}>.` });
+      const linkToQuestionRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
+        new ButtonBuilder()
+          .setLabel('Перейти к вопросу')
+          .setStyle(ButtonStyle.Link)
+          .setURL(`https://discord.com/channels/${guild.id}/${channel.id}`),
+      );
+
+      await interaction.editReply({
+        content: `Канал создан: <#${channel.id}>.`,
+        components: [linkToQuestionRow],
+      });
       return;
     }
 
@@ -205,6 +215,7 @@ const handler: ButtonHandler = {
       reviewerId: interaction.user.id,
       targetUserId: userId,
       reviewMessageUrl: app.reviewMessageUrl ?? interaction.message.url,
+      number: app.number,
     });
 
     if (app.questionChannelId) {
