@@ -126,9 +126,8 @@ const handler: ButtonHandler = {
 			await channel.send({ embeds: [embed], components: [row] });
 			await pingMsg.delete().catch(() => null);
 
-			const questionChannelUrl = `https://discord.com/channels/${guild.id}/${channel.id}`;
 			await interaction.editReply({
-				components: [buildAppealReviewButtons(userId, questionChannelUrl)],
+				components: [buildAppealReviewButtons(userId, channel.id)],
 			});
 			return;
 		}
@@ -185,7 +184,7 @@ const handler: ButtonHandler = {
 					embeds: [
 						buildDmEmbed(
 							'❌ В амнистии отказано',
-							`Ваша апелляция отклонена. ЧС сохраняется.\n\nВы сможете подать новую апелляцию (<t:${ts}:R>).`,
+							`Ваша апелляция отклонена. ЧС сохраняется.\n\nВы сможете подать новую апелляцию <t:${ts}:R> (<t:${ts}:f>).`,
 							0xed4245,
 						),
 					],
