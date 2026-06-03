@@ -196,6 +196,7 @@ const handler: ButtonHandler = {
       reviewerId: interaction.user.id,
       targetUserId: userId,
       reviewMessageUrl: appeal.reviewMessageUrl ?? interaction.message.url,
+      number: appeal.number,
     });
 
     if (appeal.questionChannelId && guild) {
