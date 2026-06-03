@@ -126,9 +126,8 @@ const handler: ButtonHandler = {
 			await channel.send({ embeds: [embed], components: [row] });
 			await pingMsg.delete().catch(() => null);
 
-			const questionChannelUrl = `{{https://discord.com/channels/${guild.id}}}/${channel.id}`;
 			await interaction.editReply({
-				components: [buildAppealReviewButtons(userId, questionChannelUrl)],
+				components: [buildAppealReviewButtons(userId, channel.url)],
 			});
 			return;
 		}
