@@ -72,13 +72,14 @@ const handler: ButtonHandler = {
     }
 
     if (action === 'question') {
-      await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+      await interaction.deferUpdate();
 
       if (app.questionChannelId) {
         const existing = await guild.channels.fetch(app.questionChannelId).catch(() => null);
         if (existing) {
-          await interaction.editReply({
+          await interaction.followUp({
             content: `Канал с вопросом уже существует: <#${existing.id}>.`,
+            flags: MessageFlags.Ephemeral,
           });
           return;
         }
@@ -86,7 +87,10 @@ const handler: ButtonHandler = {
 
       const member = await guild.members.fetch(userId).catch(() => null);
       if (!member) {
-        await interaction.editReply({ content: 'Пользователь покинул сервер.' });
+        await interaction.followUp({
+          content: 'Пользователь покинул сервер.',
+          flags: MessageFlags.Ephemeral,
+        });
         return;
       }
 
@@ -145,12 +149,8 @@ const handler: ButtonHandler = {
       await channel.send({ embeds: [embed], components: [row] });
       await pingMsg.delete().catch(() => null);
 
-      await interaction.editReply({
-        content: `Канал создан: <#${channel.id}>.`,
-      });
-
       const updatedRow = buildReviewButtons(userId, guild.id, channel.id);
-      await interaction.message.edit({ components: [updatedRow] }).catch(() => null);
+      await interaction.editReply({ components: [updatedRow] }).catch(() => null);
       return;
     }
 
