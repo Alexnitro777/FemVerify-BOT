@@ -84,13 +84,13 @@ export function buildAppealEmbed(
 
 export function buildReviewButtons(
 	userId: string,
-	questionChannelId?: string,
+	questionChannelUrl?: string,
 ): ActionRowBuilder<ButtonBuilder> {
-	const questionButton = questionChannelId
+	const questionButton = questionChannelUrl
 		? new ButtonBuilder()
-				.setCustomId(`goto:question:${questionChannelId}`)
 				.setLabel('Перейти к вопросу')
-				.setStyle(ButtonStyle.Primary)
+				.setStyle(ButtonStyle.Link)
+				.setURL(questionChannelUrl)
 				.setEmoji('❓')
 		: new ButtonBuilder()
 				.setCustomId(`review:question:${userId}`)
@@ -120,13 +120,13 @@ export function buildReviewButtons(
 
 export function buildAppealReviewButtons(
 	userId: string,
-	questionChannelId?: string,
+	questionChannelUrl?: string,
 ): ActionRowBuilder<ButtonBuilder> {
-	const questionButton = questionChannelId
+	const questionButton = questionChannelUrl
 		? new ButtonBuilder()
-				.setCustomId(`goto:question:${questionChannelId}`)
 				.setLabel('Перейти к вопросу')
-				.setStyle(ButtonStyle.Primary)
+				.setStyle(ButtonStyle.Link)
+				.setURL(questionChannelUrl)
 				.setEmoji('❓')
 		: new ButtonBuilder()
 				.setCustomId(`appeal:question:${userId}`)
