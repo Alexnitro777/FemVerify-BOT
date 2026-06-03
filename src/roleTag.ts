@@ -70,7 +70,7 @@ async function sendTagLog(member: GuildMember, action: 'added' | 'removed'): Pro
         { name: 'Роль', value: roleId ? `<@&${roleId}>` : '—', inline: true },
         {
           name: 'Действие',
-          value: added ? 'Участник надел тег сервера' : 'Участник снял тег сервера',
+          value: added ? 'Участник надел тег сервера.' : 'Участник снял тег сервера.',
           inline: false,
         },
       )

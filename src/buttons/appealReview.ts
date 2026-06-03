@@ -47,7 +47,7 @@ const handler: ButtonHandler = {
         const existing = await guild.channels.fetch(appeal.questionChannelId).catch(() => null);
         if (existing) {
           await interaction.editReply({
-            content: `Канал с вопросом уже существует: <#${existing.id}>`,
+            content: `Канал с вопросом уже существует: <#${existing.id}>.`,
           });
           return;
         }
@@ -113,7 +113,7 @@ const handler: ButtonHandler = {
       });
       await channel.send({ embeds: [embed], components: [row] });
       await pingMsg.delete().catch(() => null);
-      await interaction.editReply({ content: `Канал создан: <#${channel.id}>` });
+      await interaction.editReply({ content: `Канал создан: <#${channel.id}>.` });
       return;
     }
 

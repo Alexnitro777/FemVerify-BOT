@@ -85,7 +85,7 @@ const command: SlashCommand = {
       .setThumbnail(guild.iconURL({ size: 256 }))
       .setDescription(
         tagText
-          ? `Текущий тег сервера: \`${tagText}\``
+          ? `Текущий тег сервера: \`${tagText}\`.`
           : 'Показывает, сколько участников носят тег этого сервера.',
       )
       .addFields(
