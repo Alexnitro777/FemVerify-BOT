@@ -1,6 +1,10 @@
 import { Client } from 'discord.js';
 import { config } from './config';
-import { listApplicationsWithQuestionChannel, updateApplication } from './storage';
+import {
+  listApplicationsWithQuestionChannel,
+  listAppealsWithQuestionChannel,
+} from './storage';
+import { restoreReviewButton } from './questionRestore';
 
 const QUESTION_TTL_MS = 24 * 60 * 60_000;
 
@@ -10,22 +14,26 @@ const SWEEP_INTERVAL_MS = Math.min(
 );
 
 async function sweep(client: Client): Promise<void> {
-  const apps = listApplicationsWithQuestionChannel();
-  if (apps.length === 0) return;
+  const channelIds = [
+    ...listApplicationsWithQuestionChannel(),
+    ...listAppealsWithQuestionChannel(),
+  ]
+    .map((entry) => entry.questionChannelId)
+    .filter((id): id is string => Boolean(id));
+
+  if (channelIds.length === 0) return;
 
   const guild = await client.guilds.fetch(config.guildId).catch(() => null);
   if (!guild) return;
 
   const now = Date.now();
 
-  for (const app of apps) {
-    const channelId = app.questionChannelId;
-    if (!channelId) continue;
-
+  for (const channelId of channelIds) {
     const channel = await guild.channels.fetch(channelId).catch(() => null);
 
     if (!channel) {
-      updateApplication(app.userId, { questionChannelId: undefined });
+      // Канал уже исчез — вернём кнопку «Задать вопрос» и почистим запись.
+      await restoreReviewButton(client, channelId);
       continue;
     }
 
@@ -41,7 +49,9 @@ async function sweep(client: Client): Promise<void> {
         console.error('[questionCleanup] не удалось удалить канал', e);
         return null;
       });
-    updateApplication(app.userId, { questionChannelId: undefined });
+
+    // После удаления возвращаем кнопку «Задать вопрос».
+    await restoreReviewButton(client, channelId);
   }
 }
 
