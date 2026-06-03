@@ -15,7 +15,7 @@ const handler: ModalHandler = {
 
     const app = getApplication(userId);
     if (!app) {
-      await interaction.editReply({ content: 'Заявка не найдена.' });
+      await interaction.editReply({ content: 'Анкета не найдена.' });
       return;
     }
 
@@ -24,7 +24,7 @@ const handler: ModalHandler = {
     if (!claimed) {
       const fresh = getApplication(userId);
       await interaction.editReply({
-        content: `Заявка уже обработана (${fresh?.status ?? 'не найдена'}).`,
+        content: `Анкета уже обработана (${fresh?.status ?? 'не найдена'}).`,
       });
       return;
     }
@@ -64,8 +64,8 @@ const handler: ModalHandler = {
         ?.send({
           embeds: [
             buildDmEmbed(
-              '❌ Заявка отклонена',
-              `Причина: \`${reason}\`\n\nВы можете подать новую заявку.`,
+              '❌ Анкета отклонена',
+              `Причина: \`${reason}\`\n\nВы можете подать новую анкету.`,
               0xed4245,
             ),
           ],
@@ -105,6 +105,7 @@ const handler: ModalHandler = {
         title: action === 'blacklist' ? 'Причина ЧС' : 'Причина отклонения',
         text: reason,
       },
+      number: app.number,
     });
 
     if (app.questionChannelId) {
@@ -118,7 +119,7 @@ const handler: ModalHandler = {
       updateApplication(userId, { questionChannelId: undefined });
     }
 
-    const baseReply = action === 'blacklist' ? 'Участник добавлен в ЧС.' : 'Заявка отклонена.';
+    const baseReply = action === 'blacklist' ? 'Участник добавлен в ЧС.' : 'Анкета отклонена.';
     await interaction.editReply({
       content: blacklistWarning ? `${baseReply}\n${blacklistWarning}` : baseReply,
     });

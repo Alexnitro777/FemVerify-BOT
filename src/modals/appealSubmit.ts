@@ -10,7 +10,7 @@ import { ModalHandler } from '../types';
 import { appealQuestions } from '../questions';
 import { getApplication, saveAppeal, nextAppealNumber } from '../storage';
 import { config } from '../config';
-import { buildAppealEmbed } from '../ui';
+import { buildAppealEmbed, buildAppealReviewButtons } from '../ui';
 
 const handler: ModalHandler = {
   customId: 'appeal:submit',
@@ -37,24 +37,7 @@ const handler: ModalHandler = {
 
     const number = nextAppealNumber();
     const embed = buildAppealEmbed(interaction.user, text, blacklistReason, number);
-
-    const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
-      new ButtonBuilder()
-        .setCustomId(`appeal:amnesty:${interaction.user.id}`)
-        .setLabel('Принять амнистию')
-        .setStyle(ButtonStyle.Success)
-        .setEmoji('✅'),
-      new ButtonBuilder()
-        .setCustomId(`appeal:deny:${interaction.user.id}`)
-        .setLabel('Отказать в амнистии')
-        .setStyle(ButtonStyle.Danger)
-        .setEmoji('❌'),
-      new ButtonBuilder()
-        .setCustomId(`appeal:question:${interaction.user.id}`)
-        .setLabel('Задать вопрос')
-        .setStyle(ButtonStyle.Primary)
-        .setEmoji('❓'),
-    );
+    const row = buildAppealReviewButtons(interaction.user.id);
 
     const channel = await interaction.client.channels
       .fetch(config.channels.appealReview)

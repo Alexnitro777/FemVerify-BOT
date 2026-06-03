@@ -20,6 +20,7 @@ import {
   buildWelcomeEmbed,
   postDecisionMessage,
   buildProcessedButtonRow,
+  buildReviewButtons,
 } from '../ui';
 import { isMod, getGuild } from '../permissions';
 
@@ -44,14 +45,14 @@ const handler: ButtonHandler = {
     const [, action, userId] = interaction.customId.split(':');
     const app = getApplication(userId);
     if (!app) {
-      await interaction.reply({ content: 'Заявка не найдена.', flags: MessageFlags.Ephemeral });
+      await interaction.reply({ content: 'Анкета не найдена.', flags: MessageFlags.Ephemeral });
       return;
     }
 
     if (action === 'reject' || action === 'blacklist') {
       if (app.status !== 'pending') {
         await interaction.reply({
-          content: `Заявка уже обработана (${app.status}).`,
+          content: `Анкета уже обработана (${app.status}).`,
           flags: MessageFlags.Ephemeral,
         });
         return;
@@ -117,7 +118,7 @@ const handler: ButtonHandler = {
       updateApplication(userId, { questionChannelId: channel.id });
 
       const embed = new EmbedBuilder()
-        .setTitle('Уточнение по заявке')
+        .setTitle('Уточнение по анкете')
         .setDescription(
           `<@${userId}>, у модерации появился вопрос по вашей анкете.\n` +
             'Ответьте здесь. Кнопки ниже — для модерации.',
@@ -143,7 +144,13 @@ const handler: ButtonHandler = {
       });
       await channel.send({ embeds: [embed], components: [row] });
       await pingMsg.delete().catch(() => null);
-      await interaction.editReply({ content: `Канал создан: <#${channel.id}>.` });
+
+      await interaction.editReply({
+        content: `Канал создан: <#${channel.id}>.`,
+      });
+
+      const updatedRow = buildReviewButtons(userId, guild.id, channel.id);
+      await interaction.message.edit({ components: [updatedRow] }).catch(() => null);
       return;
     }
 
@@ -162,7 +169,7 @@ const handler: ButtonHandler = {
     if (!claimed) {
       const fresh = getApplication(userId);
       await interaction.followUp({
-        content: `Заявка уже обработана (${fresh?.status ?? 'не найдена'}).`,
+        content: `Анкета уже обработана (${fresh?.status ?? 'не найдена'}).`,
         flags: MessageFlags.Ephemeral,
       });
       return;
@@ -175,7 +182,7 @@ const handler: ButtonHandler = {
       updateApplication(userId, { status: 'pending', reviewerId: undefined });
       await interaction.followUp({
         content:
-          '❌ Не удалось выдать роль — проверьте, что роль бота выше выдаваемой. Статус заявки возвращён в ожидание.',
+          '❌ Не удалось выдать роль — проверьте, что роль бота выше выдаваемой. Статус анкеты возвращён в ожидание.',
         flags: MessageFlags.Ephemeral,
       });
       return;
@@ -183,7 +190,7 @@ const handler: ButtonHandler = {
 
     const dmOk = await member
       .send({
-        embeds: [buildDmEmbed('✅ Заявка одобрена', 'Добро пожаловать на сервер!', 0x57f287)],
+        embeds: [buildDmEmbed('✅ Анкета одобрена', 'Добро пожаловать на сервер!', 0x57f287)],
       })
       .then(() => true)
       .catch(() => false);
@@ -205,6 +212,7 @@ const handler: ButtonHandler = {
       reviewerId: interaction.user.id,
       targetUserId: userId,
       reviewMessageUrl: app.reviewMessageUrl ?? interaction.message.url,
+      number: app.number,
     });
 
     if (app.questionChannelId) {

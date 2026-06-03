@@ -20,7 +20,7 @@ const SWEEP_INTERVAL_MS = Math.min(
   Math.max(10_000, Math.floor(APPLICATION_TTL_MS / 4)),
 );
 
-const AUTO_CLOSE_REASON = 'Переподайте заявку на верификацию';
+const AUTO_CLOSE_REASON = 'Переподайте анкету на верификацию';
 const AUTO_CLOSE_LABEL = 'Закрыто автоматически';
 const AUTO_CLOSE_COLOR = 0x99aab5;
 
@@ -82,7 +82,7 @@ async function closeExpiredApplication(
   const member = await guild.members.fetch(app.userId).catch(() => null);
   await member
     ?.send({
-      embeds: [buildDmEmbed('⌛ Заявка закрыта', `${AUTO_CLOSE_REASON}.`, AUTO_CLOSE_COLOR)],
+      embeds: [buildDmEmbed('⌛ Анкета закрыта', `${AUTO_CLOSE_REASON}.`, AUTO_CLOSE_COLOR)],
     })
     .catch(() => null);
 
@@ -93,6 +93,7 @@ async function closeExpiredApplication(
     targetUserId: app.userId,
     reviewMessageUrl: app.reviewMessageUrl,
     reason: { title: 'Причина', text: AUTO_CLOSE_REASON },
+    number: app.number,
   });
 }
 

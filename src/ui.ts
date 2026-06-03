@@ -19,7 +19,7 @@ export function buildApplicationEmbed(
   const createdTs = Math.floor(user.createdTimestamp / 1000);
 
   const embed = new EmbedBuilder()
-    .setAuthor({ name: number ? `Заявка на верификацию №${number}` : 'Заявка на верификацию' })
+    .setTitle(number ? `Анкета верификации \`№${number}\`` : 'Анкета верификации')
     .setThumbnail(user.displayAvatarURL())
     .setColor(0xfee75c)
     .setFooter({ text: `ID: ${user.id}` })
@@ -51,7 +51,7 @@ export function buildAppealEmbed(
   const createdTs = Math.floor(user.createdTimestamp / 1000);
 
   const embed = new EmbedBuilder()
-    .setAuthor({ name: number ? `Апелляция №${number}` : 'Апелляция' })
+    .setTitle(number ? `Апелляция \`№${number}\`` : 'Апелляция')
     .setThumbnail(user.displayAvatarURL())
     .setColor(0xeb459e)
     .setFooter({ text: `ID: ${user.id}` })
@@ -82,8 +82,12 @@ export function buildAppealEmbed(
   return embed;
 }
 
-export function buildReviewButtons(userId: string): ActionRowBuilder<ButtonBuilder> {
-  return new ActionRowBuilder<ButtonBuilder>().addComponents(
+export function buildReviewButtons(
+  userId: string,
+  guildId?: string,
+  questionChannelId?: string,
+): ActionRowBuilder<ButtonBuilder> {
+  const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder()
       .setCustomId(`review:approve:${userId}`)
       .setLabel('Принять')
@@ -94,17 +98,74 @@ export function buildReviewButtons(userId: string): ActionRowBuilder<ButtonBuild
       .setLabel('Отклонить')
       .setStyle(ButtonStyle.Danger)
       .setEmoji('❌'),
-    new ButtonBuilder()
-      .setCustomId(`review:question:${userId}`)
-      .setLabel('Задать вопрос')
-      .setStyle(ButtonStyle.Primary)
-      .setEmoji('❓'),
+  );
+
+  if (guildId && questionChannelId) {
+    row.addComponents(
+      new ButtonBuilder()
+        .setLabel('Перейти к вопросу')
+        .setStyle(ButtonStyle.Link)
+        .setEmoji('❓')
+        .setURL(`https://discord.com/channels/${guildId}/${questionChannelId}`),
+    );
+  } else {
+    row.addComponents(
+      new ButtonBuilder()
+        .setCustomId(`review:question:${userId}`)
+        .setLabel('Задать вопрос')
+        .setStyle(ButtonStyle.Primary)
+        .setEmoji('❓'),
+    );
+  }
+
+  row.addComponents(
     new ButtonBuilder()
       .setCustomId(`review:blacklist:${userId}`)
       .setLabel('ЧС')
       .setStyle(ButtonStyle.Secondary)
       .setEmoji('🚫'),
   );
+
+  return row;
+}
+
+export function buildAppealReviewButtons(
+  userId: string,
+  guildId?: string,
+  questionChannelId?: string,
+): ActionRowBuilder<ButtonBuilder> {
+  const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`appeal:amnesty:${userId}`)
+      .setLabel('Принять амнистию')
+      .setStyle(ButtonStyle.Success)
+      .setEmoji('✅'),
+    new ButtonBuilder()
+      .setCustomId(`appeal:deny:${userId}`)
+      .setLabel('Отказать в амнистии')
+      .setStyle(ButtonStyle.Danger)
+      .setEmoji('❌'),
+  );
+
+  if (guildId && questionChannelId) {
+    row.addComponents(
+      new ButtonBuilder()
+        .setLabel('Перейти к вопросу')
+        .setStyle(ButtonStyle.Link)
+        .setEmoji('❓')
+        .setURL(`https://discord.com/channels/${guildId}/${questionChannelId}`),
+    );
+  } else {
+    row.addComponents(
+      new ButtonBuilder()
+        .setCustomId(`appeal:question:${userId}`)
+        .setLabel('Задать вопрос')
+        .setStyle(ButtonStyle.Primary)
+        .setEmoji('❓'),
+    );
+  }
+
+  return row;
 }
 
 export function buildResolvedEmbed(
@@ -195,10 +256,19 @@ export function buildDecisionEmbed(
   color: number,
   reviewerId: string,
   targetUserId: string,
+  number?: number,
   reason?: { title: string; text: string },
 ): EmbedBuilder {
   const embed = new EmbedBuilder()
-    .setAuthor({ name: kind === 'appeal' ? 'Решение по апелляции' : 'Решение по заявке' })
+    .setTitle(
+      kind === 'appeal'
+        ? number
+          ? `Решение по апелляции \`№${number}\``
+          : 'Решение по апелляции'
+        : number
+        ? `Решение по анкете \`№${number}\``
+        : 'Решение по анкете',
+    )
     .setColor(color)
     .addFields({ name: 'Участник', value: `<@${targetUserId}>`, inline: true });
 
@@ -231,6 +301,7 @@ export async function postDecisionMessage(
     targetUserId: string;
     reviewMessageUrl?: string;
     reason?: { title: string; text: string };
+    number?: number;
   },
 ): Promise<void> {
   if (!channelId) return;
@@ -246,6 +317,7 @@ export async function postDecisionMessage(
       opts.color,
       opts.reviewerId,
       opts.targetUserId,
+      opts.number,
       opts.reason,
     );
     const linkRow = buildDecisionLinkRow(kind, opts.reviewMessageUrl);

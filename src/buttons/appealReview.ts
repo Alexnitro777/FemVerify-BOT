@@ -11,7 +11,13 @@ import {
 import { ButtonHandler } from '../types';
 import { config } from '../config';
 import { getAppeal, claimAppeal, updateAppeal } from '../storage';
-import { buildResolvedEmbed, buildDmEmbed, postDecisionMessage, buildProcessedButtonRow } from '../ui';
+import {
+  buildResolvedEmbed,
+  buildDmEmbed,
+  postDecisionMessage,
+  buildProcessedButtonRow,
+  buildAppealReviewButtons,
+} from '../ui';
 import { isMod, getGuild } from '../permissions';
 
 const DENY_COOLDOWN_MS = 48 * 60 * 60 * 1000;
@@ -115,7 +121,13 @@ const handler: ButtonHandler = {
       });
       await channel.send({ embeds: [embed], components: [row] });
       await pingMsg.delete().catch(() => null);
-      await interaction.editReply({ content: `Канал создан: <#${channel.id}>.` });
+
+      await interaction.editReply({
+        content: `Канал создан: <#${channel.id}>.`,
+      });
+
+      const updatedRow = buildAppealReviewButtons(userId, guild.id, channel.id);
+      await interaction.message.edit({ components: [updatedRow] }).catch(() => null);
       return;
     }
 
@@ -196,6 +208,7 @@ const handler: ButtonHandler = {
       reviewerId: interaction.user.id,
       targetUserId: userId,
       reviewMessageUrl: appeal.reviewMessageUrl ?? interaction.message.url,
+      number: appeal.number,
     });
 
     if (appeal.questionChannelId && guild) {
