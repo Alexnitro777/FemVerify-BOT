@@ -174,6 +174,15 @@ export function getApplication(userId: string): Application | undefined {
   return row ? rowToApp(row) : undefined;
 }
 
+const selectAppByQuestionChannel = db.prepare(
+  'SELECT * FROM applications WHERE questionChannelId = ?',
+);
+
+export function getApplicationByQuestionChannel(channelId: string): Application | undefined {
+  const row = selectAppByQuestionChannel.get(channelId) as AppRow | undefined;
+  return row ? rowToApp(row) : undefined;
+}
+
 const selectPendingApps = db.prepare(
   "SELECT * FROM applications WHERE status = 'pending' ORDER BY submittedAt ASC",
 );
@@ -299,12 +308,30 @@ export function getAppeal(userId: string): Appeal | undefined {
   return row ? rowToAppeal(row) : undefined;
 }
 
+const selectAppealByQuestionChannel = db.prepare(
+  'SELECT * FROM appeals WHERE questionChannelId = ?',
+);
+
+export function getAppealByQuestionChannel(channelId: string): Appeal | undefined {
+  const row = selectAppealByQuestionChannel.get(channelId) as AppealRow | undefined;
+  return row ? rowToAppeal(row) : undefined;
+}
+
 const selectPendingAppeals = db.prepare(
   "SELECT * FROM appeals WHERE status = 'pending' ORDER BY submittedAt ASC",
 );
 
 export function listPendingAppeals(): Appeal[] {
   const rows = selectPendingAppeals.all() as unknown as AppealRow[];
+  return rows.map(rowToAppeal);
+}
+
+const selectAppealsWithQuestionChannel = db.prepare(
+  'SELECT * FROM appeals WHERE questionChannelId IS NOT NULL',
+);
+
+export function listAppealsWithQuestionChannel(): Appeal[] {
+  const rows = selectAppealsWithQuestionChannel.all() as unknown as AppealRow[];
   return rows.map(rowToAppeal);
 }
 
