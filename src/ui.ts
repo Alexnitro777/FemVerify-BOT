@@ -27,7 +27,7 @@ export function buildApplicationEmbed(
 
 	embed.addFields(
 		{ name: 'Участник', value: `<@${user.id}>`, inline: false },
-		{ name: 'Дата создания аккаунта', value: `<t:${createdTs}:F>`, inline: false },
+		{ name: 'Дата создания аккаунта', value: `<t:${createdTs}:R>`, inline: false },
 	);
 
 	for (const q of verifyQuestions.slice(0, 5)) {
@@ -59,7 +59,7 @@ export function buildAppealEmbed(
 
 	embed.addFields(
 		{ name: 'Участник', value: `<@${user.id}>`, inline: false },
-		{ name: 'Дата создания аккаунта', value: `<t:${createdTs}:F>`, inline: false },
+		{ name: 'Дата создания аккаунта', value: `<t:${createdTs}:R>`, inline: false },
 	);
 
 	const reason = (blacklistReason ?? '').trim();
@@ -84,13 +84,13 @@ export function buildAppealEmbed(
 
 export function buildReviewButtons(
 	userId: string,
-	questionChannelUrl?: string,
+	questionChannelId?: string,
 ): ActionRowBuilder<ButtonBuilder> {
-	const questionButton = questionChannelUrl
+	const questionButton = questionChannelId
 		? new ButtonBuilder()
+				.setCustomId(`goto:question:${questionChannelId}`)
 				.setLabel('Перейти к вопросу')
-				.setStyle(ButtonStyle.Link)
-				.setURL(questionChannelUrl)
+				.setStyle(ButtonStyle.Primary)
 				.setEmoji('❓')
 		: new ButtonBuilder()
 				.setCustomId(`review:question:${userId}`)
@@ -120,13 +120,13 @@ export function buildReviewButtons(
 
 export function buildAppealReviewButtons(
 	userId: string,
-	questionChannelUrl?: string,
+	questionChannelId?: string,
 ): ActionRowBuilder<ButtonBuilder> {
-	const questionButton = questionChannelUrl
+	const questionButton = questionChannelId
 		? new ButtonBuilder()
+				.setCustomId(`goto:question:${questionChannelId}`)
 				.setLabel('Перейти к вопросу')
-				.setStyle(ButtonStyle.Link)
-				.setURL(questionChannelUrl)
+				.setStyle(ButtonStyle.Primary)
 				.setEmoji('❓')
 		: new ButtonBuilder()
 				.setCustomId(`appeal:question:${userId}`)
@@ -172,12 +172,12 @@ export function buildWelcomeEmbed(member: GuildMember): EmbedBuilder {
 	const createdTs = Math.floor(user.createdTimestamp / 1000);
 
 	return new EmbedBuilder()
-		.setTitle('🎉 Добро пожаловать!')
+		.setTitle('🎉  Добро пожаловать!')
 		.setDescription(`<@${user.id}>, добро пожаловать на **${guild.name}**!`)
 		.setThumbnail(user.displayAvatarURL())
 		.addFields(
-			{ name: '👥 Участник №', value: `\`${guild.memberCount}\``, inline: true },
-			{ name: '🗓 Аккаунт создан', value: `<t:${createdTs}:F>`, inline: true },
+			{ name: '👥  Участник №', value: `\`${guild.memberCount}\``, inline: true },
+			{ name: '🗓  Аккаунт создан', value: `<t:${createdTs}:R>`, inline: true },
 		)
 		.setColor(0x57f287)
 		.setFooter({ text: guild.name, iconURL: guild.iconURL() ?? undefined })
