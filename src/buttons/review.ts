@@ -205,6 +205,7 @@ const handler: ButtonHandler = {
       reviewerId: interaction.user.id,
       targetUserId: userId,
       reviewMessageUrl: app.reviewMessageUrl ?? interaction.message.url,
+      number: app.number,
     });
 
     if (app.questionChannelId) {

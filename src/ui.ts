@@ -19,7 +19,7 @@ export function buildApplicationEmbed(
   const createdTs = Math.floor(user.createdTimestamp / 1000);
 
   const embed = new EmbedBuilder()
-    .setAuthor({ name: number ? `Заявка на верификацию №${number}` : 'Заявка на верификацию' })
+    .setTitle(number ? `Заявка на верификацию №\`${number}\`` : 'Заявка на верификацию')
     .setThumbnail(user.displayAvatarURL())
     .setColor(0xfee75c)
     .setFooter({ text: `ID: ${user.id}` })
@@ -51,7 +51,7 @@ export function buildAppealEmbed(
   const createdTs = Math.floor(user.createdTimestamp / 1000);
 
   const embed = new EmbedBuilder()
-    .setAuthor({ name: number ? `Апелляция №${number}` : 'Апелляция' })
+    .setTitle(number ? `Апелляция №\`${number}\`` : 'Апелляция')
     .setThumbnail(user.displayAvatarURL())
     .setColor(0xeb459e)
     .setFooter({ text: `ID: ${user.id}` })
@@ -195,10 +195,19 @@ export function buildDecisionEmbed(
   color: number,
   reviewerId: string,
   targetUserId: string,
+  number?: number,
   reason?: { title: string; text: string },
 ): EmbedBuilder {
   const embed = new EmbedBuilder()
-    .setAuthor({ name: kind === 'appeal' ? 'Решение по апелляции' : 'Решение по заявке' })
+    .setTitle(
+      kind === 'appeal'
+        ? number
+          ? `Решение по апелляции №\`${number}\``
+          : 'Решение по апелляции'
+        : number
+        ? `Решение по заявке №\`${number}\``
+        : 'Решение по заявке',
+    )
     .setColor(color)
     .addFields({ name: 'Участник', value: `<@${targetUserId}>`, inline: true });
 
@@ -231,6 +240,7 @@ export async function postDecisionMessage(
     targetUserId: string;
     reviewMessageUrl?: string;
     reason?: { title: string; text: string };
+    number?: number;
   },
 ): Promise<void> {
   if (!channelId) return;
@@ -246,6 +256,7 @@ export async function postDecisionMessage(
       opts.color,
       opts.reviewerId,
       opts.targetUserId,
+      opts.number,
       opts.reason,
     );
     const linkRow = buildDecisionLinkRow(kind, opts.reviewMessageUrl);

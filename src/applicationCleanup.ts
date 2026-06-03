@@ -93,6 +93,7 @@ async function closeExpiredApplication(
     targetUserId: app.userId,
     reviewMessageUrl: app.reviewMessageUrl,
     reason: { title: 'Причина', text: AUTO_CLOSE_REASON },
+    number: app.number,
   });
 }
 

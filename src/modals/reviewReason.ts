@@ -105,6 +105,7 @@ const handler: ModalHandler = {
         title: action === 'blacklist' ? 'Причина ЧС' : 'Причина отклонения',
         text: reason,
       },
+      number: app.number,
     });
 
     if (app.questionChannelId) {

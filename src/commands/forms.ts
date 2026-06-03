@@ -30,7 +30,7 @@ const command: SlashCommand = {
     const lines = pending.map((app, i) => {
       const ts = Math.floor(app.submittedAt / 1000);
       const link = app.reviewMessageUrl ? ` — [перейти](${app.reviewMessageUrl})` : '';
-      const num = app.number ? `№${app.number}` : `${i + 1}.`;
+      const num = app.number ? `№\`${app.number}\`` : `\`${i + 1}.\``;
       return `**${num}** <@${app.userId}> (${app.username}) — <t:${ts}:R>${link}`;
     });
 
