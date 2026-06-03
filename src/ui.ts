@@ -122,6 +122,16 @@ export function buildLeftServerButtonRow(): ActionRowBuilder<ButtonBuilder> {
   );
 }
 
+export function buildAutoClosedButtonRow(): ActionRowBuilder<ButtonBuilder> {
+  return new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder()
+      .setCustomId('decision:expired')
+      .setLabel('Закрыто автоматически')
+      .setStyle(ButtonStyle.Secondary)
+      .setDisabled(true),
+  );
+}
+
 export function buildDecisionLinkRow(
   kind: DecisionKind,
   reviewMessageUrl?: string,

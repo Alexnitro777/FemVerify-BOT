@@ -34,7 +34,8 @@ export type ApplicationStatus =
   | 'approved'
   | 'rejected'
   | 'blacklisted'
-  | 'left';
+  | 'left'
+  | 'expired';
 
 export type AppealStatus = 'pending' | 'amnestied' | 'denied' | 'left';
 

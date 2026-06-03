@@ -7,6 +7,7 @@ import { closeDb } from './storage';
 import { registerTagRoleEvents, syncAllTagRoles } from './roleTag';
 import { registerLeaveCleanupEvents } from './leaveCleanup';
 import { registerQuestionCleanup } from './questionCleanup';
+import { registerApplicationCleanup } from './applicationCleanup';
 
 async function bootstrap(): Promise<void> {
   console.log('[boot] starting...');
@@ -34,6 +35,8 @@ async function bootstrap(): Promise<void> {
   registerLeaveCleanupEvents(client);
 
   registerQuestionCleanup(client);
+
+  registerApplicationCleanup(client);
 
   client.once('clientReady', (c) => {
     console.log(`Logged in as ${c.user.tag}`);
