@@ -1,9 +1,11 @@
 import { ModalSubmitInteraction, TextChannel, MessageFlags } from 'discord.js';
 import { ModalHandler } from '../types';
 import { appealQuestions } from '../questions';
-import { getApplication, saveAppeal, nextAppealNumber } from '../storage';
+import { getApplication, getAppeal, saveAppeal, nextAppealNumber } from '../storage';
 import { config } from '../config';
 import { buildAppealEmbed, buildAppealReviewButtons } from '../ui';
+
+const DENY_COOLDOWN_MS = 48 * 60 * 60 * 1000;
 
 const handler: ModalHandler = {
 	customId: 'appeal:submit',
@@ -23,6 +25,33 @@ const handler: ModalHandler = {
 			.join('\n\n');
 
 		await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+
+		const member = await interaction.guild?.members
+			.fetch(interaction.user.id)
+			.catch(() => null);
+		if (!member || !member.roles.cache.has(config.roles.blacklist)) {
+			await interaction.editReply({
+				content: 'Апелляция доступна только участникам в чёрном списке.',
+			});
+			return;
+		}
+
+		const existingAppeal = getAppeal(interaction.user.id);
+		if (existingAppeal?.status === 'pending') {
+			await interaction.editReply({ content: 'Ваша апелляция уже на рассмотрении.' });
+			return;
+		}
+		if (
+			existingAppeal?.status === 'denied' &&
+			existingAppeal.resolvedAt &&
+			Date.now() < existingAppeal.resolvedAt + DENY_COOLDOWN_MS
+		) {
+			const ts = Math.floor((existingAppeal.resolvedAt + DENY_COOLDOWN_MS) / 1000);
+			await interaction.editReply({
+				content: `⛔ Вашу прошлую апелляцию отклонили. Новую можно подать <t:${ts}:R> (<t:${ts}:f>).`,
+			});
+			return;
+		}
 
 		const application = getApplication(interaction.user.id);
 		const blacklistReason =

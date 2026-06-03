@@ -48,7 +48,9 @@ export async function handleInteraction(client: BotClient, interaction: Interact
     console.error('Interaction error:', err);
     if (!interaction.isRepliable()) return;
     const message = 'Произошла ошибка при обработке.';
-    if (interaction.deferred) {
+    if (interaction.isMessageComponent() && (interaction.deferred || interaction.replied)) {
+      await interaction.followUp({ content: message, flags: MessageFlags.Ephemeral }).catch(() => null);
+    } else if (interaction.deferred) {
       await interaction.editReply({ content: message }).catch(() => null);
     } else if (interaction.replied) {
       await interaction.followUp({ content: message, flags: MessageFlags.Ephemeral }).catch(() => null);

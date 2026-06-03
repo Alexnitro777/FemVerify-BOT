@@ -20,14 +20,21 @@ const handler: ButtonHandler = {
     const [, , channelId] = interaction.customId.split(':');
     await interaction.reply({ content: 'Удаляю канал...', flags: MessageFlags.Ephemeral });
 
-    // Возвращаем кнопку «Задать вопрос» на сообщении заявки/апелляции.
-    await restoreReviewButton(interaction.client, channelId);
-
     const channel = await interaction.guild?.channels.fetch(channelId).catch(() => null);
-    await channel?.delete().catch((e) => {
-      console.error('[questionClose] failed to delete channel', e);
-      return null;
-    });
+    const deleted = channel
+      ? await channel
+          .delete()
+          .then(() => true)
+          .catch((e) => {
+            console.error('[questionClose] failed to delete channel', e);
+            return false;
+          })
+      : true;
+
+    // Возвращаем кнопку «Задать вопрос» на сообщении заявки/апелляции.
+    if (deleted) {
+      await restoreReviewButton(interaction.client, channelId);
+    }
   },
 };
 

@@ -1,33 +1,57 @@
 # FemVerify-BOT
 
-Discord-бот для верификации участников через анкеты, с модерацией заявок и апелляциями. Дополнительно автоматически выдаёт роль за тег сервера (Server Tag). Команды — слеш-команды (`/верификация`, `/апелляции`, `/тег`), данные хранятся в SQLite через встроенный модуль `node:sqlite`.
+Discord-бот для верификации участников через анкеты, с модерацией заявок и апелляциями. Дополнительно автоматически выдаёт роль за тег сервера (Server Tag). Команды — слеш-команды (`/верификация`, `/апелляции` — админ; `/анкеты`, `/амнистии`, `/тег` — модерация), данные хранятся в SQLite через встроенный модуль `node:sqlite`.
+
+> Подробный разбор всех сценариев верификации и апелляций — в [`docs/verification-and-appeals.md`](docs/verification-and-appeals.md). Список известных багов — в [`BUGS.md`](BUGS.md).
 
 ## 1. Структура проекта
 
 ```
 FemVerify-BOT/
 ├── src/
-│   ├── commands/           Слеш-команды (/верификация, /апелляции — админ, /анкеты, /амнистии, /тег)
-│   ├── buttons/            Кнопки (verifyStart, review — 4 решения, questionClose, appealStart, appealReview)
-│   ├── modals/             Модалки (verifySubmit, reviewReason, appealSubmit)
-│   ├── handlers/           Автозагрузка обработчиков и роутер interactionCreate
-│   ├── roleTag.ts          Детект тега сервера + автовыдача/снятие роли
-│   ├── config.ts           Чтение и валидация config.json
-│   ├── permissions.ts      Проверка прав (admin / mod) по ролям из конфига
-│   ├── questions.ts        Вопросы анкеты и апелляции (до 5 полей — лимит Discord)
-│   ├── storage.ts          Хранилище SQLite (node:sqlite): applications + appeals
-│   ├── ui.ts               Построение embed и кнопок
-│   ├── types.ts            Общие типы
-│   ├── deploy-commands.ts  Регистрация slash-команд
-│   └── index.ts            Точка входа
-├── config.example.json     Шаблон конфига (токен, роли, каналы, категория)
-├── config.json             Реальный конфиг (не в git, монтируется в Docker как volume)
-├── Dockerfile              Сборка образа
-├── docker-compose.yml      Описание сервиса bot
-├── tsconfig.json           Настройки TypeScript
-├── package.json            Зависимости и npm-скрипты
+│   ├── commands/              Слеш-команды
+│   │   ├── verify.ts          /верификация (admin) — размещает кнопку анкеты
+│   │   ├── appeal.ts          /апелляции (admin) — размещает кнопку апелляции
+│   │   ├── forms.ts           /анкеты (mod) — список непринятых анкет
+│   │   ├── amnesties.ts       /амнистии (mod) — список непринятых апелляций
+│   │   └── tag.ts             /тег (mod) — статистика по тегу сервера
+│   ├── buttons/               Кнопки
+│   │   ├── verifyStart.ts     Старт анкеты (verify:start)
+│   │   ├── review.ts          4 решения по анкете (approve/reject/question/blacklist)
+│   │   ├── appealStart.ts     Старт апелляции (appeal:start)
+│   │   ├── appealReview.ts    3 действия по апелляции (amnesty/deny/question)
+│   │   └── questionClose.ts   Закрытие канала-вопроса
+│   ├── modals/                Модалки
+│   │   ├── verifySubmit.ts    Отправка анкеты
+│   │   ├── appealSubmit.ts    Отправка апелляции
+│   │   └── reviewReason.ts    Причина отклонения / ЧС
+│   ├── handlers/              Автозагрузка обработчиков (loader) и роутер interactionCreate
+│   ├── roleTag.ts             Детект тега сервера + автовыдача/снятие роли
+│   ├── leaveCleanup.ts        Обработка выхода участника (статус left)
+│   ├── questionCleanup.ts     Автоудаление просроченных каналов-вопросов (TTL 24 ч)
+│   ├── questionRestore.ts     Возврат кнопки «Задать вопрос» при закрытии канала
+│   ├── applicationCleanup.ts  Автозакрытие анкет по TTL (48 ч → expired)
+│   ├── config.ts              Чтение и валидация config.json
+│   ├── permissions.ts         Проверка прав (admin / mod) по ролям из конфига
+│   ├── questions.ts           Вопросы анкеты и апелляции (до 5 полей — лимит Discord)
+│   ├── storage.ts             Хранилище SQLite (node:sqlite): applications + appeals + counters
+│   ├── ui.ts                  Построение embed и кнопок
+│   ├── types.ts               Общие типы
+│   ├── deploy-commands.ts     Регистрация slash-команд
+│   └── index.ts               Точка входа
+├── docs/
+│   └── verification-and-appeals.md  Разбор всех сценариев верификации и апелляций
+├── config.example.json       Шаблон конфига (токен, роли, каналы, категория)
+├── config.json               Реальный конфиг (не в git, монтируется в Docker как volume)
+├── BUGS.md                   Список известных багов и пограничных случаев
+├── Dockerfile                Сборка образа
+├── docker-compose.yml        Описание сервиса bot
+├── tsconfig.json             Настройки TypeScript
+├── package.json              Зависимости и npm-скрипты
 └── README.md
 ```
+
+> Бот использует привилегированный intent **Server Members Intent** (`GuildMembers`) — включите его в Discord Developer Portal → Bot → Privileged Gateway Intents, иначе проверки ролей и синхронизация тега работать не будут.
 
 ## 2. Быстрый старт с Docker
 

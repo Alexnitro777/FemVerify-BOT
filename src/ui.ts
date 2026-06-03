@@ -64,12 +64,12 @@ export function buildAppealEmbed(
 
 	const reason = (blacklistReason ?? '').trim();
 	if (reason) {
-		const truncated = reason.length > 1000 ? reason.slice(0, 1000) + '...' : reason;
-		const quoted = truncated
+		const quoted = reason
 			.split('\n')
 			.map((line) => `> ${line}`)
 			.join('\n');
-		embed.addFields({ name: 'Причина ЧС', value: quoted });
+		const value = quoted.length > 1000 ? quoted.slice(0, 1000) + '…' : quoted;
+		embed.addFields({ name: 'Причина ЧС', value });
 	}
 
 	const rawValue = text.trim() || '—';
@@ -169,16 +169,13 @@ export function buildDmEmbed(title: string, description: string, color: number):
 
 export function buildWelcomeEmbed(member: GuildMember): EmbedBuilder {
 	const { guild, user } = member;
-	const createdTs = Math.floor(user.createdTimestamp / 1000);
 
 	return new EmbedBuilder()
 		.setTitle('🎉  Добро пожаловать!')
-		.setDescription(`<@${user.id}>, добро пожаловать на **${guild.name}**!`)
-		.setThumbnail(user.displayAvatarURL())
-		.addFields(
-			{ name: '👥  Участник №', value: `\`${guild.memberCount}\``, inline: true },
-			{ name: '🗓  Аккаунт создан', value: `<t:${createdTs}:R>`, inline: true },
+		.setDescription(
+			`Добро пожаловать на **${guild.name}**! Мы рады, что вы присоединились к нам для общения.`,
 		)
+		.setThumbnail(user.displayAvatarURL())
 		.setColor(0x57f287)
 		.setFooter({ text: guild.name, iconURL: guild.iconURL() ?? undefined })
 		.setTimestamp();

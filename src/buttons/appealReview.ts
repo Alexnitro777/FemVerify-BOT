@@ -85,7 +85,7 @@ const handler: ButtonHandler = {
 							PermissionFlagsBits.ReadMessageHistory,
 						],
 					},
-					...config.roles.mod.map((roleId) => ({
+					...[...new Set([...config.roles.mod, ...config.roles.admin])].map((roleId) => ({
 						id: roleId,
 						allow: [
 							PermissionFlagsBits.ViewChannel,

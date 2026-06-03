@@ -5,6 +5,8 @@ import {
   getAppeal,
   markApplicationLeft,
   markAppealLeft,
+  updateApplication,
+  updateAppeal,
 } from './storage';
 import { buildLeftServerButtonRow } from './ui';
 
@@ -61,13 +63,19 @@ async function handleMemberRemove(
   const app = getApplication(userId);
   if (app && app.status === 'pending' && markApplicationLeft(userId)) {
     await markReviewMessageLeft(guild, app.reviewMessageUrl);
-    await deleteQuestionChannel(guild, app.questionChannelId);
+    if (app.questionChannelId) {
+      await deleteQuestionChannel(guild, app.questionChannelId);
+      updateApplication(userId, { questionChannelId: undefined });
+    }
   }
 
   const appeal = getAppeal(userId);
   if (appeal && appeal.status === 'pending' && markAppealLeft(userId)) {
     await markReviewMessageLeft(guild, appeal.reviewMessageUrl);
-    await deleteQuestionChannel(guild, appeal.questionChannelId);
+    if (appeal.questionChannelId) {
+      await deleteQuestionChannel(guild, appeal.questionChannelId);
+      updateAppeal(userId, { questionChannelId: undefined });
+    }
   }
 }
 

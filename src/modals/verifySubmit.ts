@@ -1,7 +1,7 @@
 import { ModalSubmitInteraction, TextChannel, MessageFlags } from 'discord.js';
 import { ModalHandler } from '../types';
 import { verifyQuestions } from '../questions';
-import { saveApplication, nextApplicationNumber } from '../storage';
+import { getApplication, saveApplication, nextApplicationNumber } from '../storage';
 import { config } from '../config';
 import { buildApplicationEmbed, buildReviewButtons } from '../ui';
 
@@ -19,6 +19,22 @@ const handler: ModalHandler = {
     }
 
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+
+    const existing = getApplication(interaction.user.id);
+    if (existing?.status === 'pending') {
+      await interaction.editReply({ content: 'Ваша заявка уже на рассмотрении.' });
+      return;
+    }
+
+    const submitter = await interaction.guild?.members
+      .fetch(interaction.user.id)
+      .catch(() => null);
+    if (submitter?.roles.cache.has(config.roles.blacklist)) {
+      await interaction.editReply({
+        content: 'Вы находитесь в чёрном списке. Используйте канал апелляции.',
+      });
+      return;
+    }
 
     const number = nextApplicationNumber();
     const embed = buildApplicationEmbed(interaction.user, answers, number);
