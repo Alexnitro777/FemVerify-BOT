@@ -13,7 +13,7 @@ import { SlashCommand } from '../types';
 
 const command: SlashCommand = {
   data: new SlashCommandBuilder()
-    .setName('апелляции')
+    .setName('апелляция')
     .setDescription('Разместить сообщение с кнопкой апелляции в текущем канале')
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator) as unknown as SlashCommand['data'],
 

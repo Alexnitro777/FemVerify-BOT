@@ -1,8 +1,8 @@
 services:
   bot:
     build: .
-    image: femverify-bot:latest
-    container_name: femverify-bot
+    image: your-image-name:latest
+    container_name: your-container-name
     restart: unless-stopped
     tty: true
     volumes:

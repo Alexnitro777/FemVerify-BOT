@@ -1,6 +1,6 @@
 # FemVerify-BOT
 
-Discord-бот для верификации участников через анкеты, с модерацией заявок и апелляциями. Дополнительно автоматически выдаёт роль за тег сервера (Server Tag). Команды — слеш-команды (`/верификация`, `/апелляции` — админ; `/анкеты`, `/амнистии`, `/тег` — модерация), данные хранятся в SQLite через встроенный модуль `node:sqlite`.
+Discord-бот для верификации участников через анкеты, с модерацией заявок и апелляциями. Дополнительно автоматически выдаёт роль за тег сервера (Server Tag). Команды — слеш-команды (`/верификация`, `/апелляция` — админ; `/анкеты`, `/амнистии`, `/тег` — модерация), данные хранятся в SQLite через встроенный модуль `node:sqlite`.
 
 > Подробный разбор всех сценариев верификации и апелляций — в [`docs/verification-and-appeals.md`](docs/verification-and-appeals.md). Список известных багов — в [`BUGS.md`](BUGS.md).
 
@@ -11,7 +11,7 @@ FemVerify-BOT/
 ├── src/
 │   ├── commands/              Слеш-команды
 │   │   ├── verify.ts          /верификация (admin) — размещает кнопку анкеты
-│   │   ├── appeal.ts          /апелляции (admin) — размещает кнопку апелляции
+│   │   ├── appeal.ts          /апелляция (admin) — размещает кнопку апелляции
 │   │   ├── forms.ts           /анкеты (mod) — список непринятых анкет
 │   │   ├── amnesties.ts       /амнистии (mod) — список непринятых апелляций
 │   │   └── tag.ts             /тег (mod) — статистика по тегу сервера
@@ -45,7 +45,8 @@ FemVerify-BOT/
 ├── config.json               Реальный конфиг (не в git, монтируется в Docker как volume)
 ├── BUGS.md                   Список известных багов и пограничных случаев
 ├── Dockerfile                Сборка образа
-├── docker-compose.yml        Описание сервиса bot
+├── docker-compose.example.yml  Шаблон описания сервиса bot
+├── docker-compose.yml        Реальное описание сервиса (не в git, своё имя image и container_name)
 ├── tsconfig.json             Настройки TypeScript
 ├── package.json              Зависимости и npm-скрипты
 └── README.md
@@ -81,7 +82,15 @@ sh get-docker.sh
     cp config.example.json config.json
     ```
     
-3. **Запусти бота:**
+3. **Создай docker-compose.yml:**
+    
+    ```bash
+    cp docker-compose.example.yml docker-compose.yml
+    ```
+    
+    Открой `docker-compose.yml` и задай свои значения `image` и `container_name` (по умолчанию в шаблоне стоят плейсхолдеры `your-image-name:latest` и `your-container-name`).
+    
+4. **Запусти бота:**
     
     ```bash
     docker compose up -d --build
@@ -112,5 +121,5 @@ docker compose up -d --build
 docker compose down
 ```
 
-> `config.json` смонтирован в контейнер как volume (read-only), база лежит в `./data/bot.db` и переживает пересборку образа. Перезапуск нужен при изменении `config.json`, а пересборка — при изменении кода или добавлении новых команд.
+> `config.json` смонтирован в контейнер как volume (read-only), база лежит в `./data/bot.db` и переживает пересборку образа. Перезапуск нужен при изменении `config.json`, а пересборка — при изменении кода или добавлении новых команд. Файлы `config.json` и `docker-compose.yml` не в git — это твои локальные копии шаблонов.
 >
