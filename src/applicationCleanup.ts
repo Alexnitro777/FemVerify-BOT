@@ -73,7 +73,6 @@ async function closeExpiredApplication(
 ): Promise<void> {
   const reviewerId = client.user?.id ?? config.clientId;
 
-  // Атомарно забираем заявку: если модератор уже её обработал — пропускаем.
   const claimed = claimApplication(app.userId, 'expired', reviewerId, AUTO_CLOSE_REASON);
   if (!claimed) return;
 

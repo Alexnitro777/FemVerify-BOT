@@ -11,7 +11,7 @@ import { listPendingAppeals } from '../storage';
 const command: SlashCommand = {
   data: new SlashCommandBuilder()
     .setName('формычсп')
-    .setDescription('Показать все непринятые аппеляции')
+    .setDescription('Показать все непринятые апелляции')
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageNicknames) as unknown as SlashCommand['data'],
 
   access: 'mod',
@@ -21,7 +21,7 @@ const command: SlashCommand = {
 
     if (pending.length === 0) {
       await interaction.reply({
-        content: 'Непринятых аппеляций нет. 🎉',
+        content: 'Непринятых апелляций нет. 🎉',
         flags: MessageFlags.Ephemeral,
       });
       return;
@@ -34,7 +34,7 @@ const command: SlashCommand = {
     });
 
     const embed = new EmbedBuilder()
-      .setTitle(`⚖️ Непринятые аппеляции — ${pending.length}`)
+      .setTitle(`⚖️ Непринятые апелляции — ${pending.length}`)
       .setColor(0xeb459e)
       .setDescription(lines.join('\n').slice(0, 4096))
       .setTimestamp();

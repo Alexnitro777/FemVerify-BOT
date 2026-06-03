@@ -14,7 +14,7 @@ import { SlashCommand } from '../types';
 const command: SlashCommand = {
   data: new SlashCommandBuilder()
     .setName('апелляции')
-    .setDescription('Разместить сообщение с кнопкой аппеляции в текущем канале')
+    .setDescription('Разместить сообщение с кнопкой апелляции в текущем канале')
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator) as unknown as SlashCommand['data'],
 
   access: 'admin',
@@ -58,7 +58,7 @@ const command: SlashCommand = {
             '⛔ **Cooldown после отказа** — если апелляцию отклонили, новую можно подать через **48 ч.**',
         },
       )
-      .setFooter({ text: 'Нажми кнопку ниже, чтобы открыть форму апелляции.' });
+      .setFooter({ text: 'Нажми кнопку ниже, чтобы открыть форму апелляции' });
 
     const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
       new ButtonBuilder()
@@ -69,7 +69,7 @@ const command: SlashCommand = {
     );
 
     await interaction.channel.send({ embeds: [embed], components: [row] });
-    await interaction.reply({ content: 'Сообщение аппеляции размещено.', flags: MessageFlags.Ephemeral });
+    await interaction.reply({ content: 'Сообщение апелляции размещено.', flags: MessageFlags.Ephemeral });
   },
 };
 

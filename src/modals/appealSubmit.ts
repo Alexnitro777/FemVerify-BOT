@@ -61,7 +61,7 @@ const handler: ModalHandler = {
     if (!channel || !channel.isTextBased()) {
       console.error('[appealSubmit] appeal review channel unavailable:', config.channels.appealReview);
       await interaction.editReply({
-        content: '❌ Не удалось отправить аппеляцию: канал модерации недоступен. Сообщите администрации.',
+        content: '❌ Не удалось отправить апелляцию: канал модерации недоступен. Сообщите администрации.',
       });
       return;
     }
@@ -75,7 +75,7 @@ const handler: ModalHandler = {
 
     if (!msg) {
       await interaction.editReply({
-        content: '❌ Не удалось отправить аппеляцию модерации. Попробуйте позже или сообщите администрации.',
+        content: '❌ Не удалось отправить апелляцию модерации. Попробуйте позже или сообщите администрации.',
       });
       return;
     }
@@ -91,7 +91,7 @@ const handler: ModalHandler = {
     });
 
     await interaction.editReply({
-      content: '✅ Аппеляция отправлена. Ожидайте решения модерации.',
+      content: '✅ Апелляция отправлена. Ожидайте решения модерации.',
     });
   },
 };

@@ -18,7 +18,7 @@ const handler: ButtonHandler = {
     const member = interaction.member as GuildMember | null;
     if (member && member.roles.cache.has(config.roles.blacklist)) {
       await interaction.reply({
-        content: 'Вы находитесь в чёрном списке. Используйте канал аппеляции.',
+        content: 'Вы находитесь в чёрном списке. Используйте канал апелляции.',
         flags: MessageFlags.Ephemeral,
       });
       return;

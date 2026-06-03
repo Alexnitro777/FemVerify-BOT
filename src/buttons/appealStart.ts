@@ -20,7 +20,7 @@ const handler: ButtonHandler = {
     const member = interaction.member as GuildMember | null;
     if (!member || !member.roles.cache.has(config.roles.blacklist)) {
       await interaction.reply({
-        content: 'Аппеляция доступна только участникам в чёрном списке.',
+        content: 'Апелляция доступна только участникам в чёрном списке.',
         flags: MessageFlags.Ephemeral,
       });
       return;
@@ -28,7 +28,7 @@ const handler: ButtonHandler = {
 
     const existing = getAppeal(interaction.user.id);
     if (existing?.status === 'pending') {
-      await interaction.reply({ content: 'Ваша аппеляция уже на рассмотрении.', flags: MessageFlags.Ephemeral });
+      await interaction.reply({ content: 'Ваша апелляция уже на рассмотрении.', flags: MessageFlags.Ephemeral });
       return;
     }
 

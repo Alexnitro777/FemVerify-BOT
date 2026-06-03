@@ -39,7 +39,7 @@ const handler: ButtonHandler = {
 
       const appeal = getAppeal(userId);
       if (!appeal) {
-        await interaction.editReply({ content: 'Аппеляция не найдена.' });
+        await interaction.editReply({ content: 'Апелляция не найдена.' });
         return;
       }
 
@@ -121,7 +121,7 @@ const handler: ButtonHandler = {
 
     const appeal = getAppeal(userId);
     if (!appeal) {
-      await interaction.followUp({ content: 'Аппеляция не найдена.', flags: MessageFlags.Ephemeral });
+      await interaction.followUp({ content: 'Апелляция не найдена.', flags: MessageFlags.Ephemeral });
       return;
     }
 
@@ -130,7 +130,7 @@ const handler: ButtonHandler = {
     if (!claimed) {
       const fresh = getAppeal(userId);
       await interaction.followUp({
-        content: `Аппеляция уже обработана (${fresh?.status ?? 'не найдена'}).`,
+        content: `Апелляция уже обработана (${fresh?.status ?? 'не найдена'}).`,
         flags: MessageFlags.Ephemeral,
       });
       return;
@@ -166,7 +166,7 @@ const handler: ButtonHandler = {
       await member
         ?.send({
           embeds: [
-            buildDmEmbed('❌ В амнистии отказано', 'Ваша аппеляция отклонена. ЧС сохраняется.', 0xed4245),
+            buildDmEmbed('❌ В амнистии отказано', 'Ваша апелляция отклонена. ЧС сохраняется.', 0xed4245),
           ],
         })
         .catch(() => null);

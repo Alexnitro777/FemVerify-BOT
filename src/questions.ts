@@ -47,6 +47,6 @@ export const appealQuestions: Question[] = [
     required: true,
     minLength: 20,
     maxLength: 150,
-    placeholder: 'Опиши спокойно: за что, как ты понял ситуацию, и почему стоит дать второй шанс.',
+    placeholder: 'Опиши спокойно: за что, как ты понял ситуацию и почему стоит дать второй шанс.',
   },
 ];
