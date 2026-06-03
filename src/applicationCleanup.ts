@@ -13,7 +13,7 @@ import {
   postDecisionMessage,
 } from './ui';
 
-const APPLICATION_TTL_MS = 2 * 24 * 60 * 60_000;
+const APPLICATION_TTL_MS = 1 * 60_000;
 
 const SWEEP_INTERVAL_MS = Math.min(
   5 * 60_000,
@@ -123,7 +123,7 @@ export function registerApplicationCleanup(client: Client): void {
 
   client.once('clientReady', () => {
     console.log(
-      `[applicationCleanup] включено: TTL=${Math.round(APPLICATION_TTL_MS / 3_600_000)} ч, ` +
+      `[applicationCleanup] включено: TTL=${Math.round(APPLICATION_TTL_MS / 60_000)} мин, ` +
         `проверка каждые ${Math.round(SWEEP_INTERVAL_MS / 1000)} с`,
     );
     run();
