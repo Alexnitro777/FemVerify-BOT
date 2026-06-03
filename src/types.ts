@@ -50,6 +50,7 @@ export interface Application {
   reviewerId?: string;
   reason?: string;
   questionChannelId?: string;
+  number?: number;
 }
 
 export interface Appeal {
@@ -64,4 +65,5 @@ export interface Appeal {
   resolvedAt?: number;
   questionChannelId?: string;
   blacklistReason?: string;
+  number?: number;
 }

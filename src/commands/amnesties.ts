@@ -10,7 +10,7 @@ import { listPendingAppeals } from '../storage';
 
 const command: SlashCommand = {
   data: new SlashCommandBuilder()
-    .setName('формычсп')
+    .setName('амнистии')
     .setDescription('Показать все непринятые апелляции')
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageNicknames) as unknown as SlashCommand['data'],
 
@@ -30,7 +30,8 @@ const command: SlashCommand = {
     const lines = pending.map((appeal, i) => {
       const ts = Math.floor(appeal.submittedAt / 1000);
       const link = appeal.reviewMessageUrl ? ` — [перейти](${appeal.reviewMessageUrl})` : '';
-      return `**${i + 1}.** <@${appeal.userId}> (${appeal.username}) — <t:${ts}:R>${link}`;
+      const num = appeal.number ? `№${appeal.number}` : `${i + 1}.`;
+      return `**${num}** <@${appeal.userId}> (${appeal.username}) — <t:${ts}:R>${link}`;
     });
 
     const embed = new EmbedBuilder()

@@ -14,6 +14,8 @@ import { getAppeal, claimAppeal, updateAppeal } from '../storage';
 import { buildResolvedEmbed, buildDmEmbed, postDecisionMessage, buildProcessedButtonRow } from '../ui';
 import { isMod, getGuild } from '../permissions';
 
+const DENY_COOLDOWN_MS = 48 * 60 * 60 * 1000;
+
 const handler: ButtonHandler = {
   customId: /^appeal:(amnesty|deny|question):\d+$/,
 
@@ -163,10 +165,15 @@ const handler: ButtonHandler = {
         })
         .catch(() => null);
     } else {
+      const ts = Math.floor((Date.now() + DENY_COOLDOWN_MS) / 1000);
       await member
         ?.send({
           embeds: [
-            buildDmEmbed('❌ В амнистии отказано', 'Ваша апелляция отклонена. ЧС сохраняется.', 0xed4245),
+            buildDmEmbed(
+              '❌ В амнистии отказано',
+              `Ваша апелляция отклонена. ЧС сохраняется.\n\nВы сможете подать новую апелляцию <t:${ts}:R> (<t:${ts}:f>).`,
+              0xed4245,
+            ),
           ],
         })
         .catch(() => null);

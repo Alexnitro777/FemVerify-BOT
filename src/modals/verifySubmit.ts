@@ -1,7 +1,7 @@
 import { ModalSubmitInteraction, TextChannel, MessageFlags } from 'discord.js';
 import { ModalHandler } from '../types';
 import { verifyQuestions } from '../questions';
-import { saveApplication } from '../storage';
+import { saveApplication, nextApplicationNumber } from '../storage';
 import { config } from '../config';
 import { buildApplicationEmbed, buildReviewButtons } from '../ui';
 
@@ -20,7 +20,8 @@ const handler: ModalHandler = {
 
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
-    const embed = buildApplicationEmbed(interaction.user, answers);
+    const number = nextApplicationNumber();
+    const embed = buildApplicationEmbed(interaction.user, answers, number);
     const buttons = buildReviewButtons(interaction.user.id);
 
     const channel = await interaction.client.channels.fetch(config.channels.review).catch(() => null);
@@ -54,6 +55,7 @@ const handler: ModalHandler = {
       submittedAt: Date.now(),
       status: 'pending',
       reviewMessageUrl: msg.url,
+      number,
     });
 
     await interaction.editReply({

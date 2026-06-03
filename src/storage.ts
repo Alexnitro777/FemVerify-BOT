@@ -63,6 +63,42 @@ try {
 } catch {
 }
 
+try {
+  db.exec('ALTER TABLE applications ADD COLUMN number INTEGER;');
+} catch {
+}
+
+try {
+  db.exec('ALTER TABLE appeals ADD COLUMN number INTEGER;');
+} catch {
+}
+
+db.exec(`
+  CREATE TABLE IF NOT EXISTS counters (
+    name TEXT PRIMARY KEY,
+    value INTEGER NOT NULL
+  );
+`);
+
+const bumpCounter = db.prepare(`
+  INSERT INTO counters (name, value) VALUES (?, 1)
+  ON CONFLICT(name) DO UPDATE SET value = value + 1
+  RETURNING value
+`);
+
+function nextNumber(name: string): number {
+  const row = bumpCounter.get(name) as { value: number };
+  return row.value;
+}
+
+export function nextApplicationNumber(): number {
+  return nextNumber('application');
+}
+
+export function nextAppealNumber(): number {
+  return nextNumber('appeal');
+}
+
 export function closeDb(): void {
   try {
     db.close();
@@ -81,6 +117,7 @@ interface AppRow {
   reviewerId: string | null;
   reason: string | null;
   questionChannelId: string | null;
+  number: number | null;
 }
 
 function rowToApp(row: AppRow): Application {
@@ -95,12 +132,13 @@ function rowToApp(row: AppRow): Application {
     reviewerId: row.reviewerId ?? undefined,
     reason: row.reason ?? undefined,
     questionChannelId: row.questionChannelId ?? undefined,
+    number: row.number ?? undefined,
   };
 }
 
 const insertApp = db.prepare(`
-  INSERT INTO applications (userId, username, guildId, answers, submittedAt, status, reviewMessageUrl, reviewerId, reason, questionChannelId)
-  VALUES (@userId, @username, @guildId, @answers, @submittedAt, @status, @reviewMessageUrl, @reviewerId, @reason, @questionChannelId)
+  INSERT INTO applications (userId, username, guildId, answers, submittedAt, status, reviewMessageUrl, reviewerId, reason, questionChannelId, number)
+  VALUES (@userId, @username, @guildId, @answers, @submittedAt, @status, @reviewMessageUrl, @reviewerId, @reason, @questionChannelId, @number)
   ON CONFLICT(userId) DO UPDATE SET
     username = excluded.username,
     answers = excluded.answers,
@@ -109,7 +147,8 @@ const insertApp = db.prepare(`
     reviewMessageUrl = excluded.reviewMessageUrl,
     reviewerId = excluded.reviewerId,
     reason = excluded.reason,
-    questionChannelId = excluded.questionChannelId
+    questionChannelId = excluded.questionChannelId,
+    number = excluded.number
 `);
 
 export function saveApplication(app: Application): void {
@@ -124,6 +163,7 @@ export function saveApplication(app: Application): void {
     reviewerId: app.reviewerId ?? null,
     reason: app.reason ?? null,
     questionChannelId: app.questionChannelId ?? null,
+    number: app.number ?? null,
   });
 }
 
@@ -198,6 +238,7 @@ interface AppealRow {
   resolvedAt: number | null;
   questionChannelId: string | null;
   blacklistReason: string | null;
+  number: number | null;
 }
 
 function rowToAppeal(row: AppealRow): Appeal {
@@ -213,12 +254,13 @@ function rowToAppeal(row: AppealRow): Appeal {
     resolvedAt: row.resolvedAt ?? undefined,
     questionChannelId: row.questionChannelId ?? undefined,
     blacklistReason: row.blacklistReason ?? undefined,
+    number: row.number ?? undefined,
   };
 }
 
 const insertAppeal = db.prepare(`
-  INSERT INTO appeals (userId, username, text, submittedAt, status, reviewMessageUrl, reviewerId, reason, resolvedAt, questionChannelId, blacklistReason)
-  VALUES (@userId, @username, @text, @submittedAt, @status, @reviewMessageUrl, @reviewerId, @reason, @resolvedAt, @questionChannelId, @blacklistReason)
+  INSERT INTO appeals (userId, username, text, submittedAt, status, reviewMessageUrl, reviewerId, reason, resolvedAt, questionChannelId, blacklistReason, number)
+  VALUES (@userId, @username, @text, @submittedAt, @status, @reviewMessageUrl, @reviewerId, @reason, @resolvedAt, @questionChannelId, @blacklistReason, @number)
   ON CONFLICT(userId) DO UPDATE SET
     username = excluded.username,
     text = excluded.text,
@@ -229,7 +271,8 @@ const insertAppeal = db.prepare(`
     reason = excluded.reason,
     resolvedAt = excluded.resolvedAt,
     questionChannelId = excluded.questionChannelId,
-    blacklistReason = excluded.blacklistReason
+    blacklistReason = excluded.blacklistReason,
+    number = excluded.number
 `);
 
 export function saveAppeal(appeal: Appeal): void {
@@ -245,6 +288,7 @@ export function saveAppeal(appeal: Appeal): void {
     resolvedAt: appeal.resolvedAt ?? null,
     questionChannelId: appeal.questionChannelId ?? null,
     blacklistReason: appeal.blacklistReason ?? null,
+    number: appeal.number ?? null,
   });
 }
 

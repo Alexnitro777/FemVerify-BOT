@@ -7,7 +7,7 @@ Discord-бот для верификации участников через а�
 ```
 FemVerify-BOT/
 ├── src/
-│   ├── commands/           Слеш-команды (/верификация, /апелляции — админ, /формы, /формычсп, /тег)
+│   ├── commands/           Слеш-команды (/верификация, /апелляции — админ, /анкеты, /амнистии, /тег)
 │   ├── buttons/            Кнопки (verifyStart, review — 4 решения, questionClose, appealStart, appealReview)
 │   ├── modals/             Модалки (verifySubmit, reviewReason, appealSubmit)
 │   ├── handlers/           Автозагрузка обработчиков и роутер interactionCreate

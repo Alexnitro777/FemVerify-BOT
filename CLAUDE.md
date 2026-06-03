@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-A Discord verification bot (discord.js v14). New members fill an application form (anketa), moderators approve/reject/blacklist, blacklisted users can submit appeals. The bot also auto-grants a role to members displaying the server's Server Tag. All user-facing strings are in Russian. Slash command names are Russian (`/верификация`, `/апелляции`, `/тег`, `/формы`, `/формычсп`).
+A Discord verification bot (discord.js v14). New members fill an application form (anketa), moderators approve/reject/blacklist, blacklisted users can submit appeals. The bot also auto-grants a role to members displaying the server's Server Tag. All user-facing strings are in Russian. Slash command names are Russian (`/верификация`, `/апелляции`, `/тег`, `/анкеты`, `/амнистии`).
 
 ## Commands
 

@@ -8,7 +8,7 @@ import {
 } from 'discord.js';
 import { ModalHandler } from '../types';
 import { appealQuestions } from '../questions';
-import { getApplication, saveAppeal } from '../storage';
+import { getApplication, saveAppeal, nextAppealNumber } from '../storage';
 import { config } from '../config';
 import { buildAppealEmbed } from '../ui';
 
@@ -35,7 +35,8 @@ const handler: ModalHandler = {
     const blacklistReason =
       application?.status === 'blacklisted' ? application.reason : undefined;
 
-    const embed = buildAppealEmbed(interaction.user, text, blacklistReason);
+    const number = nextAppealNumber();
+    const embed = buildAppealEmbed(interaction.user, text, blacklistReason, number);
 
     const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
       new ButtonBuilder()
@@ -88,6 +89,7 @@ const handler: ModalHandler = {
       status: 'pending',
       reviewMessageUrl: msg.url,
       blacklistReason,
+      number,
     });
 
     await interaction.editReply({

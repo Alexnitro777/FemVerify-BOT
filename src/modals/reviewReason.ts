@@ -51,7 +51,7 @@ const handler: ModalHandler = {
           embeds: [
             buildDmEmbed(
               '🚫 Вы добавлены в чёрный список',
-              `Причина: ${reason}\n\nВы можете подать апелляцию в ${
+              `Причина: \`${reason}\`\n\nВы можете подать апелляцию в ${
                 config.channels.appeal ? `<#${config.channels.appeal}>` : 'соответствующем канале'
               }.`,
               0x992d22,
@@ -65,7 +65,7 @@ const handler: ModalHandler = {
           embeds: [
             buildDmEmbed(
               '❌ Заявка отклонена',
-              `Причина: ${reason}\n\nВы можете подать новую заявку.`,
+              `Причина: \`${reason}\`\n\nВы можете подать новую заявку.`,
               0xed4245,
             ),
           ],

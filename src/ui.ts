@@ -11,11 +11,15 @@ import {
 import { Application } from './types';
 import { verifyQuestions } from './questions';
 
-export function buildApplicationEmbed(user: User, answers: Record<string, string>): EmbedBuilder {
+export function buildApplicationEmbed(
+  user: User,
+  answers: Record<string, string>,
+  number?: number,
+): EmbedBuilder {
   const createdTs = Math.floor(user.createdTimestamp / 1000);
 
   const embed = new EmbedBuilder()
-    .setAuthor({ name: 'Заявка на верификацию' })
+    .setAuthor({ name: number ? `Заявка на верификацию №${number}` : 'Заявка на верификацию' })
     .setThumbnail(user.displayAvatarURL())
     .setColor(0xfee75c)
     .setFooter({ text: `ID: ${user.id}` })
@@ -38,11 +42,16 @@ export function buildApplicationEmbed(user: User, answers: Record<string, string
   return embed;
 }
 
-export function buildAppealEmbed(user: User, text: string, blacklistReason?: string): EmbedBuilder {
+export function buildAppealEmbed(
+  user: User,
+  text: string,
+  blacklistReason?: string,
+  number?: number,
+): EmbedBuilder {
   const createdTs = Math.floor(user.createdTimestamp / 1000);
 
   const embed = new EmbedBuilder()
-    .setAuthor({ name: 'Апелляция' })
+    .setAuthor({ name: number ? `Апелляция №${number}` : 'Апелляция' })
     .setThumbnail(user.displayAvatarURL())
     .setColor(0xeb459e)
     .setFooter({ text: `ID: ${user.id}` })
