@@ -67,6 +67,7 @@ async function handleMemberRemove(
   const appeal = getAppeal(userId);
   if (appeal && appeal.status === 'pending' && markAppealLeft(userId)) {
     await markReviewMessageLeft(guild, appeal.reviewMessageUrl);
+    await deleteQuestionChannel(guild, appeal.questionChannelId);
   }
 }
 

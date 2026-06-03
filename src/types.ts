@@ -62,4 +62,5 @@ export interface Appeal {
   reviewerId?: string;
   reason?: string;
   resolvedAt?: number;
+  questionChannelId?: string;
 }

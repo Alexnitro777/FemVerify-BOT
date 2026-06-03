@@ -32,7 +32,8 @@ db.exec(`
     reviewMessageUrl TEXT,
     reviewerId TEXT,
     reason TEXT,
-    resolvedAt INTEGER
+    resolvedAt INTEGER,
+    questionChannelId TEXT
   );
 `);
 
@@ -48,6 +49,11 @@ try {
 
 try {
   db.exec('ALTER TABLE appeals ADD COLUMN resolvedAt INTEGER;');
+} catch {
+}
+
+try {
+  db.exec('ALTER TABLE appeals ADD COLUMN questionChannelId TEXT;');
 } catch {
 }
 
@@ -184,6 +190,7 @@ interface AppealRow {
   reviewerId: string | null;
   reason: string | null;
   resolvedAt: number | null;
+  questionChannelId: string | null;
 }
 
 function rowToAppeal(row: AppealRow): Appeal {
@@ -197,12 +204,13 @@ function rowToAppeal(row: AppealRow): Appeal {
     reviewerId: row.reviewerId ?? undefined,
     reason: row.reason ?? undefined,
     resolvedAt: row.resolvedAt ?? undefined,
+    questionChannelId: row.questionChannelId ?? undefined,
   };
 }
 
 const insertAppeal = db.prepare(`
-  INSERT INTO appeals (userId, username, text, submittedAt, status, reviewMessageUrl, reviewerId, reason, resolvedAt)
-  VALUES (@userId, @username, @text, @submittedAt, @status, @reviewMessageUrl, @reviewerId, @reason, @resolvedAt)
+  INSERT INTO appeals (userId, username, text, submittedAt, status, reviewMessageUrl, reviewerId, reason, resolvedAt, questionChannelId)
+  VALUES (@userId, @username, @text, @submittedAt, @status, @reviewMessageUrl, @reviewerId, @reason, @resolvedAt, @questionChannelId)
   ON CONFLICT(userId) DO UPDATE SET
     username = excluded.username,
     text = excluded.text,
@@ -211,7 +219,8 @@ const insertAppeal = db.prepare(`
     reviewMessageUrl = excluded.reviewMessageUrl,
     reviewerId = excluded.reviewerId,
     reason = excluded.reason,
-    resolvedAt = excluded.resolvedAt
+    resolvedAt = excluded.resolvedAt,
+    questionChannelId = excluded.questionChannelId
 `);
 
 export function saveAppeal(appeal: Appeal): void {
@@ -225,6 +234,7 @@ export function saveAppeal(appeal: Appeal): void {
     reviewerId: appeal.reviewerId ?? null,
     reason: appeal.reason ?? null,
     resolvedAt: appeal.resolvedAt ?? null,
+    questionChannelId: appeal.questionChannelId ?? null,
   });
 }
 

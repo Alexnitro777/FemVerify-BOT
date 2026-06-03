@@ -50,6 +50,11 @@ const handler: ModalHandler = {
         .setLabel('Отказать в амнистии')
         .setStyle(ButtonStyle.Danger)
         .setEmoji('❌'),
+      new ButtonBuilder()
+        .setCustomId(`appeal:question:${interaction.user.id}`)
+        .setLabel('Задать вопрос')
+        .setStyle(ButtonStyle.Primary)
+        .setEmoji('❓'),
     );
 
     const channel = await interaction.client.channels
