@@ -173,7 +173,7 @@ export function buildWelcomeEmbed(member: GuildMember): EmbedBuilder {
 	return new EmbedBuilder()
 		.setTitle('🎉  Добро пожаловать!')
 		.setDescription(
-			`Добро пожаловать на **${guild.name}**! Мы рады, что вы присоединились к нам для общения.`,
+			`Добро пожаловать, <@${user.id}>, на **${guild.name}**! Мы рады, что вы присоединились к нам для общения.`,
 		)
 		.setThumbnail(user.displayAvatarURL())
 		.setColor(0x57f287)
