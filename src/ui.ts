@@ -38,6 +38,41 @@ export function buildApplicationEmbed(user: User, answers: Record<string, string
   return embed;
 }
 
+export function buildAppealEmbed(user: User, text: string, blacklistReason?: string): EmbedBuilder {
+  const createdTs = Math.floor(user.createdTimestamp / 1000);
+
+  const embed = new EmbedBuilder()
+    .setAuthor({ name: 'Апелляция' })
+    .setThumbnail(user.displayAvatarURL())
+    .setColor(0xeb459e)
+    .setFooter({ text: `ID: ${user.id}` })
+    .setTimestamp();
+
+  embed.addFields(
+    { name: 'Участник', value: `<@${user.id}>`, inline: false },
+    { name: 'Дата создания аккаунта', value: `<t:${createdTs}:R>`, inline: false },
+  );
+
+  const reason = (blacklistReason ?? '').trim();
+  if (reason) {
+    const truncated = reason.length > 1000 ? reason.slice(0, 1000) + '...' : reason;
+    const quoted = truncated
+      .split('\n')
+      .map((line) => `> ${line}`)
+      .join('\n');
+    embed.addFields({ name: 'Причина ЧС', value: quoted });
+  }
+
+  const rawValue = text.trim() || '—';
+  if (rawValue === '—') {
+    embed.addFields({ name: 'Текст апелляции', value: '—' });
+  } else {
+    const truncated = rawValue.length > 1000 ? rawValue.slice(0, 1000) + '...' : rawValue;
+    embed.addFields({ name: 'Текст апелляции', value: `\`${truncated}\`` });
+  }
+  return embed;
+}
+
 export function buildReviewButtons(userId: string): ActionRowBuilder<ButtonBuilder> {
   return new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder()

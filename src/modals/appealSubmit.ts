@@ -1,6 +1,5 @@
 import {
   ModalSubmitInteraction,
-  EmbedBuilder,
   ActionRowBuilder,
   ButtonBuilder,
   ButtonStyle,
@@ -9,8 +8,9 @@ import {
 } from 'discord.js';
 import { ModalHandler } from '../types';
 import { appealQuestions } from '../questions';
-import { saveAppeal } from '../storage';
+import { getApplication, saveAppeal } from '../storage';
 import { config } from '../config';
+import { buildAppealEmbed } from '../ui';
 
 const handler: ModalHandler = {
   customId: 'appeal:submit',
@@ -19,25 +19,23 @@ const handler: ModalHandler = {
     const text = appealQuestions
       .slice(0, 5)
       .map((q) => {
-        let value = '';
         try {
-          value = interaction.fields.getTextInputValue(q.id);
+          return interaction.fields.getTextInputValue(q.id);
         } catch {
-          value = '';
+          return '';
         }
-        return `**${q.label}**\n${value.trim() || '—'}`;
       })
+      .map((value) => value.trim())
+      .filter((value) => value.length > 0)
       .join('\n\n');
 
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
-    const embed = new EmbedBuilder()
-      .setTitle('Новая аппеляция')
-      .setAuthor({ name: interaction.user.tag, iconURL: interaction.user.displayAvatarURL() })
-      .setDescription(text.length > 4000 ? text.slice(0, 3997) + '...' : text)
-      .setColor(0xeb459e)
-      .setFooter({ text: `ID: ${interaction.user.id}` })
-      .setTimestamp();
+    const application = getApplication(interaction.user.id);
+    const blacklistReason =
+      application?.status === 'blacklisted' ? application.reason : undefined;
+
+    const embed = buildAppealEmbed(interaction.user, text, blacklistReason);
 
     const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
       new ButtonBuilder()
@@ -89,6 +87,7 @@ const handler: ModalHandler = {
       submittedAt: Date.now(),
       status: 'pending',
       reviewMessageUrl: msg.url,
+      blacklistReason,
     });
 
     await interaction.editReply({

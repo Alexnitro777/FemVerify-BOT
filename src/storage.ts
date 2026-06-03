@@ -33,7 +33,8 @@ db.exec(`
     reviewerId TEXT,
     reason TEXT,
     resolvedAt INTEGER,
-    questionChannelId TEXT
+    questionChannelId TEXT,
+    blacklistReason TEXT
   );
 `);
 
@@ -54,6 +55,11 @@ try {
 
 try {
   db.exec('ALTER TABLE appeals ADD COLUMN questionChannelId TEXT;');
+} catch {
+}
+
+try {
+  db.exec('ALTER TABLE appeals ADD COLUMN blacklistReason TEXT;');
 } catch {
 }
 
@@ -191,6 +197,7 @@ interface AppealRow {
   reason: string | null;
   resolvedAt: number | null;
   questionChannelId: string | null;
+  blacklistReason: string | null;
 }
 
 function rowToAppeal(row: AppealRow): Appeal {
@@ -205,12 +212,13 @@ function rowToAppeal(row: AppealRow): Appeal {
     reason: row.reason ?? undefined,
     resolvedAt: row.resolvedAt ?? undefined,
     questionChannelId: row.questionChannelId ?? undefined,
+    blacklistReason: row.blacklistReason ?? undefined,
   };
 }
 
 const insertAppeal = db.prepare(`
-  INSERT INTO appeals (userId, username, text, submittedAt, status, reviewMessageUrl, reviewerId, reason, resolvedAt, questionChannelId)
-  VALUES (@userId, @username, @text, @submittedAt, @status, @reviewMessageUrl, @reviewerId, @reason, @resolvedAt, @questionChannelId)
+  INSERT INTO appeals (userId, username, text, submittedAt, status, reviewMessageUrl, reviewerId, reason, resolvedAt, questionChannelId, blacklistReason)
+  VALUES (@userId, @username, @text, @submittedAt, @status, @reviewMessageUrl, @reviewerId, @reason, @resolvedAt, @questionChannelId, @blacklistReason)
   ON CONFLICT(userId) DO UPDATE SET
     username = excluded.username,
     text = excluded.text,
@@ -220,7 +228,8 @@ const insertAppeal = db.prepare(`
     reviewerId = excluded.reviewerId,
     reason = excluded.reason,
     resolvedAt = excluded.resolvedAt,
-    questionChannelId = excluded.questionChannelId
+    questionChannelId = excluded.questionChannelId,
+    blacklistReason = excluded.blacklistReason
 `);
 
 export function saveAppeal(appeal: Appeal): void {
@@ -235,6 +244,7 @@ export function saveAppeal(appeal: Appeal): void {
     reason: appeal.reason ?? null,
     resolvedAt: appeal.resolvedAt ?? null,
     questionChannelId: appeal.questionChannelId ?? null,
+    blacklistReason: appeal.blacklistReason ?? null,
   });
 }
 

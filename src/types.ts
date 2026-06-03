@@ -63,4 +63,5 @@ export interface Appeal {
   reason?: string;
   resolvedAt?: number;
   questionChannelId?: string;
+  blacklistReason?: string;
 }
