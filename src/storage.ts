@@ -73,12 +73,41 @@ try {
 } catch {
 }
 
+try {
+  db.exec('ALTER TABLE applications ADD COLUMN joinMethod TEXT;');
+} catch {
+}
+
 db.exec(`
   CREATE TABLE IF NOT EXISTS counters (
     name TEXT PRIMARY KEY,
     value INTEGER NOT NULL
   );
+
+  CREATE TABLE IF NOT EXISTS join_methods (
+    userId TEXT PRIMARY KEY,
+    method TEXT NOT NULL,
+    joinedAt INTEGER NOT NULL
+  );
 `);
+
+const insertJoinMethod = db.prepare(`
+  INSERT INTO join_methods (userId, method, joinedAt) VALUES (@userId, @method, @joinedAt)
+  ON CONFLICT(userId) DO UPDATE SET
+    method = excluded.method,
+    joinedAt = excluded.joinedAt
+`);
+
+export function saveJoinMethod(userId: string, method: string): void {
+  insertJoinMethod.run({ userId, method, joinedAt: Date.now() });
+}
+
+const selectJoinMethod = db.prepare('SELECT method FROM join_methods WHERE userId = ?');
+
+export function getJoinMethod(userId: string): string | undefined {
+  const row = selectJoinMethod.get(userId) as { method: string } | undefined;
+  return row?.method;
+}
 
 const bumpCounter = db.prepare(`
   INSERT INTO counters (name, value) VALUES (?, 1)
@@ -118,6 +147,7 @@ interface AppRow {
   reason: string | null;
   questionChannelId: string | null;
   number: number | null;
+  joinMethod: string | null;
 }
 
 function rowToApp(row: AppRow): Application {
@@ -133,12 +163,13 @@ function rowToApp(row: AppRow): Application {
     reason: row.reason ?? undefined,
     questionChannelId: row.questionChannelId ?? undefined,
     number: row.number ?? undefined,
+    joinMethod: row.joinMethod ?? undefined,
   };
 }
 
 const insertApp = db.prepare(`
-  INSERT INTO applications (userId, username, guildId, answers, submittedAt, status, reviewMessageUrl, reviewerId, reason, questionChannelId, number)
-  VALUES (@userId, @username, @guildId, @answers, @submittedAt, @status, @reviewMessageUrl, @reviewerId, @reason, @questionChannelId, @number)
+  INSERT INTO applications (userId, username, guildId, answers, submittedAt, status, reviewMessageUrl, reviewerId, reason, questionChannelId, number, joinMethod)
+  VALUES (@userId, @username, @guildId, @answers, @submittedAt, @status, @reviewMessageUrl, @reviewerId, @reason, @questionChannelId, @number, @joinMethod)
   ON CONFLICT(userId) DO UPDATE SET
     username = excluded.username,
     answers = excluded.answers,
@@ -148,7 +179,8 @@ const insertApp = db.prepare(`
     reviewerId = excluded.reviewerId,
     reason = excluded.reason,
     questionChannelId = excluded.questionChannelId,
-    number = excluded.number
+    number = excluded.number,
+    joinMethod = excluded.joinMethod
 `);
 
 export function saveApplication(app: Application): void {
@@ -164,6 +196,7 @@ export function saveApplication(app: Application): void {
     reason: app.reason ?? null,
     questionChannelId: app.questionChannelId ?? null,
     number: app.number ?? null,
+    joinMethod: app.joinMethod ?? null,
   });
 }
 

@@ -1,7 +1,7 @@
 import { ModalSubmitInteraction, TextChannel, MessageFlags } from 'discord.js';
 import { ModalHandler } from '../types';
 import { verifyQuestions } from '../questions';
-import { getApplication, saveApplication, nextApplicationNumber } from '../storage';
+import { getApplication, saveApplication, nextApplicationNumber, getJoinMethod } from '../storage';
 import { config } from '../config';
 import { buildApplicationEmbed, buildReviewButtons } from '../ui';
 
@@ -37,7 +37,8 @@ const handler: ModalHandler = {
     }
 
     const number = nextApplicationNumber();
-    const embed = buildApplicationEmbed(interaction.user, answers, number);
+    const joinMethod = getJoinMethod(interaction.user.id);
+    const embed = buildApplicationEmbed(interaction.user, answers, number, joinMethod);
     const buttons = buildReviewButtons(interaction.user.id);
 
     const channel = await interaction.client.channels.fetch(config.channels.review).catch(() => null);
@@ -72,6 +73,7 @@ const handler: ModalHandler = {
       status: 'pending',
       reviewMessageUrl: msg.url,
       number,
+      joinMethod,
     });
 
     await interaction.editReply({

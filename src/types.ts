@@ -51,6 +51,7 @@ export interface Application {
   reason?: string;
   questionChannelId?: string;
   number?: number;
+  joinMethod?: string;
 }
 
 export interface Appeal {

@@ -15,6 +15,7 @@ export function buildApplicationEmbed(
 	user: User,
 	answers: Record<string, string>,
 	number?: number,
+	joinMethod?: string,
 ): EmbedBuilder {
 	const createdTs = Math.floor(user.createdTimestamp / 1000);
 
@@ -30,15 +31,25 @@ export function buildApplicationEmbed(
 		{ name: 'Дата создания аккаунта', value: `<t:${createdTs}:R>`, inline: false },
 	);
 
-	for (const q of verifyQuestions.slice(0, 5)) {
+	verifyQuestions.slice(0, 5).forEach((q, idx) => {
 		const rawValue = (answers[q.id] ?? '').trim() || '—';
-		if (rawValue === '—') {
-			embed.addFields({ name: q.label, value: '—' });
-			continue;
+		const value =
+			rawValue === '—'
+				? '—'
+				: `\`${rawValue.length > 1000 ? rawValue.slice(0, 1000) + '...' : rawValue}\``;
+
+		if (idx === 0) {
+			embed.addFields({ name: q.label, value, inline: true });
+			embed.addFields({
+				name: 'Способ вступления',
+				value: joinMethod?.trim() || 'Неизвестно',
+				inline: true,
+			});
+			return;
 		}
-		const truncated = rawValue.length > 1000 ? rawValue.slice(0, 1000) + '...' : rawValue;
-		embed.addFields({ name: q.label, value: `\`${truncated}\`` });
-	}
+
+		embed.addFields({ name: q.label, value, inline: false });
+	});
 	return embed;
 }
 

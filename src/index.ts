@@ -8,6 +8,7 @@ import { registerTagRoleEvents, syncAllTagRoles } from './roleTag';
 import { registerLeaveCleanupEvents } from './leaveCleanup';
 import { registerQuestionCleanup } from './questionCleanup';
 import { registerApplicationCleanup } from './applicationCleanup';
+import { registerInviteTracker } from './inviteTracker';
 
 async function bootstrap(): Promise<void> {
   console.log('[boot] starting...');
@@ -17,7 +18,11 @@ async function bootstrap(): Promise<void> {
   console.log('[boot] guildId present:', Boolean(config.guildId));
 
   const client = new Client({
-    intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers],
+    intents: [
+      GatewayIntentBits.Guilds,
+      GatewayIntentBits.GuildMembers,
+      GatewayIntentBits.GuildInvites,
+    ],
     partials: [Partials.GuildMember],
   }) as BotClient;
 
@@ -37,6 +42,8 @@ async function bootstrap(): Promise<void> {
   registerQuestionCleanup(client);
 
   registerApplicationCleanup(client);
+
+  registerInviteTracker(client);
 
   client.once('clientReady', (c) => {
     console.log(`Logged in as ${c.user.tag}`);
