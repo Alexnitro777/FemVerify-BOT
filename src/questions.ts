@@ -19,7 +19,7 @@ export const verifyQuestions: Question[] = [
     required: true,
     maxLength: 200,
     placeholder:
-      'Например: от конкретного участника, с конкретного сервера, из TikTok/Telegram по такой-то ссылке…',
+      'Конкретно от кого, с какого сервера, ресурса или социальной сети. Ответы "от друга", "в интернете" без деталей - отклоняются.',
   },
   {
     id: 'expectations',
@@ -27,7 +27,7 @@ export const verifyQuestions: Question[] = [
     style: TextInputStyle.Paragraph,
     required: true,
     maxLength: 200,
-    placeholder: 'Например: ищу друзей, тиммейтов, общение, компанию для игр…',
+    placeholder: ' Расскажи своими словами: ищю друзей, тиммейтов, общения и т.д.',
   },
   {
     id: 'age',
@@ -35,7 +35,7 @@ export const verifyQuestions: Question[] = [
     style: TextInputStyle.Short,
     required: true,
     maxLength: 4,
-    placeholder: 'Укажи свой реальный возраст',
+    placeholder: 'Укажи свой реальный возраст.',
   },
   {
     id: 'community',
@@ -43,7 +43,7 @@ export const verifyQuestions: Question[] = [
     style: TextInputStyle.Paragraph,
     required: true,
     maxLength: 300,
-    placeholder: 'Как относишься и относишь ли себя к нему — отвечай честно',
+    placeholder: 'Как относишься к сообществу и относишь ли себя к нему — отвечай честно.',
   },
   {
     id: 'rules',
@@ -51,7 +51,7 @@ export const verifyQuestions: Question[] = [
     style: TextInputStyle.Short,
     required: true,
     maxLength: 30,
-    placeholder: 'Да',
+    placeholder: 'Достаточно короткого «да», но это значит, что ты с ними ознакомился.',
   },
 ];
 
