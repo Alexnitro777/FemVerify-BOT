@@ -16,6 +16,7 @@ export function buildApplicationEmbed(
 	answers: Record<string, string>,
 	number?: number,
 	joinMethod?: string,
+	joinedTimestamp?: number | null,
 ): EmbedBuilder {
 	const createdTs = Math.floor(user.createdTimestamp / 1000);
 
@@ -29,6 +30,11 @@ export function buildApplicationEmbed(
 	embed.addFields(
 		{ name: 'Участник', value: `<@${user.id}>`, inline: false },
 		{ name: 'Дата создания аккаунта', value: `<t:${createdTs}:R>`, inline: false },
+		{
+			name: 'Дата захода',
+			value: joinedTimestamp ? `<t:${Math.floor(joinedTimestamp / 1000)}:R>` : '—',
+			inline: false,
+		},
 	);
 
 	verifyQuestions.slice(0, 5).forEach((q, idx) => {

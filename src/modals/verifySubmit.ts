@@ -38,7 +38,13 @@ const handler: ModalHandler = {
 
     const number = nextApplicationNumber();
     const joinMethod = getJoinMethod(interaction.user.id);
-    const embed = buildApplicationEmbed(interaction.user, answers, number, joinMethod);
+    const embed = buildApplicationEmbed(
+      interaction.user,
+      answers,
+      number,
+      joinMethod,
+      submitter?.joinedTimestamp ?? null,
+    );
     const buttons = buildReviewButtons(interaction.user.id);
 
     const channel = await interaction.client.channels.fetch(config.channels.review).catch(() => null);
