@@ -48,9 +48,9 @@ export const verifyQuestions: Question[] = [
   {
     id: 'rules',
     label: 'Правила прочитаны и приняты?',
-    style: TextInputStyle.Short,
+    style: TextInputStyle.Paragraph,
     required: true,
-    maxLength: 50,
+    maxLength: 30,
     placeholder: 'Достаточно короткого «да», но это значит, что ты с ними ознакомился.',
   },
 ];
