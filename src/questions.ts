@@ -34,8 +34,8 @@ export const verifyQuestions: Question[] = [
     label: 'Сколько вам лет?',
     style: TextInputStyle.Short,
     required: true,
-    maxLength: 4,
-    placeholder: 'Укажи свой реальный возраст.',
+    maxLength: 2,
+    placeholder: 'Укажи свой реальный возраст числом.',
   },
   {
     id: 'community',
@@ -50,7 +50,7 @@ export const verifyQuestions: Question[] = [
     label: 'Правила прочитаны и приняты?',
     style: TextInputStyle.Short,
     required: true,
-    maxLength: 30,
+    maxLength: 50,
     placeholder: 'Достаточно короткого «да», но это значит, что ты с ними ознакомился.',
   },
 ];
