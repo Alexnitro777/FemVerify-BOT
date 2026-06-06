@@ -35,25 +35,19 @@ export function buildApplicationEmbed(
 			value: joinedTimestamp ? `<t:${Math.floor(joinedTimestamp / 1000)}:R>` : '—',
 			inline: true,
 		},
-		{ name: '​', value: '​', inline: true },
+		{
+			name: 'Способ вступления',
+			value: joinMethod?.trim() || 'Неизвестно',
+			inline: true,
+		},
 	);
 
-	verifyQuestions.slice(0, 5).forEach((q, idx) => {
+	verifyQuestions.slice(0, 5).forEach((q) => {
 		const rawValue = (answers[q.id] ?? '').trim() || '—';
 		const value =
 			rawValue === '—'
 				? '—'
 				: `\`${rawValue.length > 1000 ? rawValue.slice(0, 1000) + '...' : rawValue}\``;
-
-		if (idx === 0) {
-			embed.addFields({ name: q.label, value, inline: true });
-			embed.addFields({
-				name: 'Способ вступления',
-				value: joinMethod?.trim() || 'Неизвестно',
-				inline: true,
-			});
-			return;
-		}
 
 		embed.addFields({ name: q.label, value, inline: false });
 	});
