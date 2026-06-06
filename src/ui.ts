@@ -29,12 +29,13 @@ export function buildApplicationEmbed(
 
 	embed.addFields(
 		{ name: 'Участник', value: `<@${user.id}>`, inline: false },
-		{ name: 'Дата создания аккаунта', value: `<t:${createdTs}:R>`, inline: false },
+		{ name: 'Дата создания аккаунта', value: `<t:${createdTs}:R>`, inline: true },
 		{
 			name: 'Дата захода',
 			value: joinedTimestamp ? `<t:${Math.floor(joinedTimestamp / 1000)}:R>` : '—',
-			inline: false,
+			inline: true,
 		},
+		{ name: '​', value: '​', inline: true },
 	);
 
 	verifyQuestions.slice(0, 5).forEach((q, idx) => {
