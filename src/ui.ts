@@ -40,7 +40,6 @@ export function buildApplicationEmbed(
 
 		if (idx === 0) {
 			embed.addFields({ name: q.label, value, inline: true });
-			embed.addFields({ name: '|', value: '|', inline: true });
 			embed.addFields({
 				name: 'Способ вступления',
 				value: joinMethod?.trim() || 'Неизвестно',
