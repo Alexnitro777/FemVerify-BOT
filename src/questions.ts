@@ -19,7 +19,7 @@ export const verifyQuestions: Question[] = [
     required: true,
     maxLength: 200,
     placeholder:
-      'Конкретно от кого, с какого сервера, ресурса или социальной сети. Ответы "от друга", "в интернете" без деталей - отклоняются.',
+      'Конкретно от кого, с какого сервера или социальной сети.',
   },
   {
     id: 'expectations',
@@ -27,7 +27,7 @@ export const verifyQuestions: Question[] = [
     style: TextInputStyle.Paragraph,
     required: true,
     maxLength: 200,
-    placeholder: ' Расскажи своими словами: ищю друзей, тиммейтов, общения и т.д.',
+    placeholder: 'Расскажи своими словами: ищю друзей, тиммейтов, общения и т.д.',
   },
   {
     id: 'age',
