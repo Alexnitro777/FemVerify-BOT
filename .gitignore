@@ -5,11 +5,11 @@ config.json
 !config.example.json
 docker-compose.yml
 !docker-compose.example.yml
+.env
+.env.*
 *.log
 npm-debug.log*
 .vscode/
 .idea/
 .DS_Store
 Thumbs.db
-CLAUDE.md
-BUGS.md

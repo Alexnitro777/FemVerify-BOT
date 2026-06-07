@@ -31,11 +31,6 @@ async function editReviewMessage(
   });
 }
 
-/**
- * Вызывается при закрытии/удалении канала-вопроса.
- * Очищает questionChannelId и возвращает кнопку «Задать вопрос»
- * на сообщении заявки/апелляции (если она ещё в статусе pending).
- */
 export async function restoreReviewButton(client: Client, channelId: string): Promise<void> {
   const app = getApplicationByQuestionChannel(channelId);
   if (app) {

@@ -31,7 +31,6 @@ const handler: ButtonHandler = {
           })
       : true;
 
-    // Возвращаем кнопку «Задать вопрос» на сообщении заявки/апелляции.
     if (deleted) {
       await restoreReviewButton(interaction.client, channelId);
     }

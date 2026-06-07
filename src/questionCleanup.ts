@@ -32,7 +32,6 @@ async function sweep(client: Client): Promise<void> {
     const channel = await guild.channels.fetch(channelId).catch(() => null);
 
     if (!channel) {
-      // Канал уже исчез — вернём кнопку «Задать вопрос» и почистим запись.
       await restoreReviewButton(client, channelId);
       continue;
     }
@@ -50,7 +49,6 @@ async function sweep(client: Client): Promise<void> {
         return null;
       });
 
-    // После удаления возвращаем кнопку «Задать вопрос».
     await restoreReviewButton(client, channelId);
   }
 }
