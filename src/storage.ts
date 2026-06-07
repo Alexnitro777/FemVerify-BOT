@@ -200,6 +200,56 @@ export function saveApplication(app: Application): void {
   });
 }
 
+const reserveAppStmt = db.prepare(`
+  INSERT INTO applications (userId, username, guildId, answers, submittedAt, status, reviewMessageUrl, reviewerId, reason, questionChannelId, number, joinMethod)
+  VALUES (@userId, @username, @guildId, @answers, @submittedAt, @status, @reviewMessageUrl, @reviewerId, @reason, @questionChannelId, @number, @joinMethod)
+  ON CONFLICT(userId) DO UPDATE SET
+    username = excluded.username,
+    guildId = excluded.guildId,
+    answers = excluded.answers,
+    submittedAt = excluded.submittedAt,
+    status = excluded.status,
+    reviewMessageUrl = excluded.reviewMessageUrl,
+    reviewerId = excluded.reviewerId,
+    reason = excluded.reason,
+    questionChannelId = excluded.questionChannelId,
+    number = excluded.number,
+    joinMethod = excluded.joinMethod
+  WHERE applications.status != 'pending'
+`);
+
+export function reserveApplication(app: Application): boolean {
+  return (
+    reserveAppStmt.run({
+      userId: app.userId,
+      username: app.username,
+      guildId: app.guildId,
+      answers: JSON.stringify(app.answers),
+      submittedAt: app.submittedAt,
+      status: app.status,
+      reviewMessageUrl: app.reviewMessageUrl ?? null,
+      reviewerId: app.reviewerId ?? null,
+      reason: app.reason ?? null,
+      questionChannelId: app.questionChannelId ?? null,
+      number: app.number ?? null,
+      joinMethod: app.joinMethod ?? null,
+    }).changes === 1
+  );
+}
+
+const claimAppQuestionChannelStmt = db.prepare(
+  `UPDATE applications SET questionChannelId = @newId
+   WHERE userId = @userId AND questionChannelId IS @oldId`,
+);
+
+export function claimApplicationQuestionChannel(
+  userId: string,
+  newId: string,
+  oldId: string | null,
+): boolean {
+  return claimAppQuestionChannelStmt.run({ userId, newId, oldId: oldId ?? null }).changes === 1;
+}
+
 const selectApp = db.prepare('SELECT * FROM applications WHERE userId = ?');
 
 export function getApplication(userId: string): Application | undefined {
@@ -332,6 +382,56 @@ export function saveAppeal(appeal: Appeal): void {
     blacklistReason: appeal.blacklistReason ?? null,
     number: appeal.number ?? null,
   });
+}
+
+const reserveAppealStmt = db.prepare(`
+  INSERT INTO appeals (userId, username, text, submittedAt, status, reviewMessageUrl, reviewerId, reason, resolvedAt, questionChannelId, blacklistReason, number)
+  VALUES (@userId, @username, @text, @submittedAt, @status, @reviewMessageUrl, @reviewerId, @reason, @resolvedAt, @questionChannelId, @blacklistReason, @number)
+  ON CONFLICT(userId) DO UPDATE SET
+    username = excluded.username,
+    text = excluded.text,
+    submittedAt = excluded.submittedAt,
+    status = excluded.status,
+    reviewMessageUrl = excluded.reviewMessageUrl,
+    reviewerId = excluded.reviewerId,
+    reason = excluded.reason,
+    resolvedAt = excluded.resolvedAt,
+    questionChannelId = excluded.questionChannelId,
+    blacklistReason = excluded.blacklistReason,
+    number = excluded.number
+  WHERE appeals.status != 'pending'
+`);
+
+export function reserveAppeal(appeal: Appeal): boolean {
+  return (
+    reserveAppealStmt.run({
+      userId: appeal.userId,
+      username: appeal.username,
+      text: appeal.text,
+      submittedAt: appeal.submittedAt,
+      status: appeal.status,
+      reviewMessageUrl: appeal.reviewMessageUrl ?? null,
+      reviewerId: appeal.reviewerId ?? null,
+      reason: appeal.reason ?? null,
+      resolvedAt: appeal.resolvedAt ?? null,
+      questionChannelId: appeal.questionChannelId ?? null,
+      blacklistReason: appeal.blacklistReason ?? null,
+      number: appeal.number ?? null,
+    }).changes === 1
+  );
+}
+
+const claimAppealQuestionChannelStmt = db.prepare(
+  `UPDATE appeals SET questionChannelId = @newId
+   WHERE userId = @userId AND questionChannelId IS @oldId`,
+);
+
+export function claimAppealQuestionChannel(
+  userId: string,
+  newId: string,
+  oldId: string | null,
+): boolean {
+  return claimAppealQuestionChannelStmt.run({ userId, newId, oldId: oldId ?? null }).changes === 1;
 }
 
 const selectAppeal = db.prepare('SELECT * FROM appeals WHERE userId = ?');

@@ -10,7 +10,12 @@ import {
 } from 'discord.js';
 import { ButtonHandler } from '../types';
 import { config } from '../config';
-import { getAppeal, claimAppeal, updateAppeal } from '../storage';
+import {
+	getAppeal,
+	claimAppeal,
+	updateAppeal,
+	claimAppealQuestionChannel,
+} from '../storage';
 import {
 	buildResolvedEmbed,
 	buildDmEmbed,
@@ -96,7 +101,18 @@ const handler: ButtonHandler = {
 				],
 			});
 
-			updateAppeal(userId, { questionChannelId: channel.id });
+			const claimed = claimAppealQuestionChannel(userId, channel.id, appeal.questionChannelId ?? null);
+			if (!claimed) {
+				await channel.delete('Дублирующий канал-вопрос').catch(() => null);
+				const fresh = getAppeal(userId);
+				await interaction.followUp({
+					content: fresh?.questionChannelId
+						? `Канал с вопросом уже существует: <#${fresh.questionChannelId}>.`
+						: 'Канал с вопросом уже создаётся.',
+					flags: MessageFlags.Ephemeral,
+				});
+				return;
+			}
 
 			const embed = new EmbedBuilder()
 				.setTitle('Уточнение по апелляции')

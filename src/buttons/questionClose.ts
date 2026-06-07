@@ -33,6 +33,10 @@ const handler: ButtonHandler = {
 
     if (deleted) {
       await restoreReviewButton(interaction.client, channelId);
+    } else {
+      await interaction
+        .editReply({ content: '❌ Не удалось удалить канал — проверьте права бота.' })
+        .catch(() => null);
     }
   },
 };

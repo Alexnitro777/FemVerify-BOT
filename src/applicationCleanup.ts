@@ -5,6 +5,7 @@ import {
   listPendingApplications,
   claimApplication,
   updateApplication,
+  getApplication,
 } from './storage';
 import {
   buildDmEmbed,
@@ -76,8 +77,10 @@ async function closeExpiredApplication(
   const claimed = claimApplication(app.userId, 'expired', reviewerId, AUTO_CLOSE_REASON);
   if (!claimed) return;
 
-  await deleteQuestionChannel(guild, app);
-  await markReviewMessageResolved(client, app.reviewMessageUrl, reviewerId);
+  const fresh = getApplication(app.userId) ?? app;
+
+  await deleteQuestionChannel(guild, fresh);
+  await markReviewMessageResolved(client, fresh.reviewMessageUrl, reviewerId);
 
   const member = await guild.members.fetch(app.userId).catch(() => null);
   await member
@@ -91,9 +94,9 @@ async function closeExpiredApplication(
     color: AUTO_CLOSE_COLOR,
     reviewerId,
     targetUserId: app.userId,
-    reviewMessageUrl: app.reviewMessageUrl,
+    reviewMessageUrl: fresh.reviewMessageUrl,
     reason: { title: 'Причина', text: AUTO_CLOSE_REASON },
-    number: app.number,
+    number: fresh.number,
   });
 }
 

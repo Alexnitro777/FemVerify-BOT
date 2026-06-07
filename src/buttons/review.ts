@@ -13,7 +13,12 @@ import {
 } from 'discord.js';
 import { ButtonHandler } from '../types';
 import { config } from '../config';
-import { getApplication, claimApplication, updateApplication } from '../storage';
+import {
+	getApplication,
+	claimApplication,
+	updateApplication,
+	claimApplicationQuestionChannel,
+} from '../storage';
 import {
 	buildResolvedEmbed,
 	buildDmEmbed,
@@ -119,7 +124,18 @@ const handler: ButtonHandler = {
 				],
 			});
 
-			updateApplication(userId, { questionChannelId: channel.id });
+			const claimed = claimApplicationQuestionChannel(userId, channel.id, app.questionChannelId ?? null);
+			if (!claimed) {
+				await channel.delete('Дублирующий канал-вопрос').catch(() => null);
+				const fresh = getApplication(userId);
+				await interaction.followUp({
+					content: fresh?.questionChannelId
+						? `Канал с вопросом уже существует: <#${fresh.questionChannelId}>.`
+						: 'Канал с вопросом уже создаётся.',
+					flags: MessageFlags.Ephemeral,
+				});
+				return;
+			}
 
 			const embed = new EmbedBuilder()
 				.setTitle('Уточнение по заявке')
@@ -233,7 +249,7 @@ const handler: ButtonHandler = {
 						content: `<@${userId}>`,
 						allowedMentions: { users: [userId] },
 					});
-					await pingMessage.delete();
+					await pingMessage.delete().catch(() => null);
 					await welcomeChannel.send({
 						embeds: [buildWelcomeEmbed(member)],
 					});

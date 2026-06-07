@@ -1,7 +1,7 @@
 import { ModalSubmitInteraction, TextChannel, MessageFlags } from 'discord.js';
 import { ModalHandler } from '../types';
 import { verifyQuestions } from '../questions';
-import { getApplication, saveApplication, nextApplicationNumber, getJoinMethod } from '../storage';
+import { getApplication, reserveApplication, nextApplicationNumber, getJoinMethod } from '../storage';
 import { config } from '../config';
 import { buildApplicationEmbed, buildReviewButtons } from '../ui';
 
@@ -36,16 +36,7 @@ const handler: ModalHandler = {
       return;
     }
 
-    const number = nextApplicationNumber();
     const joinMethod = getJoinMethod(interaction.user.id);
-    const embed = buildApplicationEmbed(
-      interaction.user,
-      answers,
-      number,
-      joinMethod,
-      submitter?.joinedTimestamp ?? null,
-    );
-    const buttons = buildReviewButtons(interaction.user.id);
 
     const channel = await interaction.client.channels.fetch(config.channels.review).catch(() => null);
     if (!channel || !channel.isTextBased()) {
@@ -55,6 +46,16 @@ const handler: ModalHandler = {
       });
       return;
     }
+
+    const number = nextApplicationNumber();
+    const embed = buildApplicationEmbed(
+      interaction.user,
+      answers,
+      number,
+      joinMethod,
+      submitter?.joinedTimestamp ?? null,
+    );
+    const buttons = buildReviewButtons(interaction.user.id);
 
     const msg = await (channel as TextChannel)
       .send({ embeds: [embed], components: [buttons] })
@@ -70,7 +71,7 @@ const handler: ModalHandler = {
       return;
     }
 
-    saveApplication({
+    const reserved = reserveApplication({
       userId: interaction.user.id,
       username: interaction.user.tag,
       guildId: interaction.guildId ?? '',
@@ -81,6 +82,12 @@ const handler: ModalHandler = {
       number,
       joinMethod,
     });
+
+    if (!reserved) {
+      await msg.delete().catch(() => null);
+      await interaction.editReply({ content: 'Ваша заявка уже на рассмотрении.' });
+      return;
+    }
 
     await interaction.editReply({
       content: '✅ Анкета отправлена. Ожидайте решения модерации.',

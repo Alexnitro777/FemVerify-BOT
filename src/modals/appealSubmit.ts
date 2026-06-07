@@ -1,7 +1,7 @@
 import { ModalSubmitInteraction, TextChannel, MessageFlags } from 'discord.js';
 import { ModalHandler } from '../types';
 import { appealQuestions } from '../questions';
-import { getApplication, getAppeal, saveAppeal, nextAppealNumber } from '../storage';
+import { getApplication, getAppeal, reserveAppeal, nextAppealNumber } from '../storage';
 import { config } from '../config';
 import { buildAppealEmbed, buildAppealReviewButtons } from '../ui';
 
@@ -57,11 +57,6 @@ const handler: ModalHandler = {
 		const blacklistReason =
 			application?.status === 'blacklisted' ? application.reason : undefined;
 
-		const number = nextAppealNumber();
-		const embed = buildAppealEmbed(interaction.user, text, blacklistReason, number);
-
-		const row = buildAppealReviewButtons(interaction.user.id);
-
 		const channel = await interaction.client.channels
 			.fetch(config.channels.appealReview)
 			.catch(() => null);
@@ -72,6 +67,11 @@ const handler: ModalHandler = {
 			});
 			return;
 		}
+
+		const number = nextAppealNumber();
+		const embed = buildAppealEmbed(interaction.user, text, blacklistReason, number);
+
+		const row = buildAppealReviewButtons(interaction.user.id);
 
 		const msg = await (channel as TextChannel)
 			.send({ embeds: [embed], components: [row] })
@@ -87,7 +87,7 @@ const handler: ModalHandler = {
 			return;
 		}
 
-		saveAppeal({
+		const reserved = reserveAppeal({
 			userId: interaction.user.id,
 			username: interaction.user.tag,
 			text,
@@ -97,6 +97,12 @@ const handler: ModalHandler = {
 			blacklistReason,
 			number,
 		});
+
+		if (!reserved) {
+			await msg.delete().catch(() => null);
+			await interaction.editReply({ content: 'Ваша апелляция уже на рассмотрении.' });
+			return;
+		}
 
 		await interaction.editReply({
 			content: '✅ Апелляция отправлена. Ожидайте решения модерации.',

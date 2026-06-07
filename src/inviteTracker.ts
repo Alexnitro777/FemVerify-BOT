@@ -71,11 +71,12 @@ async function detectJoinMethod(guild: Guild): Promise<string> {
   }
 
   if (inviterId === undefined) {
+    const missing: CachedInvite[] = [];
     for (const [code, prev] of inviteCache) {
-      if (!fresh.has(code)) {
-        inviterId = prev.inviterId;
-        break;
-      }
+      if (!fresh.has(code)) missing.push(prev);
+    }
+    if (missing.length === 1) {
+      inviterId = missing[0].inviterId;
     }
   }
 
@@ -113,15 +114,19 @@ export function registerInviteTracker(client: Client): void {
 
   client.on('inviteCreate', (invite) => {
     if (invite.guild?.id !== config.guildId) return;
-    inviteCache.set(invite.code, {
-      uses: invite.uses ?? 0,
-      inviterId: invite.inviterId ?? null,
+    void runExclusive(async () => {
+      inviteCache.set(invite.code, {
+        uses: invite.uses ?? 0,
+        inviterId: invite.inviterId ?? null,
+      });
     });
   });
 
   client.on('inviteDelete', (invite) => {
     if (invite.guild?.id !== config.guildId) return;
-    inviteCache.delete(invite.code);
+    void runExclusive(async () => {
+      inviteCache.delete(invite.code);
+    });
   });
 
   client.on('guildMemberAdd', (member) => {
