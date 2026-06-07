@@ -65,6 +65,9 @@ Everything is **applications** (verification) and **appeals** (amnesty). In `sto
 - `leaveCleanup.ts` — marks pending application/appeal `left` when a member leaves.
 - `inviteTracker.ts` — tracks which invite a member used (the "join method" shown on the form).
 
+### Rendering layer
+`ui.ts` is the single source of every embed and button row — the application/appeal review cards, the moderator decision buttons (`buildReviewButtons`/`buildAppealReviewButtons` encode the `review:*`/`appeal:*` customIds), the disabled "processed/left/expired" rows, DM embeds, the welcome embed, and the mirrored summary posted to `channels.decisions` via `postDecisionMessage`. Field values are wrapped in inline code and truncated to 1000 chars. Change UI here, not inline in handlers, so every flow stays consistent.
+
 ### Permissions
 `permissions.ts` is two-tier. Slash commands: `commandAccessLevel` resolves `admin` (Discord Administrator perm **or** a `roles.admin` role) vs `mod` (a `roles.mod` role); `hasCommandAccess` lets admin do everything and mod do only `access: 'mod'` commands. Buttons call `isMod` themselves (Manage Roles perm, or any admin/mod role) since the router only auth-checks slash commands.
 

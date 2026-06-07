@@ -92,7 +92,7 @@ async function detectJoinMethod(guild: Guild): Promise<string> {
     const prevVanity = vanityUses;
     vanityUses = uses;
     if (prevVanity !== null && uses !== null && uses > prevVanity) {
-      return vanity.code ? `[discord.gg/${vanity.code}](https://discord.gg/${vanity.code})` : VANITY;
+      return vanity.code ? `https://discord.gg/${vanity.code}` : VANITY;
     }
   } catch {
   }
