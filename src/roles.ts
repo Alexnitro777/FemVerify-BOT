@@ -29,6 +29,7 @@ export async function blacklistMemberRoles(
 export async function restoreMemberRoles(member: GuildMember, roleIds: string[]): Promise<boolean> {
   const botTop = member.guild.members.me?.roles.highest.position ?? 0;
   const toAdd = roleIds.filter((id) => {
+    if (id === config.roles.verified) return false;
     const role = member.guild.roles.cache.get(id);
     return role !== undefined && !role.managed && role.position < botTop;
   });
