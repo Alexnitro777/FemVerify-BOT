@@ -3,6 +3,7 @@ import { ModalHandler } from '../types';
 import { config } from '../config';
 import { getApplication, claimApplication, updateApplication } from '../storage';
 import { buildResolvedEmbed, buildDmEmbed, postDecisionMessage, buildProcessedButtonRow } from '../ui';
+import { blacklistMemberRoles } from '../roles';
 
 const handler: ModalHandler = {
   customId: /^review:reason:(reject|blacklist):\d+$/,
@@ -35,15 +36,9 @@ const handler: ModalHandler = {
     let blacklistWarning: string | undefined;
     if (action === 'blacklist') {
       if (member) {
-        const added = await member.roles
-          .add(config.roles.blacklist)
-          .then(() => true)
-          .catch((e) => {
-            console.error('[reviewReason] roles.add blacklist failed', e);
-            return false;
-          });
-        if (!added) {
-          blacklistWarning = '⚠️ Не удалось выдать роль ЧС — проверьте иерархию ролей бота.';
+        const ok = await blacklistMemberRoles(member);
+        if (!ok) {
+          blacklistWarning = '⚠️ Не удалось обновить роли (ЧС) — проверьте иерархию ролей бота.';
         }
       }
       await member

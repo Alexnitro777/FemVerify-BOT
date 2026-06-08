@@ -12,7 +12,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-FemVerify-BOT — a Discord verification bot (discord.js v14, TypeScript). Members submit application forms; moderators approve/reject/blacklist; rejected/blacklisted users can appeal ("amnesty"). It also auto-grants a role based on the Discord **Server Tag**. The UI is in Russian and slash-command names are Cyrillic (`/верификация`, `/апелляция`, `/анкеты`, `/амнистии`, `/тег`).
+FemVerify-BOT — a Discord verification bot (discord.js v14, TypeScript). Members submit application forms; moderators approve/reject/blacklist; rejected/blacklisted users can appeal ("amnesty"). It also auto-grants a role based on the Discord **Server Tag**. The UI is in Russian and slash-command names are Cyrillic (`/верификация`, `/апелляция`, `/анкеты`, `/амнистии`, `/тег`, `/чсп`).
 
 The deepest behavioral reference is `docs/verification-and-appeals.md` (every verification/appeal scenario) and `docs/features.md`. Read those before changing decision flows.
 

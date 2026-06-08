@@ -14,7 +14,8 @@ FemVerify-BOT/
 │   │   ├── appeal.ts          /апелляция (admin) — размещает кнопку апелляции
 │   │   ├── forms.ts           /анкеты (mod) — список непринятых анкет
 │   │   ├── amnesties.ts       /амнистии (mod) — список непринятых апелляций
-│   │   └── tag.ts             /тег (mod) — статистика по тегу сервера
+│   │   ├── tag.ts             /тег (mod) — статистика по тегу сервера
+│   │   └── chsp.ts            /чсп (mod) — занести участника в ЧС (снять все роли + роль ЧС)
 │   ├── buttons/               Кнопки
 │   │   ├── verifyStart.ts     Старт анкеты (verify:start)
 │   │   ├── review.ts          4 решения по анкете (approve/reject/question/blacklist)
@@ -36,6 +37,7 @@ FemVerify-BOT/
 │   ├── applicationCleanup.ts  Автозакрытие анкет по TTL (48 ч → expired)
 │   ├── config.ts              Чтение и валидация config.json
 │   ├── permissions.ts         Проверка прав (admin / mod) по ролям из конфига
+│   ├── roles.ts               Снятие всех ролей + выдача роли ЧС (общий помощник для ЧС/чсп)
 │   ├── questions.ts           Вопросы анкеты (5 полей) и апелляции (1 поле) — лимит Discord 5
 │   ├── storage.ts             SQLite (node:sqlite): applications, appeals, counters, join_methods
 │   ├── ui.ts                  Построение embed и кнопок
