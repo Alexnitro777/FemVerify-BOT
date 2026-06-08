@@ -20,7 +20,8 @@ db.exec(`
     reviewMessageUrl TEXT,
     reviewerId TEXT,
     reason TEXT,
-    questionChannelId TEXT
+    questionChannelId TEXT,
+    removedRoles TEXT
   );
 
   CREATE TABLE IF NOT EXISTS appeals (
@@ -75,6 +76,11 @@ try {
 
 try {
   db.exec('ALTER TABLE applications ADD COLUMN joinMethod TEXT;');
+} catch {
+}
+
+try {
+  db.exec('ALTER TABLE applications ADD COLUMN removedRoles TEXT;');
 } catch {
 }
 
@@ -148,6 +154,7 @@ interface AppRow {
   questionChannelId: string | null;
   number: number | null;
   joinMethod: string | null;
+  removedRoles: string | null;
 }
 
 function rowToApp(row: AppRow): Application {
@@ -164,12 +171,13 @@ function rowToApp(row: AppRow): Application {
     questionChannelId: row.questionChannelId ?? undefined,
     number: row.number ?? undefined,
     joinMethod: row.joinMethod ?? undefined,
+    removedRoles: row.removedRoles ? JSON.parse(row.removedRoles) : undefined,
   };
 }
 
 const insertApp = db.prepare(`
-  INSERT INTO applications (userId, username, guildId, answers, submittedAt, status, reviewMessageUrl, reviewerId, reason, questionChannelId, number, joinMethod)
-  VALUES (@userId, @username, @guildId, @answers, @submittedAt, @status, @reviewMessageUrl, @reviewerId, @reason, @questionChannelId, @number, @joinMethod)
+  INSERT INTO applications (userId, username, guildId, answers, submittedAt, status, reviewMessageUrl, reviewerId, reason, questionChannelId, number, joinMethod, removedRoles)
+  VALUES (@userId, @username, @guildId, @answers, @submittedAt, @status, @reviewMessageUrl, @reviewerId, @reason, @questionChannelId, @number, @joinMethod, @removedRoles)
   ON CONFLICT(userId) DO UPDATE SET
     username = excluded.username,
     answers = excluded.answers,
@@ -180,7 +188,8 @@ const insertApp = db.prepare(`
     reason = excluded.reason,
     questionChannelId = excluded.questionChannelId,
     number = excluded.number,
-    joinMethod = excluded.joinMethod
+    joinMethod = excluded.joinMethod,
+    removedRoles = excluded.removedRoles
 `);
 
 export function saveApplication(app: Application): void {
@@ -197,12 +206,13 @@ export function saveApplication(app: Application): void {
     questionChannelId: app.questionChannelId ?? null,
     number: app.number ?? null,
     joinMethod: app.joinMethod ?? null,
+    removedRoles: app.removedRoles ? JSON.stringify(app.removedRoles) : null,
   });
 }
 
 const reserveAppStmt = db.prepare(`
-  INSERT INTO applications (userId, username, guildId, answers, submittedAt, status, reviewMessageUrl, reviewerId, reason, questionChannelId, number, joinMethod)
-  VALUES (@userId, @username, @guildId, @answers, @submittedAt, @status, @reviewMessageUrl, @reviewerId, @reason, @questionChannelId, @number, @joinMethod)
+  INSERT INTO applications (userId, username, guildId, answers, submittedAt, status, reviewMessageUrl, reviewerId, reason, questionChannelId, number, joinMethod, removedRoles)
+  VALUES (@userId, @username, @guildId, @answers, @submittedAt, @status, @reviewMessageUrl, @reviewerId, @reason, @questionChannelId, @number, @joinMethod, @removedRoles)
   ON CONFLICT(userId) DO UPDATE SET
     username = excluded.username,
     guildId = excluded.guildId,
@@ -214,7 +224,8 @@ const reserveAppStmt = db.prepare(`
     reason = excluded.reason,
     questionChannelId = excluded.questionChannelId,
     number = excluded.number,
-    joinMethod = excluded.joinMethod
+    joinMethod = excluded.joinMethod,
+    removedRoles = excluded.removedRoles
   WHERE applications.status != 'pending'
 `);
 
@@ -233,6 +244,7 @@ export function reserveApplication(app: Application): boolean {
       questionChannelId: app.questionChannelId ?? null,
       number: app.number ?? null,
       joinMethod: app.joinMethod ?? null,
+      removedRoles: app.removedRoles ? JSON.stringify(app.removedRoles) : null,
     }).changes === 1
   );
 }

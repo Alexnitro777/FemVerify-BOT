@@ -37,7 +37,7 @@ FemVerify-BOT/
 │   ├── applicationCleanup.ts  Автозакрытие анкет по TTL (48 ч → expired)
 │   ├── config.ts              Чтение и валидация config.json
 │   ├── permissions.ts         Проверка прав (admin / mod) по ролям из конфига
-│   ├── roles.ts               Снятие всех ролей + выдача роли ЧС (общий помощник для ЧС/чсп)
+│   ├── roles.ts               Снятие ролей + выдача роли ЧС и возврат ролей при амнистии (общий помощник)
 │   ├── questions.ts           Вопросы анкеты (5 полей) и апелляции (1 поле) — лимит Discord 5
 │   ├── storage.ts             SQLite (node:sqlite): applications, appeals, counters, join_methods
 │   ├── ui.ts                  Построение embed и кнопок

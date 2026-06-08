@@ -56,7 +56,7 @@ const command: SlashCommand = {
       return;
     }
 
-    const rolesOk = await blacklistMemberRoles(member);
+    const { ok: rolesOk, removed } = await blacklistMemberRoles(member);
 
     const existing = getApplication(user.id);
     if (existing) {
@@ -64,6 +64,7 @@ const command: SlashCommand = {
         status: 'blacklisted',
         reason,
         reviewerId: interaction.user.id,
+        removedRoles: removed,
       });
     } else {
       saveApplication({
@@ -75,6 +76,7 @@ const command: SlashCommand = {
         status: 'blacklisted',
         reason,
         reviewerId: interaction.user.id,
+        removedRoles: removed,
       });
     }
 

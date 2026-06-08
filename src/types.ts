@@ -52,6 +52,7 @@ export interface Application {
   questionChannelId?: string;
   number?: number;
   joinMethod?: string;
+  removedRoles?: string[];
 }
 
 export interface Appeal {

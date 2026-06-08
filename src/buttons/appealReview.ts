@@ -15,6 +15,8 @@ import {
 	claimAppeal,
 	updateAppeal,
 	claimAppealQuestionChannel,
+	getApplication,
+	updateApplication,
 } from '../storage';
 import {
 	buildResolvedEmbed,
@@ -24,6 +26,7 @@ import {
 	buildAppealReviewButtons,
 } from '../ui';
 import { isMod, getGuild } from '../permissions';
+import { restoreMemberRoles } from '../roles';
 
 const DENY_COOLDOWN_MS = 48 * 60 * 60 * 1000;
 
@@ -181,6 +184,19 @@ const handler: ButtonHandler = {
 				});
 			if (member && !removed) {
 				warning = '⚠️ Не удалось снять роль ЧС — проверьте иерархию ролей бота.';
+			}
+			if (member) {
+				const application = getApplication(userId);
+				const toRestore = application?.removedRoles ?? [];
+				if (toRestore.length > 0) {
+					const restored = await restoreMemberRoles(member, toRestore);
+					if (!restored) {
+						warning = warning
+							? `${warning}\n⚠️ Не удалось вернуть часть ролей.`
+							: '⚠️ Не удалось вернуть часть ролей — проверьте иерархию ролей бота.';
+					}
+					updateApplication(userId, { removedRoles: [] });
+				}
 			}
 			await member
 				?.send({

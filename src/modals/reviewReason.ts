@@ -36,10 +36,11 @@ const handler: ModalHandler = {
     let blacklistWarning: string | undefined;
     if (action === 'blacklist') {
       if (member) {
-        const ok = await blacklistMemberRoles(member);
+        const { ok, removed } = await blacklistMemberRoles(member);
         if (!ok) {
           blacklistWarning = '⚠️ Не удалось обновить роли (ЧС) — проверьте иерархию ролей бота.';
         }
+        updateApplication(userId, { removedRoles: removed });
       }
       await member
         ?.send({
