@@ -12,10 +12,10 @@ import { SlashCommand } from '../types';
 
 const command: SlashCommand = {
   data: new SlashCommandBuilder()
-    .setName('выдатьчсп')
-    .setDescription('Занести участника в чёрный список: снять все роли и выдать роль ЧС')
+    .setName('снятьчсп')
+    .setDescription('Снять участника с чёрного списка: убрать роль ЧС и вернуть снятые роли')
     .addUserOption((option) =>
-      option.setName('цель').setDescription('Кого занести в ЧС').setRequired(true),
+      option.setName('цель').setDescription('Кого снять с ЧС').setRequired(true),
     )
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageNicknames) as unknown as SlashCommand['data'],
 
@@ -33,12 +33,12 @@ const command: SlashCommand = {
     const user = interaction.options.getUser('цель', true);
 
     const modal = new ModalBuilder()
-      .setCustomId(`chsp:reason:${user.id}`)
-      .setTitle('Укажите причину занесения в ЧС');
+      .setCustomId(`unchsp:reason:${user.id}`)
+      .setTitle('Укажите причину снятия с ЧС');
 
     const reasonInput = new TextInputBuilder()
       .setCustomId('reason')
-      .setLabel('Причина занесения в ЧС')
+      .setLabel('Причина снятия с ЧС')
       .setStyle(TextInputStyle.Paragraph)
       .setRequired(true)
       .setMaxLength(1000);

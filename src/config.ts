@@ -19,6 +19,7 @@ type RawConfig = {
     decisions?: string;
     appeal?: string;
     tagLog?: string;
+    blacklistLog?: string;
   };
   questionCategoryId?: string;
 };
@@ -144,6 +145,7 @@ export const config = {
     decisions: optional(raw.channels?.decisions),
     appeal: optional(raw.channels?.appeal),
     tagLog: optional(raw.channels?.tagLog),
+    blacklistLog: optional(raw.channels?.blacklistLog),
   },
 
   questionCategoryId: required(raw.questionCategoryId, 'questionCategoryId'),

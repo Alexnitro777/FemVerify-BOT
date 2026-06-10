@@ -15,7 +15,8 @@ FemVerify-BOT/
 │   │   ├── forms.ts           /анкеты (mod) — список непринятых анкет
 │   │   ├── amnesties.ts       /амнистии (mod) — список непринятых апелляций
 │   │   ├── tag.ts             /тег (mod) — статистика по тегу сервера
-│   │   └── chsp.ts            /чсп (mod) — занести участника в ЧС (снять все роли + роль ЧС)
+│   │   ├── chsp.ts            /выдатьчсп (mod) — занести участника в ЧС (снять все роли + роль ЧС)
+│   │   └── unchsp.ts          /снятьчсп (mod) — снять участника с ЧС (убрать роль ЧС + вернуть роли)
 │   ├── buttons/               Кнопки
 │   │   ├── verifyStart.ts     Старт анкеты (verify:start)
 │   │   ├── review.ts          4 решения по анкете (approve/reject/question/blacklist)
@@ -25,7 +26,9 @@ FemVerify-BOT/
 │   ├── modals/                Модалки
 │   │   ├── verifySubmit.ts    Отправка анкеты (verify:submit)
 │   │   ├── appealSubmit.ts    Отправка апелляции (appeal:submit)
-│   │   └── reviewReason.ts    Причина отклонения / ЧС (review:reason)
+│   │   ├── reviewReason.ts    Причина отклонения / ЧС (review:reason)
+│   │   ├── chspReason.ts      Причина выдачи ЧС (chsp:reason)
+│   │   └── unchspReason.ts    Причина снятия ЧС (unchsp:reason)
 │   ├── handlers/
 │   │   ├── loader.ts          Автозагрузка команд / кнопок / модалок
 │   │   └── interactionCreate.ts  Роутер интеракций + проверка доступа к командам
