@@ -1,5 +1,6 @@
 import { Client, EmbedBuilder, GuildMember, TextChannel, User } from 'discord.js';
-import { config } from './config';
+import { GuildConfig } from './types';
+import { getGuildConfig } from './guildConfig';
 
 export interface PrimaryGuildInfo {
   identityGuildId: string | null;
@@ -29,28 +30,35 @@ export function getPrimaryGuild(user: User): PrimaryGuildInfo | null {
   return normalizePrimaryGuild(anyUser.primaryGuild ?? anyUser.primary_guild ?? null);
 }
 
-function infoIsOurTag(pg: PrimaryGuildInfo | null): boolean {
+function infoIsOurTag(pg: PrimaryGuildInfo | null, guildId: string): boolean {
   if (!pg) return false;
-  return pg.identityEnabled === true && pg.identityGuildId === config.guildId;
+  return pg.identityEnabled === true && pg.identityGuildId === guildId;
 }
 
-export function hasServerTag(user: User): boolean {
-  return infoIsOurTag(getPrimaryGuild(user));
+export function hasServerTag(user: User, guildId: string): boolean {
+  return infoIsOurTag(getPrimaryGuild(user), guildId);
 }
 
-function rawUserHasServerTag(rawUser: Record<string, unknown> | undefined | null): boolean {
+function rawUserHasServerTag(
+  rawUser: Record<string, unknown> | undefined | null,
+  guildId: string,
+): boolean {
   if (!rawUser) return false;
   const pg = (rawUser.primary_guild ?? rawUser.primaryGuild) as
     | Record<string, unknown>
     | null
     | undefined;
-  return infoIsOurTag(normalizePrimaryGuild(pg));
+  return infoIsOurTag(normalizePrimaryGuild(pg), guildId);
 }
 
-async function sendTagLog(member: GuildMember, action: 'added' | 'removed'): Promise<void> {
-  const channelId = config.channels.tagLog;
+async function sendTagLog(
+  member: GuildMember,
+  gc: GuildConfig,
+  action: 'added' | 'removed',
+): Promise<void> {
+  const channelId = gc.channels.tagLog;
   if (!channelId) return;
-  const roleId = config.roles.roleTag;
+  const roleId = gc.roles.roleTag;
 
   try {
     const channel =
@@ -95,11 +103,14 @@ function runExclusive(key: string, task: () => Promise<void>): Promise<void> {
   return next;
 }
 
-async function applyTagRole(member: GuildMember, shouldHave: boolean): Promise<void> {
-  const roleId = config.roles.roleTag;
+async function applyTagRole(
+  member: GuildMember,
+  gc: GuildConfig,
+  shouldHave: boolean,
+): Promise<void> {
+  const roleId = gc.roles.roleTag;
   if (!roleId) return;
   if (member.user.bot) return;
-  if (member.guild.id !== config.guildId) return;
 
   const key = `${member.guild.id}:${member.id}`;
   await runExclusive(key, async () => {
@@ -110,11 +121,11 @@ async function applyTagRole(member: GuildMember, shouldHave: boolean): Promise<v
       if (shouldHave && !hasRole) {
         await fresh.roles.add(roleId, 'Надел тег сервера');
         console.log(`[roleTag] выдана роль ${fresh.user.tag} (${fresh.id})`);
-        await sendTagLog(fresh, 'added');
+        await sendTagLog(fresh, gc, 'added');
       } else if (!shouldHave && hasRole) {
         await fresh.roles.remove(roleId, 'Снял тег сервера');
         console.log(`[roleTag] снята роль ${fresh.user.tag} (${fresh.id})`);
-        await sendTagLog(fresh, 'removed');
+        await sendTagLog(fresh, gc, 'removed');
       }
     } catch (err) {
       console.error(`[roleTag] не удалось обновить роль для ${fresh.id}:`, err);
@@ -123,71 +134,66 @@ async function applyTagRole(member: GuildMember, shouldHave: boolean): Promise<v
 }
 
 export async function syncMemberTagRole(member: GuildMember): Promise<void> {
-  await applyTagRole(member, hasServerTag(member.user));
+  const gc = await getGuildConfig(member.guild.id);
+  if (!gc || !gc.roles.roleTag) return;
+  await applyTagRole(member, gc, hasServerTag(member.user, member.guild.id));
 }
 
 export async function syncAllTagRoles(client: Client): Promise<void> {
-  if (!config.roles.roleTag) return;
+  for (const guild of client.guilds.cache.values()) {
+    const gc = await getGuildConfig(guild.id);
+    if (!gc || !gc.roles.roleTag) continue;
 
-  const guild =
-    client.guilds.cache.get(config.guildId) ??
-    (await client.guilds.fetch(config.guildId).catch(() => null));
-  if (!guild) {
-    console.warn('[roleTag] гильдия из конфига недоступна — пропускаем стартовую синхронизацию.');
-    return;
-  }
-
-  try {
-    const members = await guild.members.fetch();
-    for (const member of members.values()) {
-      await syncMemberTagRole(member);
+    try {
+      const members = await guild.members.fetch();
+      for (const member of members.values()) {
+        await applyTagRole(member, gc, hasServerTag(member.user, guild.id));
+      }
+      console.log(
+        `[roleTag] синхронизация для ${guild.name} завершена (${members.size} участников).`,
+      );
+    } catch (err) {
+      console.error(`[roleTag] синхронизация для ${guild.id} не удалась:`, err);
     }
-    console.log(`[roleTag] стартовая синхронизация завершена (${members.size} участников).`);
-  } catch (err) {
-    console.error('[roleTag] стартовая синхронизация не удалась:', err);
   }
 }
 
 export function registerTagRoleEvents(client: Client): void {
-  if (!config.roles.roleTag) {
-    console.warn(
-      '[roleTag] roles.roleTag не задан в конфиге — автовыдача роли за тег сервера отключена.',
-    );
-    return;
-  }
-
   client.on('guildMemberAdd', async (member) => {
-    if (member.guild.id !== config.guildId) return;
     const m = member.partial ? await member.fetch().catch(() => null) : member;
     if (m) await syncMemberTagRole(m);
   });
 
   client.on('guildMemberUpdate', async (_oldMember, newMember) => {
-    if (newMember.guild.id !== config.guildId) return;
     const m = newMember.partial ? await newMember.fetch().catch(() => null) : newMember;
     if (m) await syncMemberTagRole(m);
   });
 
   client.on('userUpdate', async (_oldUser, newUser) => {
-    const guild = client.guilds.cache.get(config.guildId);
-    if (!guild) return;
-    const member = await guild.members.fetch(newUser.id).catch(() => null);
-    if (member) await syncMemberTagRole(member);
+    for (const guild of client.guilds.cache.values()) {
+      const member = await guild.members.fetch(newUser.id).catch(() => null);
+      if (member) await syncMemberTagRole(member);
+    }
   });
 
   client.on('raw', async (packet: { t?: string; d?: Record<string, unknown> }) => {
     if (!packet || packet.t !== 'GUILD_MEMBER_UPDATE') return;
     const data = packet.d;
-    if (!data || data.guild_id !== config.guildId) return;
+    if (!data) return;
+    const guildId = data.guild_id as string | undefined;
+    if (!guildId) return;
     const rawUser = data.user as Record<string, unknown> | undefined;
     const userId = rawUser?.id as string | undefined;
     if (!userId) return;
 
-    const guild = client.guilds.cache.get(config.guildId);
+    const gc = await getGuildConfig(guildId);
+    if (!gc || !gc.roles.roleTag) return;
+
+    const guild = client.guilds.cache.get(guildId);
     if (!guild) return;
     const member = await guild.members.fetch(userId).catch(() => null);
     if (!member) return;
 
-    await applyTagRole(member, rawUserHasServerTag(rawUser));
+    await applyTagRole(member, gc, rawUserHasServerTag(rawUser, guildId));
   });
 }

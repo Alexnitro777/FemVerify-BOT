@@ -1,5 +1,4 @@
 import { Client, Guild, GuildMember, PartialGuildMember } from 'discord.js';
-import { config } from './config';
 import {
   getApplication,
   getAppeal,
@@ -55,26 +54,26 @@ async function deleteQuestionChannel(
 async function handleMemberRemove(
   member: GuildMember | PartialGuildMember,
 ): Promise<void> {
-  if (member.guild?.id !== config.guildId) return;
-
   const guild = member.guild;
+  if (!guild) return;
+  const guildId = guild.id;
   const userId = member.id;
 
-  const app = getApplication(userId);
-  if (app && app.status === 'pending' && markApplicationLeft(userId)) {
+  const app = await getApplication(guildId, userId);
+  if (app && app.status === 'pending' && (await markApplicationLeft(guildId, userId))) {
     await markReviewMessageLeft(guild, app.reviewMessageUrl);
     if (app.questionChannelId) {
       await deleteQuestionChannel(guild, app.questionChannelId);
-      updateApplication(userId, { questionChannelId: undefined });
+      await updateApplication(guildId, userId, { questionChannelId: undefined });
     }
   }
 
-  const appeal = getAppeal(userId);
-  if (appeal && appeal.status === 'pending' && markAppealLeft(userId)) {
+  const appeal = await getAppeal(guildId, userId);
+  if (appeal && appeal.status === 'pending' && (await markAppealLeft(guildId, userId))) {
     await markReviewMessageLeft(guild, appeal.reviewMessageUrl);
     if (appeal.questionChannelId) {
       await deleteQuestionChannel(guild, appeal.questionChannelId);
-      updateAppeal(userId, { questionChannelId: undefined });
+      await updateAppeal(guildId, userId, { questionChannelId: undefined });
     }
   }
 }

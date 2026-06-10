@@ -1,21 +1,37 @@
 import { Interaction, MessageFlags } from 'discord.js';
 import { BotClient } from '../types';
 import { hasCommandAccess } from '../permissions';
+import { getGuildConfig } from '../guildConfig';
+
+const NOT_CONFIGURED = '⚠️ Бот не настроен на этом сервере. Обратитесь к администрации.';
+const GUILD_ONLY = 'Действие доступно только на сервере.';
 
 export async function handleInteraction(client: BotClient, interaction: Interaction): Promise<void> {
   try {
     if (interaction.isChatInputCommand()) {
       const cmd = client.commands.get(interaction.commandName);
       if (!cmd) return;
+
+      if (!interaction.inGuild()) {
+        await interaction.reply({ content: GUILD_ONLY, flags: MessageFlags.Ephemeral });
+        return;
+      }
+
+      const gc = await getGuildConfig(interaction.guildId);
+      if (!gc) {
+        await interaction.reply({ content: NOT_CONFIGURED, flags: MessageFlags.Ephemeral });
+        return;
+      }
+
       const required = cmd.access ?? 'admin';
-      if (!hasCommandAccess(interaction, required)) {
+      if (!hasCommandAccess(interaction, gc, required)) {
         await interaction.reply({
           content: '⛔ У тебя нет доступа к этой команде.',
           flags: MessageFlags.Ephemeral,
         });
         return;
       }
-      await cmd.execute(interaction);
+      await cmd.execute(interaction, gc);
       return;
     }
 
@@ -26,7 +42,16 @@ export async function handleInteraction(client: BotClient, interaction: Interact
             ? handler.customId.test(interaction.customId)
             : handler.customId === interaction.customId;
         if (match) {
-          await handler.execute(interaction);
+          if (!interaction.inGuild()) {
+            await interaction.reply({ content: GUILD_ONLY, flags: MessageFlags.Ephemeral });
+            return;
+          }
+          const gc = await getGuildConfig(interaction.guildId);
+          if (!gc) {
+            await interaction.reply({ content: NOT_CONFIGURED, flags: MessageFlags.Ephemeral });
+            return;
+          }
+          await handler.execute(interaction, gc);
           return;
         }
       }
@@ -39,7 +64,16 @@ export async function handleInteraction(client: BotClient, interaction: Interact
             ? handler.customId.test(interaction.customId)
             : handler.customId === interaction.customId;
         if (match) {
-          await handler.execute(interaction);
+          if (!interaction.inGuild()) {
+            await interaction.reply({ content: GUILD_ONLY, flags: MessageFlags.Ephemeral });
+            return;
+          }
+          const gc = await getGuildConfig(interaction.guildId);
+          if (!gc) {
+            await interaction.reply({ content: NOT_CONFIGURED, flags: MessageFlags.Ephemeral });
+            return;
+          }
+          await handler.execute(interaction, gc);
           return;
         }
       }

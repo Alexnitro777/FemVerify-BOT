@@ -123,12 +123,14 @@
 
 ---
 
-## 8. Хранилище данных (SQLite)
+## 8. Хранилище данных (MySQL/MariaDB)
 
-- Используется встроенный модуль `node:sqlite` (база `./data/bot.db`, режим WAL).
+- Внешняя база MySQL/MariaDB (через `mysql2`), подключение задаётся переменными окружения `DB_*`.
 - Хранит **анкеты** (`applications`), **апелляции** (`appeals`), **счётчики** нумерации анкет и
-  апелляций (`counters`) и **способы вступления** (`join_methods`).
-- На пользователя — не более одной заявки и одной апелляции (новая перезаписывает старую).
+  апелляций (`counters`), **способы вступления** (`join_methods`), **настройки серверов** (`guild_settings`)
+  и **идентичность бота** `token`/`clientId` (`app_config`).
+- Бот мультисерверный: все таблицы используют составной ключ `(guildId, userId)` — на пользователя
+  в пределах одного сервера не более одной заявки и одной апелляции (новая перезаписывает старую).
 - Финальные решения проходят через атомарные `claimApplication` / `claimAppeal`
   (UPDATE … WHERE status='pending') — исключают двойную обработку.
 
@@ -136,11 +138,14 @@
 
 ## 9. Конфигурация
 
-Всё настраивается через `config.json` (поддерживает комментарии `//` и `/* */`):
+Конфиг-файлов на диске нет — всё в переменных окружения или в БД:
 
-- **Роли:** `verified`, `blacklist`, `mod`, `admin`, `roleTag` (опц.).
-- **Каналы:** `review`, `appealReview`, `welcome` (опц.), `decisions` (опц.), `appeal` (опц.), `tagLog` (опц.), `blacklistLog` (опц.).
-- **Прочее:** `token`, `clientId`, `guildId`, `questionCategoryId`.
+- **Переменные окружения** — подключение к MySQL/MariaDB: `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`, `DB_CONNECTION_LIMIT`.
+- **Таблица `app_config`** — `token` и `clientId` бота (при первом запуске можно задать через env `BOT_TOKEN`/`CLIENT_ID`, бот сам запишет их в БД).
+- **Таблица `guild_settings`** — настройки каждого сервера (вносятся напрямую в БД, ключи с точками):
+  - **Роли:** `roles.verified`, `roles.blacklist`, `roles.mod`, `roles.admin`, `roles.roleTag` (опц.).
+  - **Каналы:** `channels.review`, `channels.appealReview`, `channels.welcome` (опц.), `channels.decisions` (опц.), `channels.appeal` (опц.), `channels.tagLog` (опц.), `channels.blacklistLog` (опц.).
+  - **Прочее:** `questionCategoryId`. Списки `roles.admin` и `roles.mod` — ID через запятую.
 
 Бот требует привилегированный intent **Server Members Intent** (`GuildMembers`) и intent
 `GuildInvites` для трекинга способа вступления.

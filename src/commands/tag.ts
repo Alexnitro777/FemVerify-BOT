@@ -8,7 +8,7 @@ import {
   Guild,
   GuildMember,
 } from 'discord.js';
-import { SlashCommand } from '../types';
+import { SlashCommand, GuildConfig } from '../types';
 import { hasServerTag, getPrimaryGuild } from '../roleTag';
 
 const MEMBERS_TTL_MS = 5 * 60 * 1000;
@@ -48,7 +48,7 @@ const command: SlashCommand = {
 
   access: 'mod',
 
-  async execute(interaction: ChatInputCommandInteraction): Promise<void> {
+  async execute(interaction: ChatInputCommandInteraction, _gc: GuildConfig): Promise<void> {
     if (!interaction.inGuild() || !interaction.guild) {
       await interaction.reply({
         content: 'Команду нужно запускать на сервере.',
@@ -69,7 +69,7 @@ const command: SlashCommand = {
     for (const member of members.values()) {
       if (member.user.bot) continue;
       humans += 1;
-      if (hasServerTag(member.user)) {
+      if (hasServerTag(member.user, guild.id)) {
         withTag += 1;
         if (!tagText) {
           tagText = getPrimaryGuild(member.user)?.tag ?? null;

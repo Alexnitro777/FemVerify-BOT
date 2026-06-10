@@ -1,8 +1,5 @@
 node_modules/
 dist/
-data/
-config.json
-config.example.json
 docker-compose.yml
 docker-compose.example.yml
 .env

@@ -1,6 +1,6 @@
 import { Client, EmbedBuilder, Guild, TextChannel } from 'discord.js';
-import { config } from './config';
-import { Application } from './types';
+import { Application, GuildConfig } from './types';
+import { getGuildConfig } from './guildConfig';
 import {
   listPendingApplications,
   claimApplication,
@@ -34,7 +34,7 @@ async function deleteQuestionChannel(guild: Guild, app: Application): Promise<vo
       console.error('[applicationCleanup] не удалось удалить канал вопроса', e);
       return null;
     });
-  updateApplication(app.userId, { questionChannelId: undefined });
+  await updateApplication(app.guildId, app.userId, { questionChannelId: undefined });
 }
 
 async function markReviewMessageResolved(
@@ -70,14 +70,15 @@ async function markReviewMessageResolved(
 async function closeExpiredApplication(
   client: Client,
   guild: Guild,
+  gc: GuildConfig,
   app: Application,
 ): Promise<void> {
-  const reviewerId = client.user?.id ?? config.clientId;
+  const reviewerId = client.user?.id ?? guild.client.user?.id ?? guild.id;
 
-  const claimed = claimApplication(app.userId, 'expired', reviewerId, AUTO_CLOSE_REASON);
+  const claimed = await claimApplication(app.guildId, app.userId, 'expired', reviewerId, AUTO_CLOSE_REASON);
   if (!claimed) return;
 
-  const fresh = getApplication(app.userId) ?? app;
+  const fresh = (await getApplication(app.guildId, app.userId)) ?? app;
 
   await deleteQuestionChannel(guild, fresh);
   await markReviewMessageResolved(client, fresh.reviewMessageUrl, reviewerId);
@@ -89,7 +90,7 @@ async function closeExpiredApplication(
     })
     .catch(() => null);
 
-  await postDecisionMessage(client, config.channels.decisions, 'application', {
+  await postDecisionMessage(client, gc.channels.decisions, 'application', {
     label: AUTO_CLOSE_LABEL,
     color: AUTO_CLOSE_COLOR,
     reviewerId,
@@ -101,19 +102,19 @@ async function closeExpiredApplication(
 }
 
 async function sweep(client: Client): Promise<void> {
-  const apps = listPendingApplications();
-  if (apps.length === 0) return;
-
-  const guild = await client.guilds.fetch(config.guildId).catch(() => null);
-  if (!guild) return;
-
   const now = Date.now();
 
-  for (const app of apps) {
-    if (now - app.submittedAt < APPLICATION_TTL_MS) continue;
-    await closeExpiredApplication(client, guild, app).catch((e) =>
-      console.error('[applicationCleanup] не удалось закрыть анкету', app.userId, e),
-    );
+  for (const guild of client.guilds.cache.values()) {
+    const gc = await getGuildConfig(guild.id);
+    if (!gc) continue;
+
+    const apps = await listPendingApplications(guild.id);
+    for (const app of apps) {
+      if (now - app.submittedAt < APPLICATION_TTL_MS) continue;
+      await closeExpiredApplication(client, guild, gc, app).catch((e) =>
+        console.error('[applicationCleanup] не удалось закрыть анкету', app.userId, e),
+      );
+    }
   }
 }
 

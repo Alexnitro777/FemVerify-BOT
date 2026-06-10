@@ -1,6 +1,5 @@
 import { ModalSubmitInteraction, MessageFlags } from 'discord.js';
-import { ModalHandler } from '../types';
-import { config } from '../config';
+import { ModalHandler, GuildConfig } from '../types';
 import { getApplication, updateApplication } from '../storage';
 import { buildDmEmbed, postDecisionMessage } from '../ui';
 import { restoreMemberRoles } from '../roles';
@@ -8,7 +7,7 @@ import { restoreMemberRoles } from '../roles';
 const handler: ModalHandler = {
   customId: /^unchsp:reason:\d+$/,
 
-  async execute(interaction: ModalSubmitInteraction): Promise<void> {
+  async execute(interaction: ModalSubmitInteraction, gc: GuildConfig): Promise<void> {
     const [, , userId] = interaction.customId.split(':');
     const reason = interaction.fields.getTextInputValue('reason').trim();
 
@@ -30,6 +29,7 @@ const handler: ModalHandler = {
 
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
+    const guildId = interaction.guild.id;
     const member = await interaction.guild.members.fetch(userId).catch(() => null);
     if (!member) {
       await interaction.editReply({ content: 'Пользователь не найден на сервере.' });
@@ -39,7 +39,7 @@ const handler: ModalHandler = {
     const warnings: string[] = [];
 
     const roleRemoved = await member.roles
-      .remove(config.roles.blacklist)
+      .remove(gc.roles.blacklist)
       .then(() => true)
       .catch((e) => {
         console.error('[unchspReason] roles.remove failed', e);
@@ -49,14 +49,14 @@ const handler: ModalHandler = {
       warnings.push('⚠️ Не удалось снять роль ЧС — проверьте иерархию ролей бота.');
     }
 
-    const existing = getApplication(userId);
+    const existing = await getApplication(guildId, userId);
     const toRestore = existing?.removedRoles ?? [];
     if (toRestore.length > 0) {
-      const restored = await restoreMemberRoles(member, toRestore);
+      const restored = await restoreMemberRoles(member, gc, toRestore);
       if (!restored) {
         warnings.push('⚠️ Не удалось вернуть часть ролей — проверьте иерархию ролей бота.');
       }
-      updateApplication(userId, { removedRoles: [] });
+      await updateApplication(guildId, userId, { removedRoles: [] });
     }
 
     await member
@@ -71,7 +71,7 @@ const handler: ModalHandler = {
       })
       .catch(() => null);
 
-    await postDecisionMessage(interaction.client, config.channels.blacklistLog, 'application', {
+    await postDecisionMessage(interaction.client, gc.channels.blacklistLog, 'application', {
       label: 'Снят с ЧС',
       color: 0x57f287,
       reviewerId: interaction.user.id,

@@ -1,6 +1,6 @@
 # FemVerify-BOT
 
-Discord-бот для верификации участников через анкеты, с модерацией заявок и апелляциями. Дополнительно автоматически выдаёт роль за тег сервера (Server Tag). Команды — слеш-команды (`/верификация`, `/апелляция` — админ; `/анкеты`, `/амнистии`, `/тег` — модерация), данные хранятся в SQLite через встроенный модуль `node:sqlite`.
+Discord-бот для верификации участников через анкеты, с модерацией заявок и апелляциями. Дополнительно автоматически выдаёт роль за тег сервера (Server Tag). Команды — слеш-команды (`/верификация`, `/апелляция` — админ; `/анкеты`, `/амнистии`, `/тег`, `/выдатьчсп`, `/снятьчсп` — модерация), данные хранятся во внешней **MySQL/MariaDB** (через `mysql2`). Бот **мультисерверный**: один процесс обслуживает все серверы, на которых он есть, а роли и каналы настраиваются для каждого сервера отдельно.
 
 > Краткий обзор всех возможностей — в [`docs/features.md`](docs/features.md). Подробный разбор всех сценариев верификации и апелляций — в [`docs/verification-and-appeals.md`](docs/verification-and-appeals.md).
 
@@ -38,23 +38,23 @@ FemVerify-BOT/
 │   ├── questionCleanup.ts     Автоудаление просроченных каналов-вопросов (TTL 24 ч)
 │   ├── questionRestore.ts     Возврат кнопки «Задать вопрос» при закрытии канала
 │   ├── applicationCleanup.ts  Автозакрытие анкет по TTL (48 ч → expired)
-│   ├── config.ts              Чтение и валидация config.json
-│   ├── permissions.ts         Проверка прав (admin / mod) по ролям из конфига
+│   ├── config.ts              Идентичность бота (token, clientId) из таблицы app_config
+│   ├── db.ts                  Пул подключений к MySQL/MariaDB (mysql2) из переменных DB_*
+│   ├── guildConfig.ts         Конфиг сервера из БД (таблица guild_settings) + кэш
+│   ├── permissions.ts         Проверка прав (admin / mod) по ролям из конфига сервера
 │   ├── roles.ts               Снятие ролей + выдача роли ЧС и возврат ролей при амнистии (общий помощник)
 │   ├── questions.ts           Вопросы анкеты (5 полей) и апелляции (1 поле) — лимит Discord 5
-│   ├── storage.ts             SQLite (node:sqlite): applications, appeals, counters, join_methods
+│   ├── storage.ts             MySQL (mysql2): applications, appeals, counters, join_methods, guild_settings, app_config
 │   ├── ui.ts                  Построение embed и кнопок
 │   ├── types.ts               Общие типы
-│   ├── deploy-commands.ts     Регистрация slash-команд
+│   ├── commandRegistration.ts Регистрация slash-команд (по серверам)
 │   └── index.ts               Точка входа
 ├── docs/
 │   ├── features.md                  Краткий обзор возможностей
 │   └── verification-and-appeals.md  Полный разбор сценариев верификации и апелляций
-├── config.example.json       Шаблон конфига (токен, роли, каналы, категория)
-├── config.json               Реальный конфиг (не в git, монтируется в Docker как volume)
 ├── Dockerfile                Сборка образа (multi-stage, node:24-slim)
-├── docker-compose.example.yml  Шаблон описания сервиса bot
-├── docker-compose.yml        Реальное описание сервиса (не в git, своё имя image и container_name)
+├── docker-compose.example.yml  Шаблон сервиса bot + переменные окружения
+├── docker-compose.yml        Реальное описание сервиса (не в git, своё имя image и переменные)
 ├── tsconfig.json             Настройки TypeScript
 ├── package.json              Зависимости и npm-скрипты
 └── README.md
@@ -69,6 +69,7 @@ FemVerify-BOT/
 ### 2.1. Предварительные требования
 
 - Установленный Docker (вместе с Docker Compose).
+- Доступная база **MySQL/MariaDB** (на отдельном хосте или в соседнем контейнере) — бот хранит в ней все данные.
 
 Если Docker ещё не установлен, поставь его одной командой:
 
@@ -86,33 +87,51 @@ sh get-docker.sh
     cd FemVerify-BOT
     ```
 
-2. **Настрой конфиг** (заполни токен, роли, каналы, категорию):
-
-    ```bash
-    cp config.example.json config.json
-    ```
-
-3. **Создай docker-compose.yml** и задай свои `image` и `container_name`:
+2. **Создай `docker-compose.yml`** из шаблона и задай свои `image`, `container_name` и переменные окружения:
 
     ```bash
     cp docker-compose.example.yml docker-compose.yml
     ```
 
-4. **Запусти бота:**
+    В блоке `environment` укажи подключение к БД (`DB_HOST`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`). При первом запуске также задай `BOT_TOKEN` и `CLIENT_ID` — бот запишет их в таблицу `app_config` и дальше будет брать оттуда (после старта эти две переменные можно убрать). Либо внеси `token` и `clientId` напрямую в таблицу `app_config` (key/value) и не указывай их в env. Вся остальная конфигурация хранится в БД.
+
+3. **Запусти бота:**
 
     ```bash
     docker compose up -d --build
     ```
 
-    При старте контейнер автоматически регистрирует слеш-команды (`node --experimental-sqlite dist/deploy-commands.js`) и запускает бота. База SQLite сохраняется в `./data/bot.db` на хосте.
+    При старте контейнер создаёт таблицы в БД, читает `token`/`clientId` из `app_config` (или из env при первом запуске) и автоматически регистрирует слеш-команды на всех серверах, где он есть, — отдельного шага деплоя команд нет.
+
+4. **Настрой серверы.** Для каждого сервера добавь строки в таблицу `guild_settings` (через SQL или GUI вроде phpMyAdmin/Adminer). Ключи — с точками; `roles.admin` и `roles.mod` — это списки ID ролей через запятую:
+
+    ```sql
+    INSERT INTO guild_settings (guildId, `key`, value) VALUES
+    ('ID_СЕРВЕРА', 'roles.verified',       'ID_РОЛИ'),
+    ('ID_СЕРВЕРА', 'roles.blacklist',      'ID_РОЛИ'),
+    ('ID_СЕРВЕРА', 'roles.admin',          'ID_РОЛИ1,ID_РОЛИ2'),
+    ('ID_СЕРВЕРА', 'roles.mod',            'ID_РОЛИ1,ID_РОЛИ2'),
+    ('ID_СЕРВЕРА', 'channels.review',      'ID_КАНАЛА'),
+    ('ID_СЕРВЕРА', 'channels.appealReview','ID_КАНАЛА'),
+    ('ID_СЕРВЕРА', 'questionCategoryId',   'ID_КАТЕГОРИИ');
+    ```
+
+    Необязательные ключи: `roles.roleTag`, `channels.welcome`, `channels.decisions`, `channels.appeal`, `channels.tagLog`, `channels.blacklistLog`.
+
+5. **Перечитай настройки** — после добавления строк перезапусти бота, чтобы он сбросил кэш конфигов серверов:
+
+    ```bash
+    docker compose restart
+    ```
 
 ## 3. Управление контейнером
 
 - **Логи в реальном времени** — `docker compose logs -f`
 - **Остановить бота** — `docker compose stop`
 - **Запустить ранее собранный контейнер** — `docker compose start`
-- **Перезапустить** (после правки `config.json`) — `docker compose restart`
+- **Обновить конфиг сервера** — измени строки в таблице `guild_settings`, затем `docker compose restart` (рестарт сбрасывает кэш настроек серверов).
+- **Перезапустить** (после правки переменных окружения в `docker-compose.yml` или изменений в БД) — `docker compose restart`
 - **Пересобрать** (после изменений в коде или добавления команд) — `docker compose up -d --build`
 - **Остановить и удалить контейнер** — `docker compose down`
 
-> `config.json` смонтирован в контейнер как volume (read-only), база лежит в `./data/bot.db` и переживает пересборку образа. Перезапуск нужен при изменении `config.json`, а пересборка — при изменении кода или добавлении новых команд. Файлы `config.json` и `docker-compose.yml` не в git — это твои локальные копии шаблонов.
+> Конфиг-файлов на диске нет: подключение к БД задаётся переменными `DB_*` в `docker-compose.yml`, а `token`/`clientId` и настройки серверов лежат в самой MariaDB (таблицы `app_config` и `guild_settings`). Все данные живут во внешней БД и не зависят от пересборки образа. Перезапуск нужен после изменения переменных окружения или строк конфигурации в БД, а пересборка — при изменении кода или добавлении новых команд. Только `docker-compose.yml` не в git — это твоя локальная копия шаблона.

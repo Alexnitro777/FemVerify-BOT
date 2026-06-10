@@ -1,5 +1,4 @@
 import { Client } from 'discord.js';
-import { config } from './config';
 import {
   listApplicationsWithQuestionChannel,
   listAppealsWithQuestionChannel,
@@ -14,42 +13,39 @@ const SWEEP_INTERVAL_MS = Math.min(
 );
 
 async function sweep(client: Client): Promise<void> {
-  const channelIds = [
-    ...listApplicationsWithQuestionChannel(),
-    ...listAppealsWithQuestionChannel(),
-  ]
-    .map((entry) => entry.questionChannelId)
-    .filter((id): id is string => Boolean(id));
-
-  if (channelIds.length === 0) return;
-
-  const guild = await client.guilds.fetch(config.guildId).catch(() => null);
-  if (!guild) return;
-
   const now = Date.now();
 
-  for (const channelId of channelIds) {
-    const channel = await guild.channels.fetch(channelId).catch(() => null);
+  for (const guild of client.guilds.cache.values()) {
+    const channelIds = [
+      ...(await listApplicationsWithQuestionChannel(guild.id)),
+      ...(await listAppealsWithQuestionChannel(guild.id)),
+    ]
+      .map((entry) => entry.questionChannelId)
+      .filter((id): id is string => Boolean(id));
 
-    if (!channel) {
+    for (const channelId of channelIds) {
+      const channel = await guild.channels.fetch(channelId).catch(() => null);
+
+      if (!channel) {
+        await restoreReviewButton(client, channelId);
+        continue;
+      }
+
+      const createdAt = channel.createdTimestamp;
+      if (createdAt === null) continue;
+
+      const age = now - createdAt;
+      if (age < QUESTION_TTL_MS) continue;
+
+      await channel
+        .delete('Автоудаление: вопрос не закрыли вовремя')
+        .catch((e) => {
+          console.error('[questionCleanup] не удалось удалить канал', e);
+          return null;
+        });
+
       await restoreReviewButton(client, channelId);
-      continue;
     }
-
-    const createdAt = channel.createdTimestamp;
-    if (createdAt === null) continue;
-
-    const age = now - createdAt;
-    if (age < QUESTION_TTL_MS) continue;
-
-    await channel
-      .delete('Автоудаление: вопрос не закрыли вовремя')
-      .catch((e) => {
-        console.error('[questionCleanup] не удалось удалить канал', e);
-        return null;
-      });
-
-    await restoreReviewButton(client, channelId);
   }
 }
 

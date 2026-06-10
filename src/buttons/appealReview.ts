@@ -8,8 +8,7 @@ import {
 	PermissionFlagsBits,
 	MessageFlags,
 } from 'discord.js';
-import { ButtonHandler } from '../types';
-import { config } from '../config';
+import { ButtonHandler, GuildConfig } from '../types';
 import {
 	getAppeal,
 	claimAppeal,
@@ -33,13 +32,14 @@ const DENY_COOLDOWN_MS = 48 * 60 * 60 * 1000;
 const handler: ButtonHandler = {
 	customId: /^appeal:(amnesty|deny|question):\d+$/,
 
-	async execute(interaction: ButtonInteraction): Promise<void> {
-		if (!isMod(interaction)) {
+	async execute(interaction: ButtonInteraction, gc: GuildConfig): Promise<void> {
+		if (!isMod(interaction, gc)) {
 			await interaction.reply({ content: 'Недостаточно прав.', flags: MessageFlags.Ephemeral });
 			return;
 		}
 
 		const [, action, userId] = interaction.customId.split(':');
+		const guildId = interaction.guildId!;
 
 		if (action === 'question') {
 			const guild = getGuild(interaction);
@@ -53,7 +53,7 @@ const handler: ButtonHandler = {
 
 			await interaction.deferUpdate();
 
-			const appeal = getAppeal(userId);
+			const appeal = await getAppeal(guildId, userId);
 			if (!appeal) {
 				await interaction.followUp({ content: 'Апелляция не найдена.', flags: MessageFlags.Ephemeral });
 				return;
@@ -82,7 +82,7 @@ const handler: ButtonHandler = {
 			const channel = await guild.channels.create({
 				name: `вопрос-${member.user.username}`.slice(0, 90),
 				type: ChannelType.GuildText,
-				parent: config.questionCategoryId,
+				parent: gc.questionCategoryId,
 				permissionOverwrites: [
 					{ id: guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] },
 					{
@@ -93,7 +93,7 @@ const handler: ButtonHandler = {
 							PermissionFlagsBits.ReadMessageHistory,
 						],
 					},
-					...[...new Set([...config.roles.mod, ...config.roles.admin])].map((roleId) => ({
+					...[...new Set([...gc.roles.mod, ...gc.roles.admin])].map((roleId) => ({
 						id: roleId,
 						allow: [
 							PermissionFlagsBits.ViewChannel,
@@ -104,10 +104,10 @@ const handler: ButtonHandler = {
 				],
 			});
 
-			const claimed = claimAppealQuestionChannel(userId, channel.id, appeal.questionChannelId ?? null);
+			const claimed = await claimAppealQuestionChannel(guildId, userId, channel.id, appeal.questionChannelId ?? null);
 			if (!claimed) {
 				await channel.delete('Дублирующий канал-вопрос').catch(() => null);
-				const fresh = getAppeal(userId);
+				const fresh = await getAppeal(guildId, userId);
 				await interaction.followUp({
 					content: fresh?.questionChannelId
 						? `Канал с вопросом уже существует: <#${fresh.questionChannelId}>.`
@@ -153,16 +153,16 @@ const handler: ButtonHandler = {
 
 		await interaction.deferUpdate();
 
-		const appeal = getAppeal(userId);
+		const appeal = await getAppeal(guildId, userId);
 		if (!appeal) {
 			await interaction.followUp({ content: 'Апелляция не найдена.', flags: MessageFlags.Ephemeral });
 			return;
 		}
 
 		const newStatus = action === 'amnesty' ? 'amnestied' : 'denied';
-		const claimed = claimAppeal(userId, newStatus, interaction.user.id);
+		const claimed = await claimAppeal(guildId, userId, newStatus, interaction.user.id);
 		if (!claimed) {
-			const fresh = getAppeal(userId);
+			const fresh = await getAppeal(guildId, userId);
 			await interaction.followUp({
 				content: `Апелляция уже обработана (${fresh?.status ?? 'не найдена'}).`,
 				flags: MessageFlags.Ephemeral,
@@ -176,7 +176,7 @@ const handler: ButtonHandler = {
 		let warning: string | undefined;
 		if (action === 'amnesty') {
 			const removed = await member?.roles
-				.remove(config.roles.blacklist)
+				.remove(gc.roles.blacklist)
 				.then(() => true)
 				.catch((e) => {
 					console.error('[appealReview] roles.remove failed', e);
@@ -186,16 +186,16 @@ const handler: ButtonHandler = {
 				warning = '⚠️ Не удалось снять роль ЧС — проверьте иерархию ролей бота.';
 			}
 			if (member) {
-				const application = getApplication(userId);
+				const application = await getApplication(guildId, userId);
 				const toRestore = application?.removedRoles ?? [];
 				if (toRestore.length > 0) {
-					const restored = await restoreMemberRoles(member, toRestore);
+					const restored = await restoreMemberRoles(member, gc, toRestore);
 					if (!restored) {
 						warning = warning
 							? `${warning}\n⚠️ Не удалось вернуть часть ролей.`
 							: '⚠️ Не удалось вернуть часть ролей — проверьте иерархию ролей бота.';
 					}
-					updateApplication(userId, { removedRoles: [] });
+					await updateApplication(guildId, userId, { removedRoles: [] });
 				}
 			}
 			await member
@@ -235,7 +235,7 @@ const handler: ButtonHandler = {
 			components: [buildProcessedButtonRow('appeal')],
 		});
 
-		await postDecisionMessage(interaction.client, config.channels.decisions, 'appeal', {
+		await postDecisionMessage(interaction.client, gc.channels.decisions, 'appeal', {
 			label: action === 'amnesty' ? 'Амнистия принята' : 'В амнистии отказано',
 			color: action === 'amnesty' ? 0x57f287 : 0xed4245,
 			reviewerId: interaction.user.id,
@@ -250,7 +250,7 @@ const handler: ButtonHandler = {
 				console.error('[appealReview] failed to delete question channel', e);
 				return null;
 			});
-			updateAppeal(userId, { questionChannelId: undefined });
+			await updateAppeal(guildId, userId, { questionChannelId: undefined });
 		}
 
 		if (warning) {

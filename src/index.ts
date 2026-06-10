@@ -1,21 +1,31 @@
 import { Client, Collection, GatewayIntentBits, Partials } from 'discord.js';
-import { config } from './config';
+import { initAppConfig, getAppConfig } from './config';
 import { BotClient } from './types';
 import { loadCommands, loadButtons, loadModals } from './handlers/loader';
 import { handleInteraction } from './handlers/interactionCreate';
-import { closeDb } from './storage';
+import { initStorage } from './storage';
+import { closeDb } from './db';
 import { registerTagRoleEvents, syncAllTagRoles } from './roleTag';
 import { registerLeaveCleanupEvents } from './leaveCleanup';
 import { registerQuestionCleanup } from './questionCleanup';
 import { registerApplicationCleanup } from './applicationCleanup';
 import { registerInviteTracker } from './inviteTracker';
+import { registerCommandsForGuild, buildCommandBodies } from './commandRegistration';
+import { invalidateGuildConfig } from './guildConfig';
 
 async function bootstrap(): Promise<void> {
   console.log('[boot] starting...');
   console.log('[boot] node', process.version);
-  console.log('[boot] token present:', Boolean(config.token));
-  console.log('[boot] clientId present:', Boolean(config.clientId));
-  console.log('[boot] guildId present:', Boolean(config.guildId));
+
+  await initStorage();
+  console.log('[boot] storage ready');
+
+  await initAppConfig();
+  const appConfig = getAppConfig();
+  console.log('[boot] token present:', Boolean(appConfig.token));
+  console.log('[boot] clientId present:', Boolean(appConfig.clientId));
+
+  await buildCommandBodies();
 
   const client = new Client({
     intents: [
@@ -47,7 +57,21 @@ async function bootstrap(): Promise<void> {
 
   client.once('clientReady', (c) => {
     console.log(`Logged in as ${c.user.tag}`);
+    void (async () => {
+      for (const guild of c.guilds.cache.values()) {
+        await registerCommandsForGuild(guild.id).catch((e) =>
+          console.error('[commands] не удалось зарегистрировать команды для', guild.id, e),
+        );
+      }
+    })();
     void syncAllTagRoles(c);
+  });
+
+  client.on('guildCreate', (guild) => {
+    invalidateGuildConfig(guild.id);
+    void registerCommandsForGuild(guild.id).catch((e) =>
+      console.error('[commands] не удалось зарегистрировать команды для новой гильдии', guild.id, e),
+    );
   });
 
   client.on('error', (err) => console.error('[client error]', err));
@@ -60,8 +84,8 @@ async function bootstrap(): Promise<void> {
     if (shuttingDown) return;
     shuttingDown = true;
     console.log(`[shutdown] received ${signal}, closing...`);
-    closeDb();
     await client.destroy();
+    await closeDb();
     process.exit(0);
   };
   for (const sig of ['SIGINT', 'SIGTERM'] as const) {
@@ -70,7 +94,7 @@ async function bootstrap(): Promise<void> {
     });
   }
 
-  await client.login(config.token);
+  await client.login(appConfig.token);
 }
 
 bootstrap().catch((e) => {

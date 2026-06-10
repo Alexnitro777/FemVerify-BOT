@@ -1,6 +1,5 @@
 import { ModalSubmitInteraction, EmbedBuilder, TextChannel, MessageFlags } from 'discord.js';
-import { ModalHandler } from '../types';
-import { config } from '../config';
+import { ModalHandler, GuildConfig } from '../types';
 import { getApplication, claimApplication, updateApplication } from '../storage';
 import { buildResolvedEmbed, buildDmEmbed, postDecisionMessage, buildProcessedButtonRow } from '../ui';
 import { blacklistMemberRoles } from '../roles';
@@ -8,22 +7,23 @@ import { blacklistMemberRoles } from '../roles';
 const handler: ModalHandler = {
   customId: /^review:reason:(reject|blacklist):\d+$/,
 
-  async execute(interaction: ModalSubmitInteraction): Promise<void> {
+  async execute(interaction: ModalSubmitInteraction, gc: GuildConfig): Promise<void> {
     const [, , action, userId] = interaction.customId.split(':');
     const reason = interaction.fields.getTextInputValue('reason').trim();
+    const guildId = interaction.guildId!;
 
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
-    const app = getApplication(userId);
+    const app = await getApplication(guildId, userId);
     if (!app) {
       await interaction.editReply({ content: 'Заявка не найдена.' });
       return;
     }
 
     const newStatus = action === 'blacklist' ? 'blacklisted' : 'rejected';
-    const claimed = claimApplication(userId, newStatus, interaction.user.id, reason);
+    const claimed = await claimApplication(guildId, userId, newStatus, interaction.user.id, reason);
     if (!claimed) {
-      const fresh = getApplication(userId);
+      const fresh = await getApplication(guildId, userId);
       await interaction.editReply({
         content: `Заявка уже обработана (${fresh?.status ?? 'не найдена'}).`,
       });
@@ -36,11 +36,11 @@ const handler: ModalHandler = {
     let blacklistWarning: string | undefined;
     if (action === 'blacklist') {
       if (member) {
-        const { ok, removed } = await blacklistMemberRoles(member);
+        const { ok, removed } = await blacklistMemberRoles(member, gc);
         if (!ok) {
           blacklistWarning = '⚠️ Не удалось обновить роли (ЧС) — проверьте иерархию ролей бота.';
         }
-        updateApplication(userId, { removedRoles: removed });
+        await updateApplication(guildId, userId, { removedRoles: removed });
       }
       await member
         ?.send({
@@ -48,7 +48,7 @@ const handler: ModalHandler = {
             buildDmEmbed(
               '🚫 Вы добавлены в чёрный список',
               `Причина: \`${reason}\`\n\nВы можете подать апелляцию в ${
-                config.channels.appeal ? `<#${config.channels.appeal}>` : 'соответствующем канале'
+                gc.channels.appeal ? `<#${gc.channels.appeal}>` : 'соответствующем канале'
               }.`,
               0x992d22,
             ),
@@ -91,7 +91,7 @@ const handler: ModalHandler = {
       }
     }
 
-    await postDecisionMessage(interaction.client, config.channels.decisions, 'application', {
+    await postDecisionMessage(interaction.client, gc.channels.decisions, 'application', {
       label: action === 'blacklist' ? 'ЧС' : 'Отклонено',
       color: action === 'blacklist' ? 0x992d22 : 0xed4245,
       reviewerId: interaction.user.id,
@@ -112,7 +112,7 @@ const handler: ModalHandler = {
         console.error('[reviewReason] failed to delete question channel', e);
         return null;
       });
-      updateApplication(userId, { questionChannelId: undefined });
+      await updateApplication(guildId, userId, { questionChannelId: undefined });
     }
 
     const baseReply = action === 'blacklist' ? 'Участник добавлен в ЧС.' : 'Заявка отклонена.';

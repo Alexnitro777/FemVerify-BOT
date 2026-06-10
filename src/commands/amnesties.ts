@@ -5,7 +5,7 @@ import {
   EmbedBuilder,
   MessageFlags,
 } from 'discord.js';
-import { SlashCommand } from '../types';
+import { SlashCommand, GuildConfig } from '../types';
 import { listPendingAppeals } from '../storage';
 
 const command: SlashCommand = {
@@ -16,8 +16,8 @@ const command: SlashCommand = {
 
   access: 'mod',
 
-  async execute(interaction: ChatInputCommandInteraction): Promise<void> {
-    const pending = listPendingAppeals();
+  async execute(interaction: ChatInputCommandInteraction, _gc: GuildConfig): Promise<void> {
+    const pending = await listPendingAppeals(interaction.guildId!);
 
     if (pending.length === 0) {
       await interaction.reply({

@@ -6,9 +6,8 @@ import {
   GuildMember,
   MessageFlags,
 } from 'discord.js';
-import { ButtonHandler } from '../types';
+import { ButtonHandler, GuildConfig } from '../types';
 import { appealQuestions } from '../questions';
-import { config } from '../config';
 import { getAppeal } from '../storage';
 
 const DENY_COOLDOWN_MS = 48 * 60 * 60 * 1000;
@@ -16,9 +15,9 @@ const DENY_COOLDOWN_MS = 48 * 60 * 60 * 1000;
 const handler: ButtonHandler = {
   customId: 'appeal:start',
 
-  async execute(interaction: ButtonInteraction): Promise<void> {
+  async execute(interaction: ButtonInteraction, gc: GuildConfig): Promise<void> {
     const member = interaction.member as GuildMember | null;
-    if (!member || !member.roles.cache.has(config.roles.blacklist)) {
+    if (!member || !member.roles.cache.has(gc.roles.blacklist)) {
       await interaction.reply({
         content: 'Апелляция доступна только участникам в чёрном списке.',
         flags: MessageFlags.Ephemeral,
@@ -26,7 +25,7 @@ const handler: ButtonHandler = {
       return;
     }
 
-    const existing = getAppeal(interaction.user.id);
+    const existing = await getAppeal(interaction.guildId!, interaction.user.id);
     if (existing?.status === 'pending') {
       await interaction.reply({ content: 'Ваша апелляция уже на рассмотрении.', flags: MessageFlags.Ephemeral });
       return;

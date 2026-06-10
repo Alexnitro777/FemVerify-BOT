@@ -1,6 +1,5 @@
 import { ModalSubmitInteraction, MessageFlags } from 'discord.js';
-import { ModalHandler } from '../types';
-import { config } from '../config';
+import { ModalHandler, GuildConfig } from '../types';
 import { getApplication, updateApplication, saveApplication } from '../storage';
 import { buildDmEmbed, postDecisionMessage } from '../ui';
 import { blacklistMemberRoles } from '../roles';
@@ -8,7 +7,7 @@ import { blacklistMemberRoles } from '../roles';
 const handler: ModalHandler = {
   customId: /^chsp:reason:\d+$/,
 
-  async execute(interaction: ModalSubmitInteraction): Promise<void> {
+  async execute(interaction: ModalSubmitInteraction, gc: GuildConfig): Promise<void> {
     const [, , userId] = interaction.customId.split(':');
     const reason = interaction.fields.getTextInputValue('reason').trim();
 
@@ -30,27 +29,28 @@ const handler: ModalHandler = {
 
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
+    const guildId = interaction.guild.id;
     const member = await interaction.guild.members.fetch(userId).catch(() => null);
     if (!member) {
       await interaction.editReply({ content: 'Пользователь не найден на сервере.' });
       return;
     }
 
-    const { ok: rolesOk, removed } = await blacklistMemberRoles(member);
+    const { ok: rolesOk, removed } = await blacklistMemberRoles(member, gc);
 
-    const existing = getApplication(userId);
+    const existing = await getApplication(guildId, userId);
     if (existing) {
-      updateApplication(userId, {
+      await updateApplication(guildId, userId, {
         status: 'blacklisted',
         reason,
         reviewerId: interaction.user.id,
         removedRoles: removed,
       });
     } else {
-      saveApplication({
+      await saveApplication({
         userId,
         username: member.user.tag,
-        guildId: interaction.guild.id,
+        guildId,
         answers: {},
         submittedAt: Date.now(),
         status: 'blacklisted',
@@ -66,7 +66,7 @@ const handler: ModalHandler = {
           buildDmEmbed(
             '🚫 Вы добавлены в чёрный список',
             `Причина: \`${reason}\`\n\nВы можете подать апелляцию в ${
-              config.channels.appeal ? `<#${config.channels.appeal}>` : 'соответствующем канале'
+              gc.channels.appeal ? `<#${gc.channels.appeal}>` : 'соответствующем канале'
             }.`,
             0x992d22,
           ),
@@ -74,7 +74,7 @@ const handler: ModalHandler = {
       })
       .catch(() => null);
 
-    await postDecisionMessage(interaction.client, config.channels.blacklistLog, 'application', {
+    await postDecisionMessage(interaction.client, gc.channels.blacklistLog, 'application', {
       label: 'ЧС',
       color: 0x992d22,
       reviewerId: interaction.user.id,

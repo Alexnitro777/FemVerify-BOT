@@ -1,14 +1,13 @@
 import { ModalSubmitInteraction, TextChannel, MessageFlags } from 'discord.js';
-import { ModalHandler } from '../types';
+import { ModalHandler, GuildConfig } from '../types';
 import { verifyQuestions } from '../questions';
 import { getApplication, reserveApplication, nextApplicationNumber, getJoinMethod } from '../storage';
-import { config } from '../config';
 import { buildApplicationEmbed, buildReviewButtons } from '../ui';
 
 const handler: ModalHandler = {
   customId: 'verify:submit',
 
-  async execute(interaction: ModalSubmitInteraction): Promise<void> {
+  async execute(interaction: ModalSubmitInteraction, gc: GuildConfig): Promise<void> {
     const answers: Record<string, string> = {};
     for (const q of verifyQuestions.slice(0, 5)) {
       try {
@@ -20,7 +19,8 @@ const handler: ModalHandler = {
 
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
-    const existing = getApplication(interaction.user.id);
+    const guildId = interaction.guildId!;
+    const existing = await getApplication(guildId, interaction.user.id);
     if (existing?.status === 'pending') {
       await interaction.editReply({ content: 'Ваша заявка уже на рассмотрении.' });
       return;
@@ -29,25 +29,25 @@ const handler: ModalHandler = {
     const submitter = await interaction.guild?.members
       .fetch(interaction.user.id)
       .catch(() => null);
-    if (submitter?.roles.cache.has(config.roles.blacklist)) {
+    if (submitter?.roles.cache.has(gc.roles.blacklist)) {
       await interaction.editReply({
         content: 'Вы находитесь в чёрном списке. Используйте канал апелляции.',
       });
       return;
     }
 
-    const joinMethod = getJoinMethod(interaction.user.id);
+    const joinMethod = await getJoinMethod(guildId, interaction.user.id);
 
-    const channel = await interaction.client.channels.fetch(config.channels.review).catch(() => null);
+    const channel = await interaction.client.channels.fetch(gc.channels.review).catch(() => null);
     if (!channel || !channel.isTextBased()) {
-      console.error('[verifySubmit] review channel unavailable:', config.channels.review);
+      console.error('[verifySubmit] review channel unavailable:', gc.channels.review);
       await interaction.editReply({
         content: '❌ Не удалось отправить заявку: канал модерации недоступен. Сообщите администрации.',
       });
       return;
     }
 
-    const number = nextApplicationNumber();
+    const number = await nextApplicationNumber(guildId);
     const embed = buildApplicationEmbed(
       interaction.user,
       answers,
@@ -71,10 +71,10 @@ const handler: ModalHandler = {
       return;
     }
 
-    const reserved = reserveApplication({
+    const reserved = await reserveApplication({
       userId: interaction.user.id,
       username: interaction.user.tag,
-      guildId: interaction.guildId ?? '',
+      guildId,
       answers,
       submittedAt: Date.now(),
       status: 'pending',

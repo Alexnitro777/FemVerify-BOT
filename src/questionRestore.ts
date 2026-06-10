@@ -32,18 +32,18 @@ async function editReviewMessage(
 }
 
 export async function restoreReviewButton(client: Client, channelId: string): Promise<void> {
-  const app = getApplicationByQuestionChannel(channelId);
+  const app = await getApplicationByQuestionChannel(channelId);
   if (app) {
-    updateApplication(app.userId, { questionChannelId: undefined });
+    await updateApplication(app.guildId, app.userId, { questionChannelId: undefined });
     if (app.status === 'pending') {
       await editReviewMessage(client, app.reviewMessageUrl, buildReviewButtons(app.userId));
     }
     return;
   }
 
-  const appeal = getAppealByQuestionChannel(channelId);
+  const appeal = await getAppealByQuestionChannel(channelId);
   if (appeal) {
-    updateAppeal(appeal.userId, { questionChannelId: undefined });
+    await updateAppeal(appeal.guildId, appeal.userId, { questionChannelId: undefined });
     if (appeal.status === 'pending') {
       await editReviewMessage(
         client,

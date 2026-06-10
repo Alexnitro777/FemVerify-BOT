@@ -11,8 +11,7 @@ import {
 	PermissionFlagsBits,
 	MessageFlags,
 } from 'discord.js';
-import { ButtonHandler } from '../types';
-import { config } from '../config';
+import { ButtonHandler, GuildConfig } from '../types';
 import {
 	getApplication,
 	claimApplication,
@@ -32,8 +31,8 @@ import { isMod, getGuild } from '../permissions';
 const handler: ButtonHandler = {
 	customId: /^review:(approve|reject|question|blacklist):\d+$/,
 
-	async execute(interaction: ButtonInteraction): Promise<void> {
-		if (!isMod(interaction)) {
+	async execute(interaction: ButtonInteraction, gc: GuildConfig): Promise<void> {
+		if (!isMod(interaction, gc)) {
 			await interaction.reply({ content: 'Недостаточно прав.', flags: MessageFlags.Ephemeral });
 			return;
 		}
@@ -48,7 +47,8 @@ const handler: ButtonHandler = {
 		}
 
 		const [, action, userId] = interaction.customId.split(':');
-		const app = getApplication(userId);
+		const guildId = guild.id;
+		const app = await getApplication(guildId, userId);
 		if (!app) {
 			await interaction.reply({ content: 'Заявка не найдена.', flags: MessageFlags.Ephemeral });
 			return;
@@ -102,7 +102,7 @@ const handler: ButtonHandler = {
 			const channel = await guild.channels.create({
 				name: `вопрос-${member.user.username}`.slice(0, 90),
 				type: ChannelType.GuildText,
-				parent: config.questionCategoryId,
+				parent: gc.questionCategoryId,
 				permissionOverwrites: [
 					{ id: guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] },
 					{
@@ -113,7 +113,7 @@ const handler: ButtonHandler = {
 							PermissionFlagsBits.ReadMessageHistory,
 						],
 					},
-					...[...new Set([...config.roles.mod, ...config.roles.admin])].map((roleId) => ({
+					...[...new Set([...gc.roles.mod, ...gc.roles.admin])].map((roleId) => ({
 						id: roleId,
 						allow: [
 							PermissionFlagsBits.ViewChannel,
@@ -124,10 +124,10 @@ const handler: ButtonHandler = {
 				],
 			});
 
-			const claimed = claimApplicationQuestionChannel(userId, channel.id, app.questionChannelId ?? null);
+			const claimed = await claimApplicationQuestionChannel(guildId, userId, channel.id, app.questionChannelId ?? null);
 			if (!claimed) {
 				await channel.delete('Дублирующий канал-вопрос').catch(() => null);
-				const fresh = getApplication(userId);
+				const fresh = await getApplication(guildId, userId);
 				await interaction.followUp({
 					content: fresh?.questionChannelId
 						? `Канал с вопросом уже существует: <#${fresh.questionChannelId}>.`
@@ -182,9 +182,9 @@ const handler: ButtonHandler = {
 			return;
 		}
 
-		const claimed = claimApplication(userId, 'approved', interaction.user.id);
+		const claimed = await claimApplication(guildId, userId, 'approved', interaction.user.id);
 		if (!claimed) {
-			const fresh = getApplication(userId);
+			const fresh = await getApplication(guildId, userId);
 			await interaction.followUp({
 				content: `Заявка уже обработана (${fresh?.status ?? 'не найдена'}).`,
 				flags: MessageFlags.Ephemeral,
@@ -193,10 +193,10 @@ const handler: ButtonHandler = {
 		}
 
 		try {
-			await member.roles.add(config.roles.verified);
+			await member.roles.add(gc.roles.verified);
 		} catch (e) {
 			console.error('[review] roles.add failed', e);
-			updateApplication(userId, { status: 'pending', reviewerId: undefined });
+			await updateApplication(guildId, userId, { status: 'pending', reviewerId: undefined });
 			await interaction.followUp({
 				content:
 					'❌ Не удалось выдать роль — проверьте, что роль бота выше выдаваемой. Статус заявки возвращён в ожидание.',
@@ -223,7 +223,7 @@ const handler: ButtonHandler = {
 			components: [buildProcessedButtonRow('application')],
 		});
 
-		await postDecisionMessage(interaction.client, config.channels.decisions, 'application', {
+		await postDecisionMessage(interaction.client, gc.channels.decisions, 'application', {
 			label: 'Принято',
 			color: 0x57f287,
 			reviewerId: interaction.user.id,
@@ -238,12 +238,12 @@ const handler: ButtonHandler = {
 				console.error('[review] failed to delete question channel', e);
 				return null;
 			});
-			updateApplication(userId, { questionChannelId: undefined });
+			await updateApplication(guildId, userId, { questionChannelId: undefined });
 		}
 
-		if (config.channels.welcome) {
+		if (gc.channels.welcome) {
 			try {
-				const welcomeChannel = await guild.channels.fetch(config.channels.welcome);
+				const welcomeChannel = await guild.channels.fetch(gc.channels.welcome);
 				if (welcomeChannel?.isTextBased()) {
 					const pingMessage = await welcomeChannel.send({
 						content: `<@${userId}>`,

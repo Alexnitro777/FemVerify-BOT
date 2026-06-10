@@ -6,17 +6,16 @@ import {
   GuildMember,
   MessageFlags,
 } from 'discord.js';
-import { ButtonHandler } from '../types';
+import { ButtonHandler, GuildConfig } from '../types';
 import { verifyQuestions } from '../questions';
 import { getApplication } from '../storage';
-import { config } from '../config';
 
 const handler: ButtonHandler = {
   customId: 'verify:start',
 
-  async execute(interaction: ButtonInteraction): Promise<void> {
+  async execute(interaction: ButtonInteraction, gc: GuildConfig): Promise<void> {
     const member = interaction.member as GuildMember | null;
-    if (member && member.roles.cache.has(config.roles.blacklist)) {
+    if (member && member.roles.cache.has(gc.roles.blacklist)) {
       await interaction.reply({
         content: 'Вы находитесь в чёрном списке. Используйте канал апелляции.',
         flags: MessageFlags.Ephemeral,
@@ -24,12 +23,12 @@ const handler: ButtonHandler = {
       return;
     }
 
-    const existing = getApplication(interaction.user.id);
+    const existing = await getApplication(interaction.guildId!, interaction.user.id);
     if (existing?.status === 'pending') {
       await interaction.reply({ content: 'Ваша заявка уже на рассмотрении.', flags: MessageFlags.Ephemeral });
       return;
     }
-    if (existing?.status === 'approved' && member?.roles.cache.has(config.roles.verified)) {
+    if (existing?.status === 'approved' && member?.roles.cache.has(gc.roles.verified)) {
       await interaction.reply({ content: 'Вы уже верифицированы.', flags: MessageFlags.Ephemeral });
       return;
     }

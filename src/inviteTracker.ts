@@ -1,5 +1,4 @@
 import { Client, Collection, Guild, Invite } from 'discord.js';
-import { config } from './config';
 import { saveJoinMethod } from './storage';
 
 interface CachedInvite {
@@ -7,24 +6,39 @@ interface CachedInvite {
   inviterId: string | null;
 }
 
-const inviteCache = new Map<string, CachedInvite>();
-let vanityUses: number | null = null;
+interface GuildInviteState {
+  invites: Map<string, CachedInvite>;
+  vanityUses: number | null;
+}
+
+const guildStates = new Map<string, GuildInviteState>();
+
+function stateFor(guildId: string): GuildInviteState {
+  let state = guildStates.get(guildId);
+  if (!state) {
+    state = { invites: new Map(), vanityUses: null };
+    guildStates.set(guildId, state);
+  }
+  return state;
+}
 
 const UNKNOWN = 'Неизвестно';
 const VANITY = 'По vanity-ссылке';
 
-let lock: Promise<void> = Promise.resolve();
+const locks = new Map<string, Promise<void>>();
 
-function runExclusive(task: () => Promise<void>): Promise<void> {
-  const next = lock.catch(() => undefined).then(task);
-  lock = next.catch(() => undefined);
+function runExclusive(guildId: string, task: () => Promise<void>): Promise<void> {
+  const prev = locks.get(guildId) ?? Promise.resolve();
+  const next = prev.catch(() => undefined).then(task);
+  locks.set(guildId, next.catch(() => undefined));
   return next;
 }
 
-function snapshotInvites(invites: Collection<string, Invite>): void {
-  inviteCache.clear();
+function snapshotInvites(guildId: string, invites: Collection<string, Invite>): void {
+  const state = stateFor(guildId);
+  state.invites.clear();
   for (const invite of invites.values()) {
-    inviteCache.set(invite.code, {
+    state.invites.set(invite.code, {
       uses: invite.uses ?? 0,
       inviterId: invite.inviterId ?? null,
     });
@@ -32,26 +46,28 @@ function snapshotInvites(invites: Collection<string, Invite>): void {
 }
 
 async function cacheGuildInvites(guild: Guild): Promise<void> {
+  const state = stateFor(guild.id);
   try {
     const invites = await guild.invites.fetch();
-    snapshotInvites(invites);
-    console.log(`[inviteTracker] закэшировано инвайтов: ${inviteCache.size}`);
+    snapshotInvites(guild.id, invites);
+    console.log(`[inviteTracker] ${guild.name}: закэшировано инвайтов: ${state.invites.size}`);
   } catch (err) {
     console.warn(
-      '[inviteTracker] не удалось получить инвайты — нужно право «Управление сервером». Способ входа будет «Неизвестно».',
+      `[inviteTracker] ${guild.name}: не удалось получить инвайты — нужно право «Управление сервером». Способ входа будет «Неизвестно».`,
       err,
     );
   }
 
   try {
     const vanity = await guild.fetchVanityData();
-    vanityUses = typeof vanity.uses === 'number' ? vanity.uses : null;
+    state.vanityUses = typeof vanity.uses === 'number' ? vanity.uses : null;
   } catch {
-    vanityUses = null;
+    state.vanityUses = null;
   }
 }
 
 async function detectJoinMethod(guild: Guild): Promise<string> {
+  const state = stateFor(guild.id);
   let fresh: Collection<string, Invite>;
   try {
     fresh = await guild.invites.fetch();
@@ -62,7 +78,7 @@ async function detectJoinMethod(guild: Guild): Promise<string> {
   let inviterId: string | null | undefined;
 
   for (const invite of fresh.values()) {
-    const prev = inviteCache.get(invite.code);
+    const prev = state.invites.get(invite.code);
     const uses = invite.uses ?? 0;
     if (prev && uses > prev.uses) {
       inviterId = invite.inviterId ?? prev.inviterId;
@@ -72,7 +88,7 @@ async function detectJoinMethod(guild: Guild): Promise<string> {
 
   if (inviterId === undefined) {
     const missing: CachedInvite[] = [];
-    for (const [code, prev] of inviteCache) {
+    for (const [code, prev] of state.invites) {
       if (!fresh.has(code)) missing.push(prev);
     }
     if (missing.length === 1) {
@@ -80,7 +96,7 @@ async function detectJoinMethod(guild: Guild): Promise<string> {
     }
   }
 
-  snapshotInvites(fresh);
+  snapshotInvites(guild.id, fresh);
 
   if (inviterId !== undefined) {
     return inviterId ? `<@${inviterId}>` : UNKNOWN;
@@ -89,8 +105,8 @@ async function detectJoinMethod(guild: Guild): Promise<string> {
   try {
     const vanity = await guild.fetchVanityData();
     const uses = typeof vanity.uses === 'number' ? vanity.uses : null;
-    const prevVanity = vanityUses;
-    vanityUses = uses;
+    const prevVanity = state.vanityUses;
+    state.vanityUses = uses;
     if (prevVanity !== null && uses !== null && uses > prevVanity) {
       return vanity.code ? `https://discord.gg/${vanity.code}` : VANITY;
     }
@@ -102,20 +118,22 @@ async function detectJoinMethod(guild: Guild): Promise<string> {
 
 export function registerInviteTracker(client: Client): void {
   client.once('clientReady', async () => {
-    const guild =
-      client.guilds.cache.get(config.guildId) ??
-      (await client.guilds.fetch(config.guildId).catch(() => null));
-    if (!guild) {
-      console.warn('[inviteTracker] гильдия из конфига недоступна — трекинг инвайтов отключён.');
-      return;
+    for (const guild of client.guilds.cache.values()) {
+      await cacheGuildInvites(guild);
     }
-    await cacheGuildInvites(guild);
+  });
+
+  client.on('guildCreate', (guild) => {
+    void cacheGuildInvites(guild).catch((err) =>
+      console.error('[inviteTracker] ошибка кэширования инвайтов новой гильдии', err),
+    );
   });
 
   client.on('inviteCreate', (invite) => {
-    if (invite.guild?.id !== config.guildId) return;
-    void runExclusive(async () => {
-      inviteCache.set(invite.code, {
+    const guildId = invite.guild?.id;
+    if (!guildId) return;
+    void runExclusive(guildId, async () => {
+      stateFor(guildId).invites.set(invite.code, {
         uses: invite.uses ?? 0,
         inviterId: invite.inviterId ?? null,
       });
@@ -123,18 +141,19 @@ export function registerInviteTracker(client: Client): void {
   });
 
   client.on('inviteDelete', (invite) => {
-    if (invite.guild?.id !== config.guildId) return;
-    void runExclusive(async () => {
-      inviteCache.delete(invite.code);
+    const guildId = invite.guild?.id;
+    if (!guildId) return;
+    void runExclusive(guildId, async () => {
+      stateFor(guildId).invites.delete(invite.code);
     });
   });
 
   client.on('guildMemberAdd', (member) => {
-    if (member.guild.id !== config.guildId) return;
     if (member.user.bot) return;
-    void runExclusive(async () => {
+    const guildId = member.guild.id;
+    void runExclusive(guildId, async () => {
       const method = await detectJoinMethod(member.guild);
-      saveJoinMethod(member.id, method);
+      await saveJoinMethod(guildId, member.id, method);
       console.log(`[inviteTracker] ${member.user.tag} (${member.id}) — способ входа: ${method}`);
     }).catch((err) => console.error('[inviteTracker] ошибка определения способа входа', err));
   });

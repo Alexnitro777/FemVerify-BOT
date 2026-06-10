@@ -1,8 +1,7 @@
 import { ModalSubmitInteraction, TextChannel, MessageFlags } from 'discord.js';
-import { ModalHandler } from '../types';
+import { ModalHandler, GuildConfig } from '../types';
 import { appealQuestions } from '../questions';
 import { getApplication, getAppeal, reserveAppeal, nextAppealNumber } from '../storage';
-import { config } from '../config';
 import { buildAppealEmbed, buildAppealReviewButtons } from '../ui';
 
 const DENY_COOLDOWN_MS = 48 * 60 * 60 * 1000;
@@ -10,7 +9,7 @@ const DENY_COOLDOWN_MS = 48 * 60 * 60 * 1000;
 const handler: ModalHandler = {
 	customId: 'appeal:submit',
 
-	async execute(interaction: ModalSubmitInteraction): Promise<void> {
+	async execute(interaction: ModalSubmitInteraction, gc: GuildConfig): Promise<void> {
 		const text = appealQuestions
 			.slice(0, 5)
 			.map((q) => {
@@ -26,17 +25,18 @@ const handler: ModalHandler = {
 
 		await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
+		const guildId = interaction.guildId!;
 		const member = await interaction.guild?.members
 			.fetch(interaction.user.id)
 			.catch(() => null);
-		if (!member || !member.roles.cache.has(config.roles.blacklist)) {
+		if (!member || !member.roles.cache.has(gc.roles.blacklist)) {
 			await interaction.editReply({
 				content: 'Апелляция доступна только участникам в чёрном списке.',
 			});
 			return;
 		}
 
-		const existingAppeal = getAppeal(interaction.user.id);
+		const existingAppeal = await getAppeal(guildId, interaction.user.id);
 		if (existingAppeal?.status === 'pending') {
 			await interaction.editReply({ content: 'Ваша апелляция уже на рассмотрении.' });
 			return;
@@ -53,22 +53,22 @@ const handler: ModalHandler = {
 			return;
 		}
 
-		const application = getApplication(interaction.user.id);
+		const application = await getApplication(guildId, interaction.user.id);
 		const blacklistReason =
 			application?.status === 'blacklisted' ? application.reason : undefined;
 
 		const channel = await interaction.client.channels
-			.fetch(config.channels.appealReview)
+			.fetch(gc.channels.appealReview)
 			.catch(() => null);
 		if (!channel || !channel.isTextBased()) {
-			console.error('[appealSubmit] appeal review channel unavailable:', config.channels.appealReview);
+			console.error('[appealSubmit] appeal review channel unavailable:', gc.channels.appealReview);
 			await interaction.editReply({
 				content: '❌ Не удалось отправить апелляцию: канал модерации недоступен. Сообщите администрации.',
 			});
 			return;
 		}
 
-		const number = nextAppealNumber();
+		const number = await nextAppealNumber(guildId);
 		const embed = buildAppealEmbed(interaction.user, text, blacklistReason, number);
 
 		const row = buildAppealReviewButtons(interaction.user.id);
@@ -87,8 +87,9 @@ const handler: ModalHandler = {
 			return;
 		}
 
-		const reserved = reserveAppeal({
+		const reserved = await reserveAppeal({
 			userId: interaction.user.id,
+			guildId,
 			username: interaction.user.tag,
 			text,
 			submittedAt: Date.now(),

@@ -5,7 +5,7 @@ import {
   Guild,
   PermissionFlagsBits,
 } from 'discord.js';
-import { config } from './config';
+import { GuildConfig } from './types';
 
 export type AccessLevel = 'admin' | 'mod';
 
@@ -25,15 +25,15 @@ function memberRoleIds(member: unknown): string[] {
   return [];
 }
 
-export function isMod(interaction: ButtonInteraction): boolean {
+export function isMod(interaction: ButtonInteraction, gc: GuildConfig): boolean {
   if (!interaction.inGuild()) return false;
   const member = interaction.member as GuildMember | null;
   if (!member) return false;
   const roleIds = memberRoleIds(member);
   return (
     member.permissions.has(PermissionFlagsBits.ManageRoles) ||
-    config.roles.mod.some((roleId) => roleIds.includes(roleId)) ||
-    config.roles.admin.some((roleId) => roleIds.includes(roleId))
+    gc.roles.mod.some((roleId) => roleIds.includes(roleId)) ||
+    gc.roles.admin.some((roleId) => roleIds.includes(roleId))
   );
 }
 
@@ -43,25 +43,27 @@ export function getGuild(interaction: ButtonInteraction): Guild | null {
 
 export function commandAccessLevel(
   interaction: ChatInputCommandInteraction,
+  gc: GuildConfig,
 ): AccessLevel | null {
   const roleIds = memberRoleIds(interaction.member);
 
   const isAdmin =
     (interaction.memberPermissions?.has(PermissionFlagsBits.Administrator) ??
       false) ||
-    config.roles.admin.some((roleId) => roleIds.includes(roleId));
+    gc.roles.admin.some((roleId) => roleIds.includes(roleId));
   if (isAdmin) return 'admin';
 
-  if (config.roles.mod.some((roleId) => roleIds.includes(roleId))) return 'mod';
+  if (gc.roles.mod.some((roleId) => roleIds.includes(roleId))) return 'mod';
 
   return null;
 }
 
 export function hasCommandAccess(
   interaction: ChatInputCommandInteraction,
+  gc: GuildConfig,
   required: AccessLevel,
 ): boolean {
-  const level = commandAccessLevel(interaction);
+  const level = commandAccessLevel(interaction, gc);
   if (level === 'admin') return true;
   if (level === 'mod') return required === 'mod';
   return false;

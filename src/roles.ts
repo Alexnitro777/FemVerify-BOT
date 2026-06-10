@@ -1,15 +1,16 @@
 import { GuildMember } from 'discord.js';
-import { config } from './config';
+import { GuildConfig } from './types';
 
 export async function blacklistMemberRoles(
   member: GuildMember,
+  gc: GuildConfig,
 ): Promise<{ ok: boolean; removed: string[] }> {
   const botTop = member.guild.members.me?.roles.highest.position ?? 0;
   const keep: string[] = [];
   const removed: string[] = [];
 
   for (const role of member.roles.cache.values()) {
-    if (role.id === member.guild.id || role.id === config.roles.blacklist) continue;
+    if (role.id === member.guild.id || role.id === gc.roles.blacklist) continue;
     if (role.managed || role.position >= botTop) {
       keep.push(role.id);
     } else {
@@ -18,7 +19,7 @@ export async function blacklistMemberRoles(
   }
 
   try {
-    await member.roles.set([...keep, config.roles.blacklist]);
+    await member.roles.set([...keep, gc.roles.blacklist]);
     return { ok: true, removed };
   } catch (e) {
     console.error('[roles] blacklistMemberRoles failed', e);
@@ -26,10 +27,14 @@ export async function blacklistMemberRoles(
   }
 }
 
-export async function restoreMemberRoles(member: GuildMember, roleIds: string[]): Promise<boolean> {
+export async function restoreMemberRoles(
+  member: GuildMember,
+  gc: GuildConfig,
+  roleIds: string[],
+): Promise<boolean> {
   const botTop = member.guild.members.me?.roles.highest.position ?? 0;
   const toAdd = roleIds.filter((id) => {
-    if (id === config.roles.verified) return false;
+    if (id === gc.roles.verified) return false;
     const role = member.guild.roles.cache.get(id);
     return role !== undefined && !role.managed && role.position < botTop;
   });

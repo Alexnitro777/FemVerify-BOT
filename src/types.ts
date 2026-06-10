@@ -7,20 +7,41 @@ import {
   Collection,
 } from 'discord.js';
 
+export interface GuildConfig {
+  guildId: string;
+  roles: {
+    verified: string;
+    blacklist: string;
+    admin: string[];
+    mod: string[];
+    roleTag?: string;
+  };
+  channels: {
+    review: string;
+    appealReview: string;
+    welcome?: string;
+    decisions?: string;
+    appeal?: string;
+    tagLog?: string;
+    blacklistLog?: string;
+  };
+  questionCategoryId: string;
+}
+
 export interface SlashCommand {
   data: Omit<SlashCommandBuilder, 'addSubcommand' | 'addSubcommandGroup'>;
   access?: 'admin' | 'mod';
-  execute: (interaction: ChatInputCommandInteraction) => Promise<void>;
+  execute: (interaction: ChatInputCommandInteraction, gc: GuildConfig) => Promise<void>;
 }
 
 export interface ButtonHandler {
   customId: string | RegExp;
-  execute: (interaction: ButtonInteraction) => Promise<void>;
+  execute: (interaction: ButtonInteraction, gc: GuildConfig) => Promise<void>;
 }
 
 export interface ModalHandler {
   customId: string | RegExp;
-  execute: (interaction: ModalSubmitInteraction) => Promise<void>;
+  execute: (interaction: ModalSubmitInteraction, gc: GuildConfig) => Promise<void>;
 }
 
 export interface BotClient extends Client {
@@ -57,6 +78,7 @@ export interface Application {
 
 export interface Appeal {
   userId: string;
+  guildId: string;
   username: string;
   text: string;
   submittedAt: number;
