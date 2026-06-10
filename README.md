@@ -107,16 +107,24 @@ sh get-docker.sh
 
     ```sql
     INSERT INTO guild_settings (guildId, `key`, value) VALUES
-    ('ID_СЕРВЕРА', 'roles.verified',       'ID_РОЛИ'),
-    ('ID_СЕРВЕРА', 'roles.blacklist',      'ID_РОЛИ'),
-    ('ID_СЕРВЕРА', 'roles.admin',          'ID_РОЛИ1,ID_РОЛИ2'),
-    ('ID_СЕРВЕРА', 'roles.mod',            'ID_РОЛИ1,ID_РОЛИ2'),
-    ('ID_СЕРВЕРА', 'channels.review',      'ID_КАНАЛА'),
-    ('ID_СЕРВЕРА', 'channels.appealReview','ID_КАНАЛА'),
-    ('ID_СЕРВЕРА', 'questionCategoryId',   'ID_КАТЕГОРИИ');
+    -- обязательные:
+    ('ID_СЕРВЕРА', 'roles.verified',        'ID_РОЛИ'),
+    ('ID_СЕРВЕРА', 'roles.blacklist',       'ID_РОЛИ'),
+    ('ID_СЕРВЕРА', 'roles.admin',           'ID_РОЛИ1,ID_РОЛИ2'),
+    ('ID_СЕРВЕРА', 'roles.mod',             'ID_РОЛИ1,ID_РОЛИ2'),
+    ('ID_СЕРВЕРА', 'channels.review',       'ID_КАНАЛА'),
+    ('ID_СЕРВЕРА', 'channels.appealReview', 'ID_КАНАЛА'),
+    ('ID_СЕРВЕРА', 'questionCategoryId',    'ID_КАТЕГОРИИ'),
+    -- необязательные (можно пропустить):
+    ('ID_СЕРВЕРА', 'roles.roleTag',         'ID_РОЛИ'),
+    ('ID_СЕРВЕРА', 'channels.welcome',      'ID_КАНАЛА'),
+    ('ID_СЕРВЕРА', 'channels.decisions',    'ID_КАНАЛА'),
+    ('ID_СЕРВЕРА', 'channels.appeal',       'ID_КАНАЛА'),
+    ('ID_СЕРВЕРА', 'channels.tagLog',       'ID_КАНАЛА'),
+    ('ID_СЕРВЕРА', 'channels.blacklistLog', 'ID_КАНАЛА');
     ```
 
-    Необязательные ключи: `roles.roleTag`, `channels.welcome`, `channels.decisions`, `channels.appeal`, `channels.tagLog`, `channels.blacklistLog`.
+    Строки после `-- необязательные` можно не вставлять — без них соответствующие функции (роль за тег, приветствие, логи) просто отключены.
 
 5. **Перечитай настройки** — после добавления строк перезапусти бота, чтобы он сбросил кэш конфигов серверов:
 
