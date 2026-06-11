@@ -159,7 +159,7 @@ export async function getJoinMethod(
 
 async function nextNumber(guildId: string, name: string): Promise<number> {
   const [result] = await db.execute<ResultSetHeader>(
-    `INSERT INTO counters (guildId, name, value) VALUES (?, ?, 1)
+    `INSERT INTO counters (guildId, name, value) VALUES (?, ?, LAST_INSERT_ID(1))
      ON DUPLICATE KEY UPDATE value = LAST_INSERT_ID(value + 1)`,
     [guildId, name],
   );
