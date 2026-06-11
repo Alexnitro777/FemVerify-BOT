@@ -41,6 +41,21 @@ export function getGuild(interaction: ButtonInteraction): Guild | null {
   return interaction.inGuild() ? interaction.guild : null;
 }
 
+export function canManageByHierarchy(moderator: GuildMember, target: GuildMember): boolean {
+  if (target.id === target.guild.ownerId) return false;
+  if (moderator.id === moderator.guild.ownerId) return true;
+  return moderator.roles.highest.comparePositionTo(target.roles.highest) > 0;
+}
+
+export function canManageRoles(moderator: GuildMember, roleIds: string[]): boolean {
+  if (moderator.id === moderator.guild.ownerId) return true;
+  const moderatorPosition = moderator.roles.highest.position;
+  return roleIds.every((id) => {
+    const role = moderator.guild.roles.cache.get(id);
+    return !role || role.position < moderatorPosition;
+  });
+}
+
 export function commandAccessLevel(
   interaction: ChatInputCommandInteraction,
   gc: GuildConfig,

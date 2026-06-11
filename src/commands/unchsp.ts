@@ -1,6 +1,7 @@
 import {
   SlashCommandBuilder,
   ChatInputCommandInteraction,
+  GuildMember,
   PermissionFlagsBits,
   MessageFlags,
   ModalBuilder,
@@ -9,6 +10,8 @@ import {
   ActionRowBuilder,
 } from 'discord.js';
 import { SlashCommand } from '../types';
+import { getApplication } from '../storage';
+import { canManageByHierarchy, canManageRoles } from '../permissions';
 
 const command: SlashCommand = {
   data: new SlashCommandBuilder()
@@ -38,6 +41,25 @@ const command: SlashCommand = {
         flags: MessageFlags.Ephemeral,
       });
       return;
+    }
+
+    const target = await interaction.guild.members.fetch(user.id).catch(() => null);
+    const moderator = await interaction.guild.members
+      .fetch(interaction.user.id)
+      .catch(() => null);
+    if (target && moderator) {
+      const existing = await getApplication(interaction.guild.id, user.id);
+      const toRestore = existing?.removedRoles ?? [];
+      if (
+        !canManageByHierarchy(moderator as GuildMember, target) ||
+        !canManageRoles(moderator as GuildMember, toRestore)
+      ) {
+        await interaction.reply({
+          content: 'Нельзя снять с чёрного списка участника, чьи роли выше ваших или равны им.',
+          flags: MessageFlags.Ephemeral,
+        });
+        return;
+      }
     }
 
     const modal = new ModalBuilder()

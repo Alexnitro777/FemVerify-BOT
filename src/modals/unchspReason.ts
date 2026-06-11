@@ -1,8 +1,9 @@
-import { ModalSubmitInteraction, MessageFlags } from 'discord.js';
+import { ModalSubmitInteraction, GuildMember, MessageFlags } from 'discord.js';
 import { ModalHandler, GuildConfig } from '../types';
 import { getApplication, updateApplication } from '../storage';
 import { buildDmEmbed, postDecisionMessage } from '../ui';
 import { restoreMemberRoles } from '../roles';
+import { canManageByHierarchy, canManageRoles } from '../permissions';
 
 const handler: ModalHandler = {
   customId: /^unchsp:reason:\d+$/,
@@ -36,6 +37,22 @@ const handler: ModalHandler = {
       return;
     }
 
+    const moderator = await interaction.guild.members
+      .fetch(interaction.user.id)
+      .catch(() => null);
+    const existing = await getApplication(guildId, userId);
+    const toRestore = existing?.removedRoles ?? [];
+    if (
+      !moderator ||
+      !canManageByHierarchy(moderator as GuildMember, member) ||
+      !canManageRoles(moderator as GuildMember, toRestore)
+    ) {
+      await interaction.editReply({
+        content: 'Нельзя снять с чёрного списка участника, чьи роли выше ваших или равны им.',
+      });
+      return;
+    }
+
     const warnings: string[] = [];
 
     const roleRemoved = await member.roles
@@ -49,8 +66,6 @@ const handler: ModalHandler = {
       warnings.push('⚠️ Не удалось снять роль ЧС — проверьте иерархию ролей бота.');
     }
 
-    const existing = await getApplication(guildId, userId);
-    const toRestore = existing?.removedRoles ?? [];
     if (toRestore.length > 0) {
       const restored = await restoreMemberRoles(member, gc, toRestore);
       if (!restored) {

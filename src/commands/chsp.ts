@@ -1,6 +1,7 @@
 import {
   SlashCommandBuilder,
   ChatInputCommandInteraction,
+  GuildMember,
   PermissionFlagsBits,
   MessageFlags,
   ModalBuilder,
@@ -9,6 +10,7 @@ import {
   ActionRowBuilder,
 } from 'discord.js';
 import { SlashCommand } from '../types';
+import { canManageByHierarchy } from '../permissions';
 
 const command: SlashCommand = {
   data: new SlashCommandBuilder()
@@ -35,6 +37,18 @@ const command: SlashCommand = {
     if (user.id === interaction.user.id) {
       await interaction.reply({
         content: 'Нельзя занести в чёрный список самого себя.',
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
+
+    const target = await interaction.guild.members.fetch(user.id).catch(() => null);
+    const moderator = await interaction.guild.members
+      .fetch(interaction.user.id)
+      .catch(() => null);
+    if (target && moderator && !canManageByHierarchy(moderator as GuildMember, target)) {
+      await interaction.reply({
+        content: 'Нельзя занести в чёрный список участника, чья роль выше вашей или равна ей.',
         flags: MessageFlags.Ephemeral,
       });
       return;

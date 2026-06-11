@@ -1,8 +1,9 @@
-import { ModalSubmitInteraction, MessageFlags } from 'discord.js';
+import { ModalSubmitInteraction, GuildMember, MessageFlags } from 'discord.js';
 import { ModalHandler, GuildConfig } from '../types';
 import { getApplication, updateApplication, saveApplication } from '../storage';
 import { buildDmEmbed, postDecisionMessage } from '../ui';
 import { blacklistMemberRoles } from '../roles';
+import { canManageByHierarchy } from '../permissions';
 
 const handler: ModalHandler = {
   customId: /^chsp:reason:\d+$/,
@@ -33,6 +34,16 @@ const handler: ModalHandler = {
     const member = await interaction.guild.members.fetch(userId).catch(() => null);
     if (!member) {
       await interaction.editReply({ content: 'Пользователь не найден на сервере.' });
+      return;
+    }
+
+    const moderator = await interaction.guild.members
+      .fetch(interaction.user.id)
+      .catch(() => null);
+    if (!moderator || !canManageByHierarchy(moderator as GuildMember, member)) {
+      await interaction.editReply({
+        content: 'Нельзя занести в чёрный список участника, чья роль выше вашей или равна ей.',
+      });
       return;
     }
 
