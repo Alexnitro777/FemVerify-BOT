@@ -32,6 +32,14 @@ const command: SlashCommand = {
 
     const user = interaction.options.getUser('цель', true);
 
+    if (user.id === interaction.user.id) {
+      await interaction.reply({
+        content: 'Нельзя снять с чёрного списка самого себя.',
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
+
     const modal = new ModalBuilder()
       .setCustomId(`unchsp:reason:${user.id}`)
       .setTitle('Укажите причину снятия с ЧС');
