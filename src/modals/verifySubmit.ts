@@ -36,6 +36,11 @@ const handler: ModalHandler = {
       return;
     }
 
+    if (submitter?.roles.cache.has(gc.roles.verified)) {
+      await interaction.editReply({ content: 'Вы уже верифицированы.' });
+      return;
+    }
+
     const joinMethod = await getJoinMethod(guildId, interaction.user.id);
 
     const channel = await interaction.client.channels.fetch(gc.channels.review).catch(() => null);

@@ -28,7 +28,7 @@ const handler: ButtonHandler = {
       await interaction.reply({ content: 'Ваша заявка уже на рассмотрении.', flags: MessageFlags.Ephemeral });
       return;
     }
-    if (existing?.status === 'approved' && member?.roles.cache.has(gc.roles.verified)) {
+    if (member?.roles.cache.has(gc.roles.verified)) {
       await interaction.reply({ content: 'Вы уже верифицированы.', flags: MessageFlags.Ephemeral });
       return;
     }
