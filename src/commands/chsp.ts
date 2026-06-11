@@ -9,7 +9,7 @@ import {
   TextInputStyle,
   ActionRowBuilder,
 } from 'discord.js';
-import { SlashCommand } from '../types';
+import { SlashCommand, GuildConfig } from '../types';
 import { canManageByHierarchy } from '../permissions';
 
 const command: SlashCommand = {
@@ -23,7 +23,7 @@ const command: SlashCommand = {
 
   access: 'mod',
 
-  async execute(interaction: ChatInputCommandInteraction): Promise<void> {
+  async execute(interaction: ChatInputCommandInteraction, gc: GuildConfig): Promise<void> {
     if (!interaction.inGuild() || !interaction.guild) {
       await interaction.reply({
         content: 'Команду нужно запускать на сервере.',
@@ -46,6 +46,15 @@ const command: SlashCommand = {
     const moderator = await interaction.guild.members
       .fetch(interaction.user.id)
       .catch(() => null);
+
+    if (target?.roles.cache.has(gc.roles.blacklist)) {
+      await interaction.reply({
+        content: 'Участник уже находится в чёрном списке.',
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
+
     if (target && moderator && !canManageByHierarchy(moderator as GuildMember, target)) {
       await interaction.reply({
         content: 'Нельзя занести в чёрный список участника, чья роль выше вашей или равна ей.',

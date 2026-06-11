@@ -9,7 +9,7 @@ import {
   TextInputStyle,
   ActionRowBuilder,
 } from 'discord.js';
-import { SlashCommand } from '../types';
+import { SlashCommand, GuildConfig } from '../types';
 import { getApplication } from '../storage';
 import { canManageByHierarchy, canManageRoles } from '../permissions';
 
@@ -24,7 +24,7 @@ const command: SlashCommand = {
 
   access: 'mod',
 
-  async execute(interaction: ChatInputCommandInteraction): Promise<void> {
+  async execute(interaction: ChatInputCommandInteraction, gc: GuildConfig): Promise<void> {
     if (!interaction.inGuild() || !interaction.guild) {
       await interaction.reply({
         content: 'Команду нужно запускать на сервере.',
@@ -47,6 +47,15 @@ const command: SlashCommand = {
     const moderator = await interaction.guild.members
       .fetch(interaction.user.id)
       .catch(() => null);
+
+    if (target && !target.roles.cache.has(gc.roles.blacklist)) {
+      await interaction.reply({
+        content: 'Участник не находится в чёрном списке.',
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
+
     if (target && moderator) {
       const existing = await getApplication(interaction.guild.id, user.id);
       const toRestore = existing?.removedRoles ?? [];

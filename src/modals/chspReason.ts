@@ -37,6 +37,11 @@ const handler: ModalHandler = {
       return;
     }
 
+    if (member.roles.cache.has(gc.roles.blacklist)) {
+      await interaction.editReply({ content: 'Участник уже находится в чёрном списке.' });
+      return;
+    }
+
     const moderator = await interaction.guild.members
       .fetch(interaction.user.id)
       .catch(() => null);
