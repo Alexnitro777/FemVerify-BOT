@@ -248,16 +248,21 @@ export function buildDecisionEmbed(
 	targetUserId: string,
 	number?: number,
 	reason?: { title: string; text: string },
+	titleOverride?: string,
 ): EmbedBuilder {
 	const embed = new EmbedBuilder()
 		.setTitle(
-			kind === 'appeal'
+			titleOverride
 				? number
-					? `Решение по апелляции №\`${number}\``
-					: 'Решение по апелляции'
-				: number
-					? `Решение по заявке №\`${number}\``
-					: 'Решение по заявке',
+					? `${titleOverride} №\`${number}\``
+					: titleOverride
+				: kind === 'appeal'
+					? number
+						? `Решение по апелляции №\`${number}\``
+						: 'Решение по апелляции'
+					: number
+						? `Решение по заявке №\`${number}\``
+						: 'Решение по заявке',
 		)
 		.setColor(color)
 		.addFields({ name: 'Участник', value: `<@${targetUserId}>`, inline: true });
@@ -292,6 +297,7 @@ export async function postDecisionMessage(
 		reviewMessageUrl?: string;
 		reason?: { title: string; text: string };
 		number?: number;
+		title?: string;
 	},
 ): Promise<void> {
 	if (!channelId) return;
@@ -309,6 +315,7 @@ export async function postDecisionMessage(
 			opts.targetUserId,
 			opts.number,
 			opts.reason,
+			opts.title,
 		);
 		const linkRow = buildDecisionLinkRow(kind, opts.reviewMessageUrl);
 		await (channel as TextChannel).send({

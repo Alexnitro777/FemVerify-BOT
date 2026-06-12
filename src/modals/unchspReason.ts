@@ -98,6 +98,7 @@ const handler: ModalHandler = {
       targetUserId: userId,
       reason: { title: 'Причина снятия ЧС', text: reason },
       number: existing?.number,
+      title: 'Снятие ЧСП',
     });
 
     const baseReply = `Участник <@${userId}> снят с ЧС.`;
