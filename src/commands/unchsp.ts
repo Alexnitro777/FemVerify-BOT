@@ -73,7 +73,7 @@ const command: SlashCommand = {
 
     const modal = new ModalBuilder()
       .setCustomId(`unchsp:reason:${user.id}`)
-      .setTitle('Укажите причину снятия с ЧС');
+      .setTitle('Укажите причину снятия ЧС');
 
     const reasonInput = new TextInputBuilder()
       .setCustomId('reason')

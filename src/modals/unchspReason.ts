@@ -22,7 +22,7 @@ const handler: ModalHandler = {
 
     if (!reason) {
       await interaction.reply({
-        content: 'Укажите причину снятия с ЧС.',
+        content: 'Укажите причину снятия ЧС.',
         flags: MessageFlags.Ephemeral,
       });
       return;

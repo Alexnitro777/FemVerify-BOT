@@ -27,7 +27,7 @@ export const verifyQuestions: Question[] = [
     style: TextInputStyle.Paragraph,
     required: true,
     maxLength: 200,
-    placeholder: 'Расскажи своими словами: ищю друзей, тиммейтов, общения и т.д.',
+    placeholder: 'Расскажи своими словами: ищу друзей, тиммейтов, общения и т.д.',
   },
   {
     id: 'age',
