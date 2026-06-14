@@ -18,7 +18,7 @@ const command: SlashCommand = {
     .setName('снятьчсп')
     .setDescription('Снять участника с чёрного списка: убрать роль ЧС и вернуть снятые роли')
     .addUserOption((option) =>
-      option.setName('цель').setDescription('Кого снять с ЧС').setRequired(true),
+      option.setName('цель').setDescription('Кому снять ЧС').setRequired(true),
     )
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageNicknames) as unknown as SlashCommand['data'],
 
@@ -77,7 +77,7 @@ const command: SlashCommand = {
 
     const reasonInput = new TextInputBuilder()
       .setCustomId('reason')
-      .setLabel('Причина снятия с ЧС')
+      .setLabel('Причина снятия ЧС')
       .setStyle(TextInputStyle.Paragraph)
       .setRequired(true)
       .setMaxLength(1000);
