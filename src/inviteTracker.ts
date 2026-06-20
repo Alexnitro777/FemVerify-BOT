@@ -30,6 +30,7 @@ function stateFor(guildId: string): GuildInviteState {
 
 const UNKNOWN = 'Неизвестно';
 const VANITY = 'По vanity-ссылке';
+const TRAVEL = 'Путешествие';
 
 const DELETED_WINDOW_MS = 10_000;
 const RECACHE_INTERVAL_MS = 5 * 60 * 1000;
@@ -181,7 +182,7 @@ async function detectJoinMethod(guild: Guild): Promise<string> {
     return UNKNOWN;
   }
 
-  return UNKNOWN;
+  return TRAVEL;
 }
 
 export function registerInviteTracker(client: Client): void {
