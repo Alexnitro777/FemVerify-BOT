@@ -82,6 +82,7 @@ const handler: ModalHandler = {
               action === 'blacklist' ? 'ЧС' : 'Отклонено',
               action === 'blacklist' ? 0x992d22 : 0xed4245,
               interaction.user.id,
+              action === 'blacklist' ? undefined : { title: 'Причина отклонения', text: reason },
             );
             await msg
               .edit({ embeds: [resolved], components: [buildProcessedButtonRow('application')] })

@@ -166,13 +166,19 @@ export function buildResolvedEmbed(
 	label: string,
 	color: number,
 	reviewerId: string,
+	reason?: { title: string; text: string },
 ): EmbedBuilder {
-	return EmbedBuilder.from(original.data)
-		.setColor(color)
-		.addFields({
-			name: label,
-			value: `<@${reviewerId}>`,
-		});
+	const embed = EmbedBuilder.from(original.data).setColor(color).addFields({
+		name: label,
+		value: `<@${reviewerId}>`,
+		inline: Boolean(reason),
+	});
+	if (reason) {
+		const text = reason.text.trim();
+		const value = text ? `\`${text.length > 1000 ? text.slice(0, 1000) + '...' : text}\`` : '—';
+		embed.addFields({ name: reason.title, value, inline: true });
+	}
+	return embed;
 }
 
 export function buildDmEmbed(title: string, description: string, color: number): EmbedBuilder {
