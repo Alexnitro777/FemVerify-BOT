@@ -19,6 +19,16 @@ const handler: ModalHandler = {
 
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
+    const age = (answers.age ?? '').trim();
+    const ageNumber = Number(age);
+    if (!/^\d+$/.test(age) || ageNumber < 13 || ageNumber > 99) {
+      await interaction.editReply({
+        content: '❌ В поле «Сколько вам лет?» укажите реальный возраст числом. Заполните анкету заново.',
+      });
+      return;
+    }
+    answers.age = age;
+
     const guildId = interaction.guildId!;
     const existing = await getApplication(guildId, interaction.user.id);
     if (existing?.status === 'pending') {

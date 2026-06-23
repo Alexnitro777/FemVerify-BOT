@@ -35,7 +35,7 @@ FemVerify-BOT/
 │   ├── roleTag.ts             Детект тега сервера + автовыдача/снятие роли
 │   ├── inviteTracker.ts       Трекинг инвайтов — определяет способ вступления
 │   ├── leaveCleanup.ts        Обработка выхода участника (статус left)
-│   ├── questionCleanup.ts     Автоудаление просроченных каналов-вопросов (TTL 24 ч)
+│   ├── questionCleanup.ts     Автоудаление просроченных каналов-вопросов (TTL 2 дня)
 │   ├── questionRestore.ts     Возврат кнопки «Задать вопрос» при закрытии канала
 │   ├── applicationCleanup.ts  Автозакрытие анкет по TTL (48 ч → expired)
 │   ├── config.ts              Идентичность бота (token, clientId) из таблицы app_config
