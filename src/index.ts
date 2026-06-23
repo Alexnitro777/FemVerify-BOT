@@ -7,6 +7,7 @@ import { initStorage } from './storage';
 import { closeDb } from './db';
 import { registerTagRoleEvents, syncAllTagRoles } from './roleTag';
 import { registerLeaveCleanupEvents } from './leaveCleanup';
+import { registerBlacklistEnforcement } from './blacklistEnforce';
 import { registerQuestionCleanup } from './questionCleanup';
 import { registerApplicationCleanup } from './applicationCleanup';
 import { registerInviteTracker } from './inviteTracker';
@@ -48,6 +49,8 @@ async function bootstrap(): Promise<void> {
   registerTagRoleEvents(client);
 
   registerLeaveCleanupEvents(client);
+
+  registerBlacklistEnforcement(client);
 
   registerQuestionCleanup(client);
 

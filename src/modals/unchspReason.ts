@@ -76,7 +76,9 @@ const handler: ModalHandler = {
       if (!restored) {
         warnings.push('⚠️ Не удалось вернуть часть ролей — проверьте иерархию ролей бота.');
       }
-      await updateApplication(guildId, userId, { removedRoles: [] });
+    }
+    if (existing) {
+      await updateApplication(guildId, userId, { status: 'amnestied', removedRoles: [] });
     }
 
     await member

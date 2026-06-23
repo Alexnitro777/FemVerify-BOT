@@ -55,6 +55,7 @@ export type ApplicationStatus =
   | 'approved'
   | 'rejected'
   | 'blacklisted'
+  | 'amnestied'
   | 'left'
   | 'expired';
 

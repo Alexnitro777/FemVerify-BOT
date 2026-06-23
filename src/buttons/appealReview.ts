@@ -185,18 +185,17 @@ const handler: ButtonHandler = {
 			if (member && !removed) {
 				warning = '⚠️ Не удалось снять роль ЧС — проверьте иерархию ролей бота.';
 			}
-			if (member) {
-				const application = await getApplication(guildId, userId);
-				const toRestore = application?.removedRoles ?? [];
-				if (toRestore.length > 0) {
-					const restored = await restoreMemberRoles(member, gc, toRestore);
-					if (!restored) {
-						warning = warning
-							? `${warning}\n⚠️ Не удалось вернуть часть ролей.`
-							: '⚠️ Не удалось вернуть часть ролей — проверьте иерархию ролей бота.';
-					}
-					await updateApplication(guildId, userId, { removedRoles: [] });
+			const application = await getApplication(guildId, userId);
+			if (member && application?.removedRoles?.length) {
+				const restored = await restoreMemberRoles(member, gc, application.removedRoles);
+				if (!restored) {
+					warning = warning
+						? `${warning}\n⚠️ Не удалось вернуть часть ролей.`
+						: '⚠️ Не удалось вернуть часть ролей — проверьте иерархию ролей бота.';
 				}
+			}
+			if (application) {
+				await updateApplication(guildId, userId, { status: 'amnestied', removedRoles: [] });
 			}
 			await member
 				?.send({
