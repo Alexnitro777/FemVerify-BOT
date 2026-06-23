@@ -46,7 +46,7 @@ const command: SlashCommand = {
     .setDescription('Статистика по тегу сервера: сколько участников его носят')
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageNicknames) as unknown as SlashCommand['data'],
 
-  access: 'mod',
+  access: 'staff',
 
   async execute(interaction: ChatInputCommandInteraction, _gc: GuildConfig): Promise<void> {
     if (!interaction.inGuild() || !interaction.guild) {

@@ -14,7 +14,7 @@ const command: SlashCommand = {
     .setDescription('Показать все непринятые апелляции')
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageNicknames) as unknown as SlashCommand['data'],
 
-  access: 'mod',
+  access: 'ststaff',
 
   async execute(interaction: ChatInputCommandInteraction, _gc: GuildConfig): Promise<void> {
     const pending = await listPendingAppeals(interaction.guildId!);

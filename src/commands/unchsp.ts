@@ -22,7 +22,7 @@ const command: SlashCommand = {
     )
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageNicknames) as unknown as SlashCommand['data'],
 
-  access: 'mod',
+  access: 'ststaff',
 
   async execute(interaction: ChatInputCommandInteraction, gc: GuildConfig): Promise<void> {
     if (!interaction.inGuild() || !interaction.guild) {

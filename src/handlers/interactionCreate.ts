@@ -23,7 +23,7 @@ export async function handleInteraction(client: BotClient, interaction: Interact
         return;
       }
 
-      const required = cmd.access ?? 'admin';
+      const required = cmd.access ?? 'owner';
       if (!hasCommandAccess(interaction, gc, required)) {
         await interaction.reply({
           content: '⛔ У тебя нет доступа к этой команде.',

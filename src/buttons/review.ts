@@ -26,13 +26,13 @@ import {
 	buildProcessedButtonRow,
 	buildReviewButtons,
 } from '../ui';
-import { isMod, getGuild } from '../permissions';
+import { hasButtonAccess, getGuild } from '../permissions';
 
 const handler: ButtonHandler = {
 	customId: /^review:(approve|reject|question|blacklist):\d+$/,
 
 	async execute(interaction: ButtonInteraction, gc: GuildConfig): Promise<void> {
-		if (!isMod(interaction, gc)) {
+		if (!hasButtonAccess(interaction, gc, 'staff')) {
 			await interaction.reply({ content: 'Недостаточно прав.', flags: MessageFlags.Ephemeral });
 			return;
 		}
@@ -113,7 +113,7 @@ const handler: ButtonHandler = {
 							PermissionFlagsBits.ReadMessageHistory,
 						],
 					},
-					...[...new Set([...gc.roles.mod, ...gc.roles.admin])].map((roleId) => ({
+					...[...new Set([...gc.roles.staff, ...gc.roles.ststaff])].map((roleId) => ({
 						id: roleId,
 						allow: [
 							PermissionFlagsBits.ViewChannel,

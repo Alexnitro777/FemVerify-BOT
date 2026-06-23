@@ -1,17 +1,13 @@
-import { ButtonInteraction, PermissionFlagsBits, GuildMember, MessageFlags } from 'discord.js';
+import { ButtonInteraction, MessageFlags } from 'discord.js';
 import { ButtonHandler, GuildConfig } from '../types';
+import { hasButtonAccess } from '../permissions';
 import { restoreReviewButton } from '../questionRestore';
 
 const handler: ButtonHandler = {
   customId: /^question:close:\d+$/,
 
   async execute(interaction: ButtonInteraction, gc: GuildConfig): Promise<void> {
-    const member = interaction.member as GuildMember | null;
-    const allowed =
-      member &&
-      (member.permissions.has(PermissionFlagsBits.ManageChannels) ||
-        gc.roles.mod.some((roleId) => member.roles.cache.has(roleId)));
-    if (!allowed) {
+    if (!hasButtonAccess(interaction, gc, 'staff')) {
       await interaction.reply({ content: 'Недостаточно прав.', flags: MessageFlags.Ephemeral });
       return;
     }

@@ -12,8 +12,8 @@ export interface GuildConfig {
   roles: {
     verified: string;
     blacklist: string;
-    admin: string[];
-    mod: string[];
+    staff: string[];
+    ststaff: string[];
     roleTag?: string;
   };
   channels: {
@@ -30,7 +30,7 @@ export interface GuildConfig {
 
 export interface SlashCommand {
   data: Omit<SlashCommandBuilder, 'addSubcommand' | 'addSubcommandGroup'>;
-  access?: 'admin' | 'mod';
+  access?: 'owner' | 'ststaff' | 'staff';
   execute: (interaction: ChatInputCommandInteraction, gc: GuildConfig) => Promise<void>;
 }
 

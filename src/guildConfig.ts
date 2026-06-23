@@ -31,8 +31,8 @@ function build(guildId: string, raw: Record<string, string>): GuildConfig {
     roles: {
       verified: required(raw['roles.verified'], 'roles.verified'),
       blacklist: required(raw['roles.blacklist'], 'roles.blacklist'),
-      admin: requiredList(raw['roles.admin'], 'roles.admin'),
-      mod: requiredList(raw['roles.mod'], 'roles.mod'),
+      staff: requiredList(raw['roles.staff'], 'roles.staff'),
+      ststaff: requiredList(raw['roles.ststaff'], 'roles.ststaff'),
       roleTag: optional(raw['roles.roleTag']),
     },
     channels: {

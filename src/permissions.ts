@@ -3,11 +3,22 @@ import {
   ChatInputCommandInteraction,
   GuildMember,
   Guild,
-  PermissionFlagsBits,
 } from 'discord.js';
 import { GuildConfig } from './types';
 
-export type AccessLevel = 'admin' | 'mod';
+export const OWNER_IDS: string[] = ['703129488170549258'];
+
+export type AccessLevel = 'owner' | 'ststaff' | 'staff';
+
+const RANK: Record<AccessLevel, number> = {
+  staff: 1,
+  ststaff: 2,
+  owner: 3,
+};
+
+export function isOwner(userId: string | undefined | null): boolean {
+  return !!userId && OWNER_IDS.includes(userId);
+}
 
 function memberRoleIds(member: unknown): string[] {
   if (!member || typeof member !== 'object') return [];
@@ -25,16 +36,16 @@ function memberRoleIds(member: unknown): string[] {
   return [];
 }
 
-export function isMod(interaction: ButtonInteraction, gc: GuildConfig): boolean {
-  if (!interaction.inGuild()) return false;
-  const member = interaction.member as GuildMember | null;
-  if (!member) return false;
+function resolveAccessLevel(
+  member: unknown,
+  userId: string | undefined | null,
+  gc: GuildConfig,
+): AccessLevel | null {
+  if (isOwner(userId)) return 'owner';
   const roleIds = memberRoleIds(member);
-  return (
-    member.permissions.has(PermissionFlagsBits.ManageRoles) ||
-    gc.roles.mod.some((roleId) => roleIds.includes(roleId)) ||
-    gc.roles.admin.some((roleId) => roleIds.includes(roleId))
-  );
+  if (gc.roles.ststaff.some((roleId) => roleIds.includes(roleId))) return 'ststaff';
+  if (gc.roles.staff.some((roleId) => roleIds.includes(roleId))) return 'staff';
+  return null;
 }
 
 export function getGuild(interaction: ButtonInteraction): Guild | null {
@@ -60,17 +71,7 @@ export function commandAccessLevel(
   interaction: ChatInputCommandInteraction,
   gc: GuildConfig,
 ): AccessLevel | null {
-  const roleIds = memberRoleIds(interaction.member);
-
-  const isAdmin =
-    (interaction.memberPermissions?.has(PermissionFlagsBits.Administrator) ??
-      false) ||
-    gc.roles.admin.some((roleId) => roleIds.includes(roleId));
-  if (isAdmin) return 'admin';
-
-  if (gc.roles.mod.some((roleId) => roleIds.includes(roleId))) return 'mod';
-
-  return null;
+  return resolveAccessLevel(interaction.member, interaction.user.id, gc);
 }
 
 export function hasCommandAccess(
@@ -79,7 +80,22 @@ export function hasCommandAccess(
   required: AccessLevel,
 ): boolean {
   const level = commandAccessLevel(interaction, gc);
-  if (level === 'admin') return true;
-  if (level === 'mod') return required === 'mod';
-  return false;
+  return level !== null && RANK[level] >= RANK[required];
+}
+
+export function buttonAccessLevel(
+  interaction: ButtonInteraction,
+  gc: GuildConfig,
+): AccessLevel | null {
+  if (!interaction.inGuild()) return null;
+  return resolveAccessLevel(interaction.member, interaction.user.id, gc);
+}
+
+export function hasButtonAccess(
+  interaction: ButtonInteraction,
+  gc: GuildConfig,
+  required: AccessLevel,
+): boolean {
+  const level = buttonAccessLevel(interaction, gc);
+  return level !== null && RANK[level] >= RANK[required];
 }

@@ -24,7 +24,7 @@ import {
 	buildProcessedButtonRow,
 	buildAppealReviewButtons,
 } from '../ui';
-import { isMod, getGuild } from '../permissions';
+import { hasButtonAccess, getGuild } from '../permissions';
 import { restoreMemberRoles } from '../roles';
 
 const DENY_COOLDOWN_MS = 48 * 60 * 60 * 1000;
@@ -33,7 +33,7 @@ const handler: ButtonHandler = {
 	customId: /^appeal:(amnesty|deny|question):\d+$/,
 
 	async execute(interaction: ButtonInteraction, gc: GuildConfig): Promise<void> {
-		if (!isMod(interaction, gc)) {
+		if (!hasButtonAccess(interaction, gc, 'ststaff')) {
 			await interaction.reply({ content: 'Недостаточно прав.', flags: MessageFlags.Ephemeral });
 			return;
 		}
@@ -93,7 +93,7 @@ const handler: ButtonHandler = {
 							PermissionFlagsBits.ReadMessageHistory,
 						],
 					},
-					...[...new Set([...gc.roles.mod, ...gc.roles.admin])].map((roleId) => ({
+					...gc.roles.ststaff.map((roleId) => ({
 						id: roleId,
 						allow: [
 							PermissionFlagsBits.ViewChannel,

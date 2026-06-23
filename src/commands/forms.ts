@@ -14,7 +14,7 @@ const command: SlashCommand = {
     .setDescription('Показать все непринятые анкеты на верификацию')
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageNicknames) as unknown as SlashCommand['data'],
 
-  access: 'mod',
+  access: 'staff',
 
   async execute(interaction: ChatInputCommandInteraction, _gc: GuildConfig): Promise<void> {
     const pending = await listPendingApplications(interaction.guildId!);
