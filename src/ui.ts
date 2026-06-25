@@ -121,7 +121,7 @@ export function buildPendingListView(
 		const link = item.reviewMessageUrl ? ` — [перейти](${item.reviewMessageUrl})` : '';
 		const num = item.number ? `№\`${item.number}\`` : `\`${idx + 1}.\``;
 		const question = item.questionChannelId
-			? ` • ❓ вопрос открыт <#${item.questionChannelId}>`
+			? ` • <#${item.questionChannelId}>`
 			: '';
 		return `**${num}** <@${item.userId}> (${item.username}) — <t:${ts}:R>${link}${question}`;
 	});
