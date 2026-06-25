@@ -2,11 +2,11 @@ import {
   SlashCommandBuilder,
   ChatInputCommandInteraction,
   PermissionFlagsBits,
-  EmbedBuilder,
   MessageFlags,
 } from 'discord.js';
 import { SlashCommand, GuildConfig } from '../types';
 import { listPendingAppeals } from '../storage';
+import { buildPendingListView } from '../ui';
 
 const command: SlashCommand = {
   data: new SlashCommandBuilder()
@@ -27,20 +27,17 @@ const command: SlashCommand = {
       return;
     }
 
-    const lines = pending.map((appeal, i) => {
-      const ts = Math.floor(appeal.submittedAt / 1000);
-      const link = appeal.reviewMessageUrl ? ` — [перейти](${appeal.reviewMessageUrl})` : '';
-      const num = appeal.number ? `№\`${appeal.number}\`` : `\`${i + 1}.\``;
-      return `**${num}** <@${appeal.userId}> (${appeal.username}) — <t:${ts}:R>${link}`;
+    const { embed, row } = buildPendingListView(pending, 0, {
+      title: '⚖️ Непринятые апелляции',
+      color: 0xeb459e,
+      namespace: 'amnesties',
     });
 
-    const embed = new EmbedBuilder()
-      .setTitle(`⚖️ Непринятые апелляции — ${pending.length}`)
-      .setColor(0xeb459e)
-      .setDescription(lines.join('\n').slice(0, 4096))
-      .setTimestamp();
-
-    await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+    await interaction.reply({
+      embeds: [embed],
+      components: row ? [row] : [],
+      flags: MessageFlags.Ephemeral,
+    });
   },
 };
 

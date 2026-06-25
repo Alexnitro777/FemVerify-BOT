@@ -2,11 +2,11 @@ import {
   SlashCommandBuilder,
   ChatInputCommandInteraction,
   PermissionFlagsBits,
-  EmbedBuilder,
   MessageFlags,
 } from 'discord.js';
 import { SlashCommand, GuildConfig } from '../types';
 import { listPendingApplications } from '../storage';
+import { buildPendingListView } from '../ui';
 
 const command: SlashCommand = {
   data: new SlashCommandBuilder()
@@ -27,20 +27,17 @@ const command: SlashCommand = {
       return;
     }
 
-    const lines = pending.map((app, i) => {
-      const ts = Math.floor(app.submittedAt / 1000);
-      const link = app.reviewMessageUrl ? ` — [перейти](${app.reviewMessageUrl})` : '';
-      const num = app.number ? `№\`${app.number}\`` : `\`${i + 1}.\``;
-      return `**${num}** <@${app.userId}> (${app.username}) — <t:${ts}:R>${link}`;
+    const { embed, row } = buildPendingListView(pending, 0, {
+      title: '📝 Непринятые анкеты',
+      color: 0xfee75c,
+      namespace: 'forms',
     });
 
-    const embed = new EmbedBuilder()
-      .setTitle(`📝 Непринятые анкеты — ${pending.length}`)
-      .setColor(0xfee75c)
-      .setDescription(lines.join('\n').slice(0, 4096))
-      .setTimestamp();
-
-    await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+    await interaction.reply({
+      embeds: [embed],
+      components: row ? [row] : [],
+      flags: MessageFlags.Ephemeral,
+    });
   },
 };
 

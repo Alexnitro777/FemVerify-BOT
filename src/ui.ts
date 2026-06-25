@@ -94,6 +94,69 @@ export function buildAppealEmbed(
 	return embed;
 }
 
+const PAGE_SIZE = 10;
+
+interface PendingListItem {
+	userId: string;
+	username: string;
+	submittedAt: number;
+	reviewMessageUrl?: string;
+	number?: number;
+	questionChannelId?: string;
+}
+
+export function buildPendingListView(
+	items: PendingListItem[],
+	requestedPage: number,
+	opts: { title: string; color: number; namespace: string },
+): { embed: EmbedBuilder; row?: ActionRowBuilder<ButtonBuilder> } {
+	const pages = Math.max(1, Math.ceil(items.length / PAGE_SIZE));
+	const page = Math.min(Math.max(0, requestedPage), pages - 1);
+	const start = page * PAGE_SIZE;
+	const slice = items.slice(start, start + PAGE_SIZE);
+
+	const lines = slice.map((item, i) => {
+		const idx = start + i;
+		const ts = Math.floor(item.submittedAt / 1000);
+		const link = item.reviewMessageUrl ? ` — [перейти](${item.reviewMessageUrl})` : '';
+		const num = item.number ? `№\`${item.number}\`` : `\`${idx + 1}.\``;
+		const question = item.questionChannelId
+			? ` • ❓ вопрос открыт <#${item.questionChannelId}>`
+			: '';
+		return `**${num}** <@${item.userId}> (${item.username}) — <t:${ts}:R>${link}${question}`;
+	});
+
+	const embed = new EmbedBuilder()
+		.setTitle(`${opts.title} — ${items.length}`)
+		.setColor(opts.color)
+		.setDescription(lines.join('\n').slice(0, 4096))
+		.setFooter({ text: `Страница ${page + 1}/${pages}` })
+		.setTimestamp();
+
+	let row: ActionRowBuilder<ButtonBuilder> | undefined;
+	if (pages > 1) {
+		row = new ActionRowBuilder<ButtonBuilder>().addComponents(
+			new ButtonBuilder()
+				.setCustomId(`${opts.namespace}:page:${page - 1}`)
+				.setLabel('◀ Назад')
+				.setStyle(ButtonStyle.Secondary)
+				.setDisabled(page <= 0),
+			new ButtonBuilder()
+				.setCustomId(`${opts.namespace}:pageinfo`)
+				.setLabel(`${page + 1} / ${pages}`)
+				.setStyle(ButtonStyle.Secondary)
+				.setDisabled(true),
+			new ButtonBuilder()
+				.setCustomId(`${opts.namespace}:page:${page + 1}`)
+				.setLabel('Вперёд ▶')
+				.setStyle(ButtonStyle.Secondary)
+				.setDisabled(page >= pages - 1),
+		);
+	}
+
+	return { embed, row };
+}
+
 export function buildReviewButtons(
 	userId: string,
 	questionChannelUrl?: string,
