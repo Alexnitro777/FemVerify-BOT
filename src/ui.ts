@@ -130,8 +130,7 @@ export function buildPendingListView(
 		.setTitle(`${opts.title} — ${items.length}`)
 		.setColor(opts.color)
 		.setDescription(lines.join('\n').slice(0, 4096))
-		.setFooter({ text: `Страница ${page + 1}/${pages}` })
-		.setTimestamp();
+		.setFooter({ text: `Страница ${page + 1}/${pages}` });
 
 	let row: ActionRowBuilder<ButtonBuilder> | undefined;
 	if (pages > 1) {
