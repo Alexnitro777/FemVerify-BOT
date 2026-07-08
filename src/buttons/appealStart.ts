@@ -17,9 +17,16 @@ const handler: ButtonHandler = {
 
   async execute(interaction: ButtonInteraction, gc: GuildConfig): Promise<void> {
     const member = interaction.member as GuildMember | null;
+    if (!member) {
+      await interaction.reply({
+        content: 'Апелляция доступна только участникам в чёрном списке.',
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
     const hasBlacklist = member.roles.cache.has(gc.roles.blacklist);
     const hasSoftBlacklist = gc.roles.blacklistSoft && member.roles.cache.has(gc.roles.blacklistSoft);
-    if (!member || (!hasBlacklist && !hasSoftBlacklist)) {
+    if (!hasBlacklist && !hasSoftBlacklist) {
       await interaction.reply({
         content: 'Апелляция доступна только участникам в чёрном списке.',
         flags: MessageFlags.Ephemeral,
