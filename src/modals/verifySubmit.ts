@@ -39,7 +39,7 @@ const handler: ModalHandler = {
     const submitter = await interaction.guild?.members
       .fetch(interaction.user.id)
       .catch(() => null);
-    if (submitter?.roles.cache.has(gc.roles.blacklist) || (gc.roles.blacklistSoft && submitter?.roles.cache.has(gc.roles.blacklistSoft))) {
+    if (submitter?.roles.cache.has(gc.roles.blacklist) || (gc.roles.blacklistSoft?.some((id) => submitter?.roles.cache.has(id)) ?? false)) {
       await interaction.editReply({
         content: 'Вы находитесь в чёрном списке. Используйте канал апелляции.',
       });

@@ -25,7 +25,7 @@ const handler: ButtonHandler = {
       return;
     }
     const hasBlacklist = member.roles.cache.has(gc.roles.blacklist);
-    const hasSoftBlacklist = gc.roles.blacklistSoft && member.roles.cache.has(gc.roles.blacklistSoft);
+    const hasSoftBlacklist = gc.roles.blacklistSoft?.some((id) => member.roles.cache.has(id)) ?? false;
     if (!hasBlacklist && !hasSoftBlacklist) {
       await interaction.reply({
         content: 'Апелляция доступна только участникам в чёрном списке.',

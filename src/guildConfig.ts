@@ -25,13 +25,21 @@ function requiredList(value: string | undefined, name: string): string[] {
   return arr;
 }
 
+function optionalList(value: string | undefined): string[] | undefined {
+  const arr = (value ?? '')
+    .split(',')
+    .map((v) => v.trim())
+    .filter((v) => v.length > 0);
+  return arr.length > 0 ? arr : undefined;
+}
+
 function build(guildId: string, raw: Record<string, string>): GuildConfig {
   return {
     guildId,
     roles: {
       verified: required(raw['roles.verified'], 'roles.verified'),
       blacklist: required(raw['roles.blacklist'], 'roles.blacklist'),
-      blacklistSoft: optional(raw['roles.blacklistSoft']),
+      blacklistSoft: optionalList(raw['roles.blacklistSoft']),
       staff: requiredList(raw['roles.staff'], 'roles.staff'),
       ststaff: requiredList(raw['roles.ststaff'], 'roles.ststaff'),
       roleTag: optional(raw['roles.roleTag']),
