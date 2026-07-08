@@ -12,6 +12,7 @@ export interface GuildConfig {
   roles: {
     verified: string;
     blacklist: string;
+    blacklistSoft?: string;
     staff: string[];
     ststaff: string[];
     roleTag?: string;

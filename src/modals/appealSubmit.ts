@@ -29,7 +29,9 @@ const handler: ModalHandler = {
 		const member = await interaction.guild?.members
 			.fetch(interaction.user.id)
 			.catch(() => null);
-		if (!member || !member.roles.cache.has(gc.roles.blacklist)) {
+		const hasBlacklist = member.roles.cache.has(gc.roles.blacklist);
+		const hasSoftBlacklist = gc.roles.blacklistSoft && member.roles.cache.has(gc.roles.blacklistSoft);
+		if (!member || (!hasBlacklist && !hasSoftBlacklist)) {
 			await interaction.editReply({
 				content: 'Апелляция доступна только участникам в чёрном списке.',
 			});

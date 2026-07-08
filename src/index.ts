@@ -11,6 +11,7 @@ import { registerBlacklistEnforcement } from './blacklistEnforce';
 import { registerQuestionCleanup } from './questionCleanup';
 import { registerApplicationCleanup } from './applicationCleanup';
 import { registerInviteTracker } from './inviteTracker';
+import { registerVoiceKick } from './voiceKick';
 import { registerCommandsForGuild, buildCommandBodies } from './commandRegistration';
 import { invalidateGuildConfig } from './guildConfig';
 
@@ -33,6 +34,7 @@ async function bootstrap(): Promise<void> {
       GatewayIntentBits.Guilds,
       GatewayIntentBits.GuildMembers,
       GatewayIntentBits.GuildInvites,
+      GatewayIntentBits.GuildVoiceStates,
     ],
     partials: [Partials.GuildMember],
   }) as BotClient;
@@ -57,6 +59,8 @@ async function bootstrap(): Promise<void> {
   registerApplicationCleanup(client);
 
   registerInviteTracker(client);
+
+  registerVoiceKick(client);
 
   client.once('clientReady', (c) => {
     console.log(`Logged in as ${c.user.tag}`);
