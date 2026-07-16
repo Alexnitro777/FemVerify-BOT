@@ -1,7 +1,7 @@
-import { ModalSubmitInteraction, GuildMember, MessageFlags } from 'discord.js';
+import { ModalSubmitInteraction, GuildMember, MessageFlags, EmbedBuilder, TextChannel } from 'discord.js';
 import { ModalHandler, GuildConfig } from '../types';
 import { getApplication, updateApplication, saveApplication } from '../storage';
-import { buildDmEmbed, postDecisionMessage } from '../ui';
+import { buildDmEmbed, postDecisionMessage, buildResolvedEmbed, buildProcessedButtonRow } from '../ui';
 import { blacklistMemberRoles } from '../roles';
 import { canManageByHierarchy } from '../permissions';
 
@@ -62,6 +62,45 @@ const handler: ModalHandler = {
         reviewerId: interaction.user.id,
         removedRoles: removed,
       });
+
+      if (existing.status === 'pending' || existing.status === 'amnestied') {
+        if (existing.reviewMessageUrl) {
+          const parsed = existing.reviewMessageUrl.match(/channels\/(\d+)\/(\d+)\/(\d+)/);
+          if (parsed) {
+            const [, , channelId, messageId] = parsed;
+            const reviewChannel = await interaction.client.channels.fetch(channelId).catch(() => null);
+            if (reviewChannel?.isTextBased()) {
+              const msg = await (reviewChannel as TextChannel).messages.fetch(messageId).catch(() => null);
+              if (msg && msg.embeds[0]) {
+                const resolved = buildResolvedEmbed(
+                  EmbedBuilder.from(msg.embeds[0]),
+                  'ЧС',
+                  0x992d22,
+                  interaction.user.id,
+                  {
+                    title: 'Причина ЧС',
+                    text: reason,
+                  },
+                );
+                await msg
+                  .edit({ embeds: [resolved], components: [buildProcessedButtonRow('application')] })
+                  .catch(() => null);
+              }
+            }
+          }
+        }
+
+        if (existing.questionChannelId) {
+          const questionChannel = await interaction.guild?.channels
+            .fetch(existing.questionChannelId)
+            .catch(() => null);
+          await questionChannel?.delete().catch((e) => {
+            console.error('[chspReason] failed to delete question channel', e);
+            return null;
+          });
+          await updateApplication(guildId, userId, { questionChannelId: undefined });
+        }
+      }
     } else {
       await saveApplication({
         userId,

@@ -54,14 +54,15 @@ const handler: ButtonHandler = {
 			return;
 		}
 
+		if (app.status !== 'pending') {
+			await interaction.reply({
+				content: `Заявка уже обработана (${app.status}).`,
+				flags: MessageFlags.Ephemeral,
+			});
+			return;
+		}
+
 		if (action === 'reject' || action === 'blacklist') {
-			if (app.status !== 'pending') {
-				await interaction.reply({
-					content: `Заявка уже обработана (${app.status}).`,
-					flags: MessageFlags.Ephemeral,
-				});
-				return;
-			}
 			const modal = new ModalBuilder()
 				.setCustomId(`review:reason:${action}:${userId}`)
 				.setTitle(action === 'reject' ? 'Причина отказа' : 'Причина ЧС');

@@ -1,7 +1,7 @@
-import { ModalSubmitInteraction, GuildMember, MessageFlags } from 'discord.js';
+import { ModalSubmitInteraction, GuildMember, MessageFlags, EmbedBuilder, TextChannel } from 'discord.js';
 import { ModalHandler, GuildConfig } from '../types';
-import { getApplication, updateApplication } from '../storage';
-import { buildDmEmbed, postDecisionMessage } from '../ui';
+import { getApplication, updateApplication, getAppeal, updateAppeal } from '../storage';
+import { buildDmEmbed, postDecisionMessage, buildResolvedEmbed, buildProcessedButtonRow } from '../ui';
 import { restoreMemberRoles } from '../roles';
 import { canManageByHierarchy, canManageRoles } from '../permissions';
 
@@ -79,6 +79,49 @@ const handler: ModalHandler = {
     }
     if (existing) {
       await updateApplication(guildId, userId, { status: 'amnestied', removedRoles: [] });
+    }
+
+    const appeal = await getAppeal(guildId, userId);
+    if (appeal && appeal.status === 'pending') {
+      await updateAppeal(guildId, userId, {
+        status: 'amnestied',
+        reviewerId: interaction.user.id,
+        reason,
+        resolvedAt: Date.now(),
+      });
+
+      if (appeal.reviewMessageUrl) {
+        const parsed = appeal.reviewMessageUrl.match(/channels\/(\d+)\/(\d+)\/(\d+)/);
+        if (parsed) {
+          const [, , channelId, messageId] = parsed;
+          const reviewChannel = await interaction.client.channels.fetch(channelId).catch(() => null);
+          if (reviewChannel?.isTextBased()) {
+            const msg = await (reviewChannel as TextChannel).messages.fetch(messageId).catch(() => null);
+            if (msg && msg.embeds[0]) {
+              const resolved = buildResolvedEmbed(
+                EmbedBuilder.from(msg.embeds[0]),
+                'Амнистия принята',
+                0x57f287,
+                interaction.user.id,
+              );
+              await msg
+                .edit({ embeds: [resolved], components: [buildProcessedButtonRow('appeal')] })
+                .catch(() => null);
+            }
+          }
+        }
+      }
+
+      if (appeal.questionChannelId) {
+        const questionChannel = await interaction.guild?.channels
+          .fetch(appeal.questionChannelId)
+          .catch(() => null);
+        await questionChannel?.delete().catch((e) => {
+          console.error('[unchspReason] failed to delete question channel', e);
+          return null;
+        });
+        await updateAppeal(guildId, userId, { questionChannelId: undefined });
+      }
     }
 
     await member

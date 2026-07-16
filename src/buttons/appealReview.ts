@@ -41,6 +41,20 @@ const handler: ButtonHandler = {
 		const [, action, userId] = interaction.customId.split(':');
 		const guildId = interaction.guildId!;
 
+		const appeal = await getAppeal(guildId, userId);
+		if (!appeal) {
+			await interaction.reply({ content: 'Апелляция не найдена.', flags: MessageFlags.Ephemeral });
+			return;
+		}
+
+		if (appeal.status !== 'pending') {
+			await interaction.reply({
+				content: `Апелляция уже обработана (${appeal.status}).`,
+				flags: MessageFlags.Ephemeral,
+			});
+			return;
+		}
+
 		if (action === 'question') {
 			const guild = getGuild(interaction);
 			if (!guild) {
@@ -52,12 +66,6 @@ const handler: ButtonHandler = {
 			}
 
 			await interaction.deferUpdate();
-
-			const appeal = await getAppeal(guildId, userId);
-			if (!appeal) {
-				await interaction.followUp({ content: 'Апелляция не найдена.', flags: MessageFlags.Ephemeral });
-				return;
-			}
 
 			if (appeal.questionChannelId) {
 				const existing = await guild.channels.fetch(appeal.questionChannelId).catch(() => null);
@@ -152,12 +160,6 @@ const handler: ButtonHandler = {
 		}
 
 		await interaction.deferUpdate();
-
-		const appeal = await getAppeal(guildId, userId);
-		if (!appeal) {
-			await interaction.followUp({ content: 'Апелляция не найдена.', flags: MessageFlags.Ephemeral });
-			return;
-		}
 
 		const newStatus = action === 'amnesty' ? 'amnestied' : 'denied';
 		const claimed = await claimAppeal(guildId, userId, newStatus, interaction.user.id);
