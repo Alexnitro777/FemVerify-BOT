@@ -1,8 +1,9 @@
 import { ModalSubmitInteraction, TextChannel, MessageFlags } from 'discord.js';
 import { ModalHandler, GuildConfig } from '../types';
 import { verifyQuestions } from '../questions';
-import { getApplication, reserveApplication, nextApplicationNumber, getJoinMethod } from '../storage';
-import { buildApplicationEmbed, buildReviewButtons } from '../ui';
+import { getApplication, reserveApplication, nextApplicationNumber, getJoinMethod, saveApplication } from '../storage';
+import { buildApplicationEmbed, buildReviewButtons, buildDmEmbed, postDecisionMessage } from '../ui';
+import { blacklistMemberRoles } from '../roles';
 
 const handler: ModalHandler = {
   customId: 'verify:submit',
@@ -21,7 +22,7 @@ const handler: ModalHandler = {
 
     const age = (answers.age ?? '').trim();
     const ageNumber = Number(age);
-    if (!/^\d+$/.test(age) || ageNumber < 13 || ageNumber > 99) {
+    if (!/^\d+$/.test(age) || ageNumber > 99) {
       await interaction.editReply({
         content: '❌ В поле «Сколько вам лет?» укажите реальный возраст числом. Заполните анкету заново.',
       });
@@ -48,6 +49,62 @@ const handler: ModalHandler = {
 
     if (submitter?.roles.cache.has(gc.roles.verified)) {
       await interaction.editReply({ content: 'Вы уже верифицированы.' });
+      return;
+    }
+
+    if (ageNumber < 13) {
+      const reason = 'Автовыдача ЧСП: возраст менее 13 лет';
+      let removedRoles: string[] | undefined;
+      if (submitter) {
+        const { removed } = await blacklistMemberRoles(submitter, gc);
+        removedRoles = removed;
+      }
+
+      const number = await nextApplicationNumber(guildId);
+      const joinMethod = await getJoinMethod(guildId, interaction.user.id);
+
+      await saveApplication({
+        userId: interaction.user.id,
+        username: interaction.user.tag,
+        guildId,
+        answers,
+        submittedAt: Date.now(),
+        status: 'blacklisted',
+        reason,
+        reviewerId: interaction.client.user?.id ?? interaction.user.id,
+        removedRoles,
+        number,
+        joinMethod,
+      });
+
+      await submitter
+        ?.send({
+          embeds: [
+            buildDmEmbed(
+              '🚫 Вы добавлены в чёрный список',
+              `Причина: \`${reason}\`\n\nВы можете подать апелляцию в ${
+                gc.channels.appeal ? `<#${gc.channels.appeal}>` : 'соответствующем канале'
+              }.`,
+              0x992d22,
+            ),
+          ],
+        })
+        .catch(() => null);
+
+      const logChannel = gc.channels.blacklistLog ?? gc.channels.decisions;
+      await postDecisionMessage(interaction.client, logChannel, 'application', {
+        label: 'ЧС',
+        color: 0x992d22,
+        reviewerId: interaction.client.user?.id ?? interaction.user.id,
+        targetUserId: interaction.user.id,
+        reason: { title: 'Причина ЧС', text: reason },
+        number,
+        title: 'Автовыдача ЧСП',
+      });
+
+      await interaction.editReply({
+        content: '🚫 Вы были автоматически внесены в чёрный список, так как указали возраст менее 13 лет.',
+      });
       return;
     }
 
