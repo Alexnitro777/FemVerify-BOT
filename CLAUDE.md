@@ -8,7 +8,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Docs convention
 
-`README.md`, `CLAUDE.md`, and `docs/` document **only** the Docker workflow (the bot container plus an external MySQL/MariaDB the container connects to). Local development works (the `package.json` scripts — `build`/`start`/`dev` — are real and need only Node ≥ 20 and a reachable MySQL) but must not be documented in these files, and must never be described as unsupported. Frame all DB details as how the Docker image connects to MariaDB.
+`README.md`, `CLAUDE.md`, and `docs/` document **only** the Docker workflow (the bot container plus an external MySQL/MariaDB the container connects to). Local development works (the `package.json` scripts — `build`/`start`/`dev` — are real and need only Node ≥ 24 and a reachable MySQL) but must not be documented in these files, and must never be described as unsupported. Frame all DB details as how the Docker image connects to MariaDB.
 
 ## What this is
 
