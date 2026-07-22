@@ -10,6 +10,7 @@ import {
 	ChannelType,
 	PermissionFlagsBits,
 	MessageFlags,
+	TextChannel,
 } from 'discord.js';
 import { ButtonHandler, GuildConfig } from '../types';
 import {
@@ -30,7 +31,7 @@ import {
 import { hasButtonAccess, getGuild } from '../permissions';
 
 const handler: ButtonHandler = {
-	customId: /^review:(approve|reject|question|blacklist):\d+$/,
+	customId: /^review:(approve|confirm_approve|cancel|reject|question|blacklist):\d+$/,
 
 	async execute(interaction: ButtonInteraction, gc: GuildConfig): Promise<void> {
 		if (!hasButtonAccess(interaction, gc, 'staff')) {
@@ -48,6 +49,14 @@ const handler: ButtonHandler = {
 		}
 
 		const [, action, userId] = interaction.customId.split(':');
+		if (action === 'cancel') {
+			await interaction.update({
+				content: '❌ Действие отменено.',
+				components: [],
+			});
+			return;
+		}
+
 		const guildId = guild.id;
 		const app = await getApplication(guildId, userId);
 		if (!app) {
@@ -58,6 +67,27 @@ const handler: ButtonHandler = {
 		if (app.status !== 'pending') {
 			await interaction.reply({
 				content: `Заявка уже обработана (${app.status}).`,
+				flags: MessageFlags.Ephemeral,
+			});
+			return;
+		}
+
+		if (action === 'approve') {
+			const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
+				new ButtonBuilder()
+					.setCustomId(`review:confirm_approve:${userId}`)
+					.setLabel('Подтвердить')
+					.setStyle(ButtonStyle.Success)
+					.setEmoji('✅'),
+				new ButtonBuilder()
+					.setCustomId(`review:cancel:${userId}`)
+					.setLabel('Отмена')
+					.setStyle(ButtonStyle.Secondary)
+					.setEmoji('❌'),
+			);
+			await interaction.reply({
+				content: `❓ Вы действительно хотите **принять** анкету пользователя <@${userId}>?`,
+				components: [row],
 				flags: MessageFlags.Ephemeral,
 			});
 			return;
@@ -177,9 +207,9 @@ const handler: ButtonHandler = {
 
 		const member = await guild.members.fetch(userId).catch(() => null);
 		if (!member) {
-			await interaction.followUp({
+			await interaction.editReply({
 				content: 'Пользователь покинул сервер.',
-				flags: MessageFlags.Ephemeral,
+				components: [],
 			});
 			return;
 		}
@@ -187,9 +217,9 @@ const handler: ButtonHandler = {
 		const claimed = await claimApplication(guildId, userId, 'approved', interaction.user.id);
 		if (!claimed) {
 			const fresh = await getApplication(guildId, userId);
-			await interaction.followUp({
+			await interaction.editReply({
 				content: `Заявка уже обработана (${fresh?.status ?? 'не найдена'}).`,
-				flags: MessageFlags.Ephemeral,
+				components: [],
 			});
 			return;
 		}
@@ -199,10 +229,10 @@ const handler: ButtonHandler = {
 		} catch (e) {
 			console.error('[review] roles.add failed', e);
 			await updateApplication(guildId, userId, { status: 'pending', reviewerId: undefined });
-			await interaction.followUp({
+			await interaction.editReply({
 				content:
 					'❌ Не удалось выдать роль — проверьте, что роль бота выше выдаваемой. Статус заявки возвращён в ожидание.',
-				flags: MessageFlags.Ephemeral,
+				components: [],
 			});
 			return;
 		}
@@ -214,33 +244,46 @@ const handler: ButtonHandler = {
 			.then(() => true)
 			.catch(() => false);
 
+		const reviewUrl = app.reviewMessageUrl ?? (interaction.message.flags.has(MessageFlags.Ephemeral) ? undefined : interaction.message.url);
 		await addHistoryRecord({
 			guildId,
 			userId,
 			type: 'application',
 			action: 'Заявка одобрена',
 			actorId: interaction.user.id,
-			linkUrl: interaction.message.url,
+			linkUrl: reviewUrl,
 			timestamp: Date.now(),
 		});
 
-		const resolved = buildResolvedEmbed(
-			EmbedBuilder.from(interaction.message.embeds[0]),
-			'Принято',
-			0x57f287,
-			interaction.user.id,
-		);
-		await interaction.editReply({
-			embeds: [resolved],
-			components: [buildProcessedButtonRow('application')],
-		});
+		if (reviewUrl) {
+			const parsed = reviewUrl.match(/channels\/(\d+)\/(\d+)\/(\d+)/);
+			if (parsed) {
+				const [, , channelId, messageId] = parsed;
+				const reviewChannel = await interaction.client.channels.fetch(channelId).catch(() => null);
+				if (reviewChannel?.isTextBased()) {
+					const msg = await (reviewChannel as TextChannel).messages.fetch(messageId).catch(() => null);
+					if (msg && msg.embeds[0]) {
+						const resolved = buildResolvedEmbed(
+							EmbedBuilder.from(msg.embeds[0]),
+							'Принято',
+							0x57f287,
+							interaction.user.id,
+						);
+						await msg.edit({
+							embeds: [resolved],
+							components: [buildProcessedButtonRow('application')],
+						});
+					}
+				}
+			}
+		}
 
 		await postDecisionMessage(interaction.client, gc.channels.decisions, 'application', {
 			label: 'Принято',
 			color: 0x57f287,
 			reviewerId: interaction.user.id,
 			targetUserId: userId,
-			reviewMessageUrl: app.reviewMessageUrl ?? interaction.message.url,
+			reviewMessageUrl: reviewUrl,
 			number: app.number,
 		});
 
@@ -271,12 +314,12 @@ const handler: ButtonHandler = {
 			}
 		}
 
-		if (!dmOk) {
-			await interaction.followUp({
-				content: '⚠️ Роль выдана, но отправить ЛС не удалось (закрыты личные сообщения).',
-				flags: MessageFlags.Ephemeral,
-			});
-		}
+		await interaction.editReply({
+			content: dmOk
+				? `✅ Анкета пользователя <@${userId}> принята.`
+				: `✅ Анкета пользователя <@${userId}> принята.\n⚠️ Отправить ЛС не удалось (закрыты личные сообщения).`,
+			components: [],
+		});
 	},
 };
 

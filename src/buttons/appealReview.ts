@@ -7,6 +7,7 @@ import {
 	ChannelType,
 	PermissionFlagsBits,
 	MessageFlags,
+	TextChannel,
 } from 'discord.js';
 import { ButtonHandler, GuildConfig } from '../types';
 import {
@@ -31,7 +32,7 @@ import { restoreMemberRoles } from '../roles';
 const DENY_COOLDOWN_MS = 48 * 60 * 60 * 1000;
 
 const handler: ButtonHandler = {
-	customId: /^appeal:(amnesty|deny|question):\d+$/,
+	customId: /^appeal:(amnesty|confirm_amnesty|deny|confirm_deny|cancel|question):\d+$/,
 
 	async execute(interaction: ButtonInteraction, gc: GuildConfig): Promise<void> {
 		if (!hasButtonAccess(interaction, gc, 'ststaff')) {
@@ -40,6 +41,14 @@ const handler: ButtonHandler = {
 		}
 
 		const [, action, userId] = interaction.customId.split(':');
+		if (action === 'cancel') {
+			await interaction.update({
+				content: '❌ Действие отменено.',
+				components: [],
+			});
+			return;
+		}
+
 		const guildId = interaction.guildId!;
 
 		const appeal = await getAppeal(guildId, userId);
@@ -51,6 +60,48 @@ const handler: ButtonHandler = {
 		if (appeal.status !== 'pending') {
 			await interaction.reply({
 				content: `Апелляция уже обработана (${appeal.status}).`,
+				flags: MessageFlags.Ephemeral,
+			});
+			return;
+		}
+
+		if (action === 'amnesty') {
+			const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
+				new ButtonBuilder()
+					.setCustomId(`appeal:confirm_amnesty:${userId}`)
+					.setLabel('Подтвердить')
+					.setStyle(ButtonStyle.Success)
+					.setEmoji('✅'),
+				new ButtonBuilder()
+					.setCustomId(`appeal:cancel:${userId}`)
+					.setLabel('Отмена')
+					.setStyle(ButtonStyle.Secondary)
+					.setEmoji('❌'),
+			);
+			await interaction.reply({
+				content: `❓ Вы действительно хотите **принять амнистию** пользователя <@${userId}>?`,
+				components: [row],
+				flags: MessageFlags.Ephemeral,
+			});
+			return;
+		}
+
+		if (action === 'deny') {
+			const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
+				new ButtonBuilder()
+					.setCustomId(`appeal:confirm_deny:${userId}`)
+					.setLabel('Подтвердить')
+					.setStyle(ButtonStyle.Danger)
+					.setEmoji('⛔'),
+				new ButtonBuilder()
+					.setCustomId(`appeal:cancel:${userId}`)
+					.setLabel('Отмена')
+					.setStyle(ButtonStyle.Secondary)
+					.setEmoji('❌'),
+			);
+			await interaction.reply({
+				content: `❓ Вы действительно хотите **отклонить амнистию** пользователя <@${userId}>?`,
+				components: [row],
 				flags: MessageFlags.Ephemeral,
 			});
 			return;
@@ -162,24 +213,26 @@ const handler: ButtonHandler = {
 
 		await interaction.deferUpdate();
 
-		const newStatus = action === 'amnesty' ? 'amnestied' : 'denied';
+		const realAction = action === 'confirm_amnesty' ? 'amnesty' : 'deny';
+		const newStatus = realAction === 'amnesty' ? 'amnestied' : 'denied';
 		const claimed = await claimAppeal(guildId, userId, newStatus, interaction.user.id);
 		if (!claimed) {
 			const fresh = await getAppeal(guildId, userId);
-			await interaction.followUp({
+			await interaction.editReply({
 				content: `Апелляция уже обработана (${fresh?.status ?? 'не найдена'}).`,
-				flags: MessageFlags.Ephemeral,
+				components: [],
 			});
 			return;
 		}
 
+		const reviewUrl = appeal.reviewMessageUrl ?? (interaction.message.flags.has(MessageFlags.Ephemeral) ? undefined : interaction.message.url);
 		await addHistoryRecord({
 			guildId,
 			userId,
 			type: 'appeal',
-			action: action === 'amnesty' ? 'Апелляция принята (Амнистия)' : 'Апелляция отклонена',
+			action: realAction === 'amnesty' ? 'Апелляция принята (Амнистия)' : 'Апелляция отклонена',
 			actorId: interaction.user.id,
-			linkUrl: interaction.message.url,
+			linkUrl: reviewUrl,
 			timestamp: Date.now(),
 		});
 
@@ -187,7 +240,7 @@ const handler: ButtonHandler = {
 		const member = guild ? await guild.members.fetch(userId).catch(() => null) : null;
 
 		let warning: string | undefined;
-		if (action === 'amnesty') {
+		if (realAction === 'amnesty') {
 			const removed = await member?.roles
 				.remove(gc.roles.blacklist)
 				.then(() => true)
@@ -236,23 +289,35 @@ const handler: ButtonHandler = {
 				.catch(() => null);
 		}
 
-		const resolved = buildResolvedEmbed(
-			EmbedBuilder.from(interaction.message.embeds[0]),
-			action === 'amnesty' ? 'Амнистия принята' : 'В амнистии отказано',
-			action === 'amnesty' ? 0x57f287 : 0xed4245,
-			interaction.user.id,
-		);
-		await interaction.editReply({
-			embeds: [resolved],
-			components: [buildProcessedButtonRow('appeal')],
-		});
+		if (reviewUrl) {
+			const parsed = reviewUrl.match(/channels\/(\d+)\/(\d+)\/(\d+)/);
+			if (parsed) {
+				const [, , channelId, messageId] = parsed;
+				const reviewChannel = await interaction.client.channels.fetch(channelId).catch(() => null);
+				if (reviewChannel?.isTextBased()) {
+					const msg = await (reviewChannel as TextChannel).messages.fetch(messageId).catch(() => null);
+					if (msg && msg.embeds[0]) {
+						const resolved = buildResolvedEmbed(
+							EmbedBuilder.from(msg.embeds[0]),
+							realAction === 'amnesty' ? 'Амнистия принята' : 'В амнистии отказано',
+							realAction === 'amnesty' ? 0x57f287 : 0xed4245,
+							interaction.user.id,
+						);
+						await msg.edit({
+							embeds: [resolved],
+							components: [buildProcessedButtonRow('appeal')],
+						});
+					}
+				}
+			}
+		}
 
 		await postDecisionMessage(interaction.client, gc.channels.decisions, 'appeal', {
-			label: action === 'amnesty' ? 'Амнистия принята' : 'В амнистии отказано',
-			color: action === 'amnesty' ? 0x57f287 : 0xed4245,
+			label: realAction === 'amnesty' ? 'Амнистия принята' : 'В амнистии отказано',
+			color: realAction === 'amnesty' ? 0x57f287 : 0xed4245,
 			reviewerId: interaction.user.id,
 			targetUserId: userId,
-			reviewMessageUrl: appeal.reviewMessageUrl ?? interaction.message.url,
+			reviewMessageUrl: reviewUrl,
 			number: appeal.number,
 		});
 
@@ -265,9 +330,17 @@ const handler: ButtonHandler = {
 			await updateAppeal(guildId, userId, { questionChannelId: undefined });
 		}
 
+		let statusText = realAction === 'amnesty'
+			? `✅ Амнистия пользователя <@${userId}> принята.`
+			: `❌ Амнистия пользователя <@${userId}> отклонена.`;
 		if (warning) {
-			await interaction.followUp({ content: warning, flags: MessageFlags.Ephemeral });
+			statusText = `${statusText}\n${warning}`;
 		}
+
+		await interaction.editReply({
+			content: statusText,
+			components: [],
+		});
 	},
 };
 
