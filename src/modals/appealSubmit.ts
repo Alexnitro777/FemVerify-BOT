@@ -124,6 +124,7 @@ const handler: ModalHandler = {
 			type: 'appeal',
 			action: `Подача апелляции №${number}`,
 			details: text,
+			linkUrl: msg.url,
 			timestamp: Date.now(),
 		});
 

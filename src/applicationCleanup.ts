@@ -86,6 +86,7 @@ async function closeExpiredApplication(
     action: 'Заявка просрочена (Закрыта автоматически)',
     details: AUTO_CLOSE_REASON,
     actorId: reviewerId,
+    linkUrl: app.reviewMessageUrl ?? undefined,
     timestamp: Date.now(),
   });
 

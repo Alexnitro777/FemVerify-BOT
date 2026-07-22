@@ -67,6 +67,7 @@ async function handleMemberRemove(
       userId,
       type: 'application',
       action: 'Покинул(а) сервер при проверке заявки',
+      linkUrl: app.reviewMessageUrl ?? undefined,
       timestamp: Date.now(),
     });
     await markReviewMessageLeft(guild, app.reviewMessageUrl);
@@ -83,6 +84,7 @@ async function handleMemberRemove(
       userId,
       type: 'appeal',
       action: 'Покинул(а) сервер при рассмотрении апелляции',
+      linkUrl: appeal.reviewMessageUrl ?? undefined,
       timestamp: Date.now(),
     });
     await markReviewMessageLeft(guild, appeal.reviewMessageUrl);

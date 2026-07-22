@@ -220,6 +220,7 @@ const handler: ButtonHandler = {
 			type: 'application',
 			action: 'Заявка одобрена',
 			actorId: interaction.user.id,
+			linkUrl: interaction.message.url,
 			timestamp: Date.now(),
 		});
 

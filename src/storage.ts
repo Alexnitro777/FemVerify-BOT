@@ -110,6 +110,8 @@ export async function initStorage(): Promise<void> {
   await addColumnIfMissing('applications', 'joinMethod TEXT NULL');
   await addColumnIfMissing('applications', 'removedRoles TEXT NULL');
 
+  await addColumnIfMissing('user_history', 'linkUrl TEXT NULL');
+
   await addColumnIfMissing('appeals', 'reviewMessageUrl TEXT NULL');
   await addColumnIfMissing('appeals', 'resolvedAt BIGINT NULL');
   await addColumnIfMissing('appeals', 'questionChannelId VARCHAR(32) NULL');
@@ -642,6 +644,7 @@ export interface HistoryRecord {
   action: string;
   details?: string;
   actorId?: string;
+  linkUrl?: string;
   timestamp: number;
 }
 
@@ -653,6 +656,7 @@ export async function addHistoryRecord(record: HistoryRecord): Promise<void> {
     action: record.action,
     details: record.details ?? null,
     actorId: record.actorId ?? null,
+    linkUrl: record.linkUrl ?? null,
     timestamp: record.timestamp,
   });
 }
@@ -672,6 +676,7 @@ export async function getUserHistory(guildId: string, userId: string): Promise<H
     action: r.action,
     details: r.details ?? undefined,
     actorId: r.actorId ?? undefined,
+    linkUrl: r.linkUrl ?? undefined,
     timestamp: r.timestamp,
   }));
 
@@ -684,6 +689,7 @@ export async function getUserHistory(guildId: string, userId: string): Promise<H
         userId,
         type: 'application',
         action: app.number ? `Подача заявки №${app.number}` : 'Подача заявки',
+        linkUrl: app.reviewMessageUrl ?? undefined,
         timestamp: app.submittedAt,
       });
     }
@@ -720,6 +726,7 @@ export async function getUserHistory(guildId: string, userId: string): Promise<H
           action,
           details: app.reason ?? undefined,
           actorId: app.reviewerId ?? undefined,
+          linkUrl: app.reviewMessageUrl ?? undefined,
           timestamp: app.submittedAt + 1,
         });
       }
@@ -736,6 +743,7 @@ export async function getUserHistory(guildId: string, userId: string): Promise<H
         type: 'appeal',
         action: appeal.number ? `Подача апелляции №${appeal.number}` : 'Подача апелляции',
         details: appeal.text ?? undefined,
+        linkUrl: appeal.reviewMessageUrl ?? undefined,
         timestamp: appeal.submittedAt,
       });
     }
@@ -763,9 +771,21 @@ export async function getUserHistory(guildId: string, userId: string): Promise<H
             action,
             details: appeal.reason ?? undefined,
             actorId: appeal.reviewerId ?? undefined,
+            linkUrl: appeal.reviewMessageUrl ?? undefined,
             timestamp: appeal.resolvedAt || appeal.submittedAt + 1,
           });
         }
+      }
+    }
+  }
+
+  // Fallback linkUrl for existing records missing linkUrl
+  for (const h of history) {
+    if (!h.linkUrl) {
+      if (h.type === 'appeal') {
+        if (appeal?.reviewMessageUrl) h.linkUrl = appeal.reviewMessageUrl;
+      } else {
+        if (app?.reviewMessageUrl) h.linkUrl = app.reviewMessageUrl;
       }
     }
   }

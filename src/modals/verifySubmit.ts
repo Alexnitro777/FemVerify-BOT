@@ -181,6 +181,7 @@ const handler: ModalHandler = {
       userId: interaction.user.id,
       type: 'application',
       action: `Подача заявки №${number}`,
+      linkUrl: msg.url,
       timestamp: Date.now(),
     });
 

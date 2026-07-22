@@ -179,6 +179,7 @@ const handler: ButtonHandler = {
 			type: 'appeal',
 			action: action === 'amnesty' ? 'Апелляция принята (Амнистия)' : 'Апелляция отклонена',
 			actorId: interaction.user.id,
+			linkUrl: interaction.message.url,
 			timestamp: Date.now(),
 		});
 

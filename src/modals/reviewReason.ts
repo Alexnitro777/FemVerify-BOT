@@ -37,6 +37,7 @@ const handler: ModalHandler = {
       action: action === 'blacklist' ? 'Выдача ЧСП' : 'Заявка отклонена',
       details: reason,
       actorId: interaction.user.id,
+      linkUrl: app?.reviewMessageUrl ?? undefined,
       timestamp: Date.now(),
     });
 

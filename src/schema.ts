@@ -94,6 +94,7 @@ export const userHistory = mysqlTable(
     action: varchar('action', { length: 255 }).notNull(),
     details: text('details'),
     actorId: varchar('actorId', { length: 32 }),
+    linkUrl: text('linkUrl'),
     timestamp: bigint('timestamp', { mode: 'number' }).notNull(),
   },
   (table) => [index('idx_guild_user_time').on(table.guildId, table.userId, table.timestamp)],
