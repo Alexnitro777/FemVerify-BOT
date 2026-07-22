@@ -14,15 +14,9 @@ const command: SlashCommand = {
     .setDescription('Показать историю заявок, апелляций и ЧС участника')
     .addUserOption((option) =>
       option
-        .setName('участник')
-        .setDescription('Выберите участника')
-        .setRequired(false),
-    )
-    .addStringOption((option) =>
-      option
-        .setName('id')
-        .setDescription('Или введите ID пользователя')
-        .setRequired(false),
+        .setName('цель')
+        .setDescription('Чью историю посмотреть (выберите участника или вставьте ID)')
+        .setRequired(true),
     )
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageNicknames) as unknown as SlashCommand['data'],
 
@@ -37,25 +31,11 @@ const command: SlashCommand = {
       return;
     }
 
-    const targetUser = interaction.options.getUser('участник');
-    const targetIdInput = interaction.options.getString('id')?.trim();
-
-    let targetId = targetUser?.id;
-    if (!targetId && targetIdInput) {
-      targetId = targetIdInput.replace(/[<@!>]/g, '');
-    }
-
-    if (!targetId) {
-      await interaction.reply({
-        content: 'Укажите участника или его ID (например: `/история участник:@User` или `/история id:123456789`).',
-        flags: MessageFlags.Ephemeral,
-      });
-      return;
-    }
+    const user = interaction.options.getUser('цель', true);
+    const targetId = user.id;
 
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
-    const user = targetUser ?? (await interaction.client.users.fetch(targetId).catch(() => null));
     const history = await getUserHistory(interaction.guildId!, targetId);
 
     if (history.length === 0) {
@@ -67,8 +47,8 @@ const command: SlashCommand = {
 
     const { embed, row } = buildHistoryView(
       targetId,
-      user?.tag,
-      user?.displayAvatarURL(),
+      user.tag,
+      user.displayAvatarURL(),
       history,
       0,
     );
