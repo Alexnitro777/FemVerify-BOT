@@ -256,7 +256,39 @@ export async function reserveApplication(app: Application): Promise<boolean> {
       await conn.rollback();
       return false;
     }
-    await saveApplication(app);
+    await conn.execute(
+      `INSERT INTO applications (
+        guildId, userId, username, answers, submittedAt, status,
+        reviewMessageUrl, reviewerId, reason, questionChannelId, number, joinMethod, removedRoles
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON DUPLICATE KEY UPDATE
+        username = VALUES(username),
+        answers = VALUES(answers),
+        submittedAt = VALUES(submittedAt),
+        status = VALUES(status),
+        reviewMessageUrl = VALUES(reviewMessageUrl),
+        reviewerId = VALUES(reviewerId),
+        reason = VALUES(reason),
+        questionChannelId = VALUES(questionChannelId),
+        number = VALUES(number),
+        joinMethod = VALUES(joinMethod),
+        removedRoles = VALUES(removedRoles)`,
+      [
+        app.guildId,
+        app.userId,
+        app.username,
+        JSON.stringify(app.answers),
+        app.submittedAt,
+        app.status,
+        app.reviewMessageUrl ?? null,
+        app.reviewerId ?? null,
+        app.reason ?? null,
+        app.questionChannelId ?? null,
+        app.number ?? null,
+        app.joinMethod ?? null,
+        app.removedRoles ? JSON.stringify(app.removedRoles) : null,
+      ],
+    );
     await conn.commit();
     return true;
   } catch (err) {
@@ -447,7 +479,39 @@ export async function reserveAppeal(appeal: Appeal): Promise<boolean> {
       await conn.rollback();
       return false;
     }
-    await saveAppeal(appeal);
+    await conn.execute(
+      `INSERT INTO appeals (
+        guildId, userId, username, text, submittedAt, status,
+        reviewMessageUrl, reviewerId, reason, resolvedAt, questionChannelId, blacklistReason, number
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON DUPLICATE KEY UPDATE
+        username = VALUES(username),
+        text = VALUES(text),
+        submittedAt = VALUES(submittedAt),
+        status = VALUES(status),
+        reviewMessageUrl = VALUES(reviewMessageUrl),
+        reviewerId = VALUES(reviewerId),
+        reason = VALUES(reason),
+        resolvedAt = VALUES(resolvedAt),
+        questionChannelId = VALUES(questionChannelId),
+        blacklistReason = VALUES(blacklistReason),
+        number = VALUES(number)`,
+      [
+        appeal.guildId,
+        appeal.userId,
+        appeal.username,
+        appeal.text,
+        appeal.submittedAt,
+        appeal.status,
+        appeal.reviewMessageUrl ?? null,
+        appeal.reviewerId ?? null,
+        appeal.reason ?? null,
+        appeal.resolvedAt ?? null,
+        appeal.questionChannelId ?? null,
+        appeal.blacklistReason ?? null,
+        appeal.number ?? null,
+      ],
+    );
     await conn.commit();
     return true;
   } catch (err) {

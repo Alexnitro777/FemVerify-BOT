@@ -95,21 +95,26 @@ const handler: ModalHandler = {
 			return;
 		}
 
-		const reserved = await reserveAppeal({
-			userId: interaction.user.id,
-			guildId,
-			username: interaction.user.tag,
-			text,
-			submittedAt: Date.now(),
-			status: 'pending',
-			reviewMessageUrl: msg.url,
-			blacklistReason,
-			number,
-		});
+		let reserved = false;
+		try {
+			reserved = await reserveAppeal({
+				userId: interaction.user.id,
+				guildId,
+				username: interaction.user.tag,
+				text,
+				submittedAt: Date.now(),
+				status: 'pending',
+				reviewMessageUrl: msg.url,
+				blacklistReason,
+				number,
+			});
+		} catch (err) {
+			console.error('[appealSubmit] reserveAppeal error:', err);
+		}
 
 		if (!reserved) {
 			await msg.delete().catch(() => null);
-			await interaction.editReply({ content: 'Ваша апелляция уже на рассмотрении.' });
+			await interaction.editReply({ content: 'Произошла ошибка или ваша апелляция уже на рассмотрении.' });
 			return;
 		}
 

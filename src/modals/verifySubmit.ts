@@ -153,21 +153,26 @@ const handler: ModalHandler = {
       return;
     }
 
-    const reserved = await reserveApplication({
-      userId: interaction.user.id,
-      username: interaction.user.tag,
-      guildId,
-      answers,
-      submittedAt: Date.now(),
-      status: 'pending',
-      reviewMessageUrl: msg.url,
-      number,
-      joinMethod,
-    });
+    let reserved = false;
+    try {
+      reserved = await reserveApplication({
+        userId: interaction.user.id,
+        username: interaction.user.tag,
+        guildId,
+        answers,
+        submittedAt: Date.now(),
+        status: 'pending',
+        reviewMessageUrl: msg.url,
+        number,
+        joinMethod,
+      });
+    } catch (err) {
+      console.error('[verifySubmit] reserveApplication error:', err);
+    }
 
     if (!reserved) {
       await msg.delete().catch(() => null);
-      await interaction.editReply({ content: 'Ваша заявка уже на рассмотрении.' });
+      await interaction.editReply({ content: 'Произошла ошибка или ваша заявка уже на рассмотрении.' });
       return;
     }
 
