@@ -1,6 +1,6 @@
 import { ModalSubmitInteraction, GuildMember, MessageFlags, EmbedBuilder, TextChannel } from 'discord.js';
 import { ModalHandler, GuildConfig } from '../types';
-import { getApplication, updateApplication, saveApplication } from '../storage';
+import { getApplication, updateApplication, saveApplication, addHistoryRecord } from '../storage';
 import { buildDmEmbed, postDecisionMessage, buildResolvedEmbed, buildProcessedButtonRow } from '../ui';
 import { blacklistMemberRoles } from '../roles';
 import { canManageByHierarchy } from '../permissions';
@@ -114,6 +114,16 @@ const handler: ModalHandler = {
         removedRoles: removed,
       });
     }
+
+    await addHistoryRecord({
+      guildId,
+      userId,
+      type: 'blacklist',
+      action: 'Выдача ЧСП',
+      details: reason,
+      actorId: interaction.user.id,
+      timestamp: Date.now(),
+    });
 
     await member
       .send({

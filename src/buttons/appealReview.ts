@@ -16,6 +16,7 @@ import {
 	claimAppealQuestionChannel,
 	getApplication,
 	updateApplication,
+	addHistoryRecord,
 } from '../storage';
 import {
 	buildResolvedEmbed,
@@ -171,6 +172,15 @@ const handler: ButtonHandler = {
 			});
 			return;
 		}
+
+		await addHistoryRecord({
+			guildId,
+			userId,
+			type: 'appeal',
+			action: action === 'amnesty' ? 'Апелляция принята (Амнистия)' : 'Апелляция отклонена',
+			actorId: interaction.user.id,
+			timestamp: Date.now(),
+		});
 
 		const guild = getGuild(interaction);
 		const member = guild ? await guild.members.fetch(userId).catch(() => null) : null;

@@ -1,7 +1,7 @@
 import { ModalSubmitInteraction, TextChannel, MessageFlags } from 'discord.js';
 import { ModalHandler, GuildConfig } from '../types';
 import { verifyQuestions } from '../questions';
-import { getApplication, reserveApplication, nextApplicationNumber, getJoinMethod, saveApplication } from '../storage';
+import { getApplication, reserveApplication, nextApplicationNumber, getJoinMethod, saveApplication, addHistoryRecord } from '../storage';
 import { buildApplicationEmbed, buildReviewButtons, buildDmEmbed, postDecisionMessage } from '../ui';
 import { blacklistMemberRoles } from '../roles';
 
@@ -75,6 +75,16 @@ const handler: ModalHandler = {
         removedRoles,
         number,
         joinMethod,
+      });
+
+      await addHistoryRecord({
+        guildId,
+        userId: interaction.user.id,
+        type: 'blacklist',
+        action: 'Выдача ЧСП (Автомат: возраст < 13)',
+        details: reason,
+        actorId: interaction.client.user?.id ?? interaction.user.id,
+        timestamp: Date.now(),
       });
 
       await submitter
@@ -160,6 +170,14 @@ const handler: ModalHandler = {
       await interaction.editReply({ content: 'Ваша заявка уже на рассмотрении.' });
       return;
     }
+
+    await addHistoryRecord({
+      guildId,
+      userId: interaction.user.id,
+      type: 'application',
+      action: `Подача заявки №${number}`,
+      timestamp: Date.now(),
+    });
 
     await interaction.editReply({
       content: '✅ Анкета отправлена. Ожидайте решения модерации.',

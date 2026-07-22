@@ -17,6 +17,7 @@ import {
 	claimApplication,
 	updateApplication,
 	claimApplicationQuestionChannel,
+	addHistoryRecord,
 } from '../storage';
 import {
 	buildResolvedEmbed,
@@ -212,6 +213,15 @@ const handler: ButtonHandler = {
 			})
 			.then(() => true)
 			.catch(() => false);
+
+		await addHistoryRecord({
+			guildId,
+			userId,
+			type: 'application',
+			action: 'Заявка одобрена',
+			actorId: interaction.user.id,
+			timestamp: Date.now(),
+		});
 
 		const resolved = buildResolvedEmbed(
 			EmbedBuilder.from(interaction.message.embeds[0]),

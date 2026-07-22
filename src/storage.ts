@@ -92,6 +92,20 @@ export async function initStorage(): Promise<void> {
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   `);
 
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS user_history (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      guildId VARCHAR(32) NOT NULL,
+      userId VARCHAR(32) NOT NULL,
+      type VARCHAR(32) NOT NULL,
+      action VARCHAR(255) NOT NULL,
+      details TEXT NULL,
+      actorId VARCHAR(32) NULL,
+      timestamp BIGINT NOT NULL,
+      INDEX idx_guild_user_time (guildId, userId, timestamp DESC)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+
   await addColumnIfMissing('applications', 'questionChannelId VARCHAR(32) NULL');
   await addColumnIfMissing('applications', 'number INT NULL');
   await addColumnIfMissing('applications', 'joinMethod TEXT NULL');
@@ -625,3 +639,134 @@ export async function markAppealLeft(
   );
   return result.affectedRows === 1;
 }
+
+export interface HistoryRecord {
+  id?: number;
+  guildId: string;
+  userId: string;
+  type: string;
+  action: string;
+  details?: string;
+  actorId?: string;
+  timestamp: number;
+}
+
+export async function addHistoryRecord(record: HistoryRecord): Promise<void> {
+  await db.execute(
+    'INSERT INTO user_history (guildId, userId, type, action, details, actorId, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?)',
+    [
+      record.guildId,
+      record.userId,
+      record.type,
+      record.action,
+      record.details ?? null,
+      record.actorId ?? null,
+      record.timestamp,
+    ],
+  );
+}
+
+export async function getUserHistory(guildId: string, userId: string): Promise<HistoryRecord[]> {
+  const [rows] = await db.execute<RowDataPacket[]>(
+    'SELECT * FROM user_history WHERE guildId = ? AND userId = ? ORDER BY timestamp DESC',
+    [guildId, userId],
+  );
+
+  const history: HistoryRecord[] = rows.map((r) => ({
+    id: Number(r.id),
+    guildId: r.guildId as string,
+    userId: r.userId as string,
+    type: r.type as string,
+    action: r.action as string,
+    details: r.details ? (r.details as string) : undefined,
+    actorId: r.actorId ? (r.actorId as string) : undefined,
+    timestamp: Number(r.timestamp),
+  }));
+
+  const app = await getApplication(guildId, userId);
+  if (app) {
+    const hasAppSubmit = history.some((h) => h.type === 'application' && h.action.includes('Подача заявки'));
+    if (!hasAppSubmit) {
+      history.push({
+        guildId,
+        userId,
+        type: 'application',
+        action: app.number ? `Подача заявки №${app.number}` : 'Подача заявки',
+        timestamp: app.submittedAt,
+      });
+    }
+
+    const hasAppStatus = history.some(
+      (h) =>
+        h.type === 'application' &&
+        h.timestamp > app.submittedAt &&
+        ['approved', 'rejected', 'blacklisted', 'amnestied', 'left', 'expired'].some((st) => h.action.includes(st)),
+    );
+
+    if (!hasAppStatus && app.status !== 'pending') {
+      let action = '';
+      let type = 'application';
+      if (app.status === 'approved') action = 'Заявка одобрена';
+      else if (app.status === 'rejected') action = 'Заявка отклонена';
+      else if (app.status === 'blacklisted') {
+        action = 'Выдача ЧСП';
+        type = 'blacklist';
+      } else if (app.status === 'amnestied') {
+        action = 'Снятие ЧСП / Амнистия';
+        type = 'unblacklist';
+      } else if (app.status === 'left') action = 'Покинул(а) сервер при проверке';
+      else if (app.status === 'expired') action = 'Заявка просрочена';
+
+      if (action) {
+        history.push({
+          guildId,
+          userId,
+          type,
+          action,
+          details: app.reason ?? undefined,
+          actorId: app.reviewerId ?? undefined,
+          timestamp: app.submittedAt + 1,
+        });
+      }
+    }
+  }
+
+  const appeal = await getAppeal(guildId, userId);
+  if (appeal) {
+    const hasAppealSubmit = history.some((h) => h.type === 'appeal' && h.action.includes('Подача апелляции'));
+    if (!hasAppealSubmit) {
+      history.push({
+        guildId,
+        userId,
+        type: 'appeal',
+        action: appeal.number ? `Подача апелляции №${appeal.number}` : 'Подача апелляции',
+        details: appeal.text ?? undefined,
+        timestamp: appeal.submittedAt,
+      });
+    }
+
+    if (appeal.status !== 'pending') {
+      let action = '';
+      if (appeal.status === 'amnestied') action = 'Апелляция принята (Амнистия)';
+      else if (appeal.status === 'denied') action = 'Апелляция отклонена';
+      else if (appeal.status === 'left') action = 'Покинул(а) сервер при апелляции';
+
+      const hasAppealStatus = history.some((h) => h.type === 'appeal' && h.action === action);
+      if (action && !hasAppealStatus) {
+        history.push({
+          guildId,
+          userId,
+          type: 'appeal',
+          action,
+          details: appeal.reason ?? undefined,
+          actorId: appeal.reviewerId ?? undefined,
+          timestamp: appeal.resolvedAt || appeal.submittedAt + 1,
+        });
+      }
+    }
+  }
+
+  history.sort((a, b) => b.timestamp - a.timestamp);
+  return history;
+}
+

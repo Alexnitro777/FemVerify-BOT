@@ -1,6 +1,6 @@
 import { ModalSubmitInteraction, GuildMember, MessageFlags, EmbedBuilder, TextChannel } from 'discord.js';
 import { ModalHandler, GuildConfig } from '../types';
-import { getApplication, updateApplication, getAppeal, updateAppeal } from '../storage';
+import { getApplication, updateApplication, getAppeal, updateAppeal, addHistoryRecord } from '../storage';
 import { buildDmEmbed, postDecisionMessage, buildResolvedEmbed, buildProcessedButtonRow } from '../ui';
 import { restoreMemberRoles } from '../roles';
 import { canManageByHierarchy, canManageRoles } from '../permissions';
@@ -80,6 +80,16 @@ const handler: ModalHandler = {
     if (existing) {
       await updateApplication(guildId, userId, { status: 'amnestied', removedRoles: [] });
     }
+
+    await addHistoryRecord({
+      guildId,
+      userId,
+      type: 'unblacklist',
+      action: 'Снятие ЧСП',
+      details: reason,
+      actorId: interaction.user.id,
+      timestamp: Date.now(),
+    });
 
     const appeal = await getAppeal(guildId, userId);
     if (appeal && appeal.status === 'pending') {

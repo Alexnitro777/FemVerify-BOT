@@ -1,7 +1,7 @@
 import { ModalSubmitInteraction, TextChannel, MessageFlags } from 'discord.js';
 import { ModalHandler, GuildConfig } from '../types';
 import { appealQuestions } from '../questions';
-import { getApplication, getAppeal, reserveAppeal, nextAppealNumber } from '../storage';
+import { getApplication, getAppeal, reserveAppeal, nextAppealNumber, addHistoryRecord } from '../storage';
 import { buildAppealEmbed, buildAppealReviewButtons } from '../ui';
 
 const DENY_COOLDOWN_MS = 48 * 60 * 60 * 1000;
@@ -112,6 +112,15 @@ const handler: ModalHandler = {
 			await interaction.editReply({ content: 'Ваша апелляция уже на рассмотрении.' });
 			return;
 		}
+
+		await addHistoryRecord({
+			guildId,
+			userId: interaction.user.id,
+			type: 'appeal',
+			action: `Подача апелляции №${number}`,
+			details: text,
+			timestamp: Date.now(),
+		});
 
 		await interaction.editReply({
 			content: '✅ Апелляция отправлена. Ожидайте решения модерации.',

@@ -6,6 +6,7 @@ import {
   claimApplication,
   updateApplication,
   getApplication,
+  addHistoryRecord,
 } from './storage';
 import {
   buildDmEmbed,
@@ -77,6 +78,16 @@ async function closeExpiredApplication(
 
   const claimed = await claimApplication(app.guildId, app.userId, 'expired', reviewerId, AUTO_CLOSE_REASON);
   if (!claimed) return;
+
+  await addHistoryRecord({
+    guildId: app.guildId,
+    userId: app.userId,
+    type: 'application',
+    action: 'Заявка просрочена (Закрыта автоматически)',
+    details: AUTO_CLOSE_REASON,
+    actorId: reviewerId,
+    timestamp: Date.now(),
+  });
 
   const fresh = (await getApplication(app.guildId, app.userId)) ?? app;
 
