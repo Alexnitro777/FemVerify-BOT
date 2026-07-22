@@ -690,9 +690,12 @@ export async function getUserHistory(guildId: string, userId: string): Promise<H
 
     const hasAppStatus = history.some(
       (h) =>
-        h.type === 'application' &&
-        h.timestamp > app.submittedAt &&
-        ['approved', 'rejected', 'blacklisted', 'amnestied', 'left', 'expired'].some((st) => h.action.includes(st)),
+        (app.status === 'approved' && (h.action.includes('одобрен') || h.action.includes('Одобрен'))) ||
+        (app.status === 'rejected' && (h.action.includes('отклонен') || h.action.includes('Отклонен'))) ||
+        (app.status === 'blacklisted' && (h.action.includes('ЧС') || h.action.includes('ЧСП') || h.type === 'blacklist')) ||
+        (app.status === 'amnestied' && (h.action.includes('Снятие') || h.action.includes('Амнистия') || h.type === 'unblacklist')) ||
+        (app.status === 'left' && h.action.includes('Покинул')) ||
+        (app.status === 'expired' && h.action.includes('просрочен')),
     );
 
     if (!hasAppStatus && app.status !== 'pending') {
@@ -738,26 +741,66 @@ export async function getUserHistory(guildId: string, userId: string): Promise<H
     }
 
     if (appeal.status !== 'pending') {
-      let action = '';
-      if (appeal.status === 'amnestied') action = 'Апелляция принята (Амнистия)';
-      else if (appeal.status === 'denied') action = 'Апелляция отклонена';
-      else if (appeal.status === 'left') action = 'Покинул(а) сервер при апелляции';
+      const hasAppealStatus = history.some(
+        (h) =>
+          h.type === 'appeal' &&
+          ((appeal.status === 'amnestied' && (h.action.includes('принята') || h.action.includes('Амнистия'))) ||
+            (appeal.status === 'denied' && h.action.includes('отклонена')) ||
+            (appeal.status === 'left' && h.action.includes('Покинул'))),
+      );
 
-      const hasAppealStatus = history.some((h) => h.type === 'appeal' && h.action === action);
-      if (action && !hasAppealStatus) {
-        history.push({
-          guildId,
-          userId,
-          type: 'appeal',
-          action,
-          details: appeal.reason ?? undefined,
-          actorId: appeal.reviewerId ?? undefined,
-          timestamp: appeal.resolvedAt || appeal.submittedAt + 1,
-        });
+      if (!hasAppealStatus) {
+        let action = '';
+        if (appeal.status === 'amnestied') action = 'Апелляция принята (Амнистия)';
+        else if (appeal.status === 'denied') action = 'Апелляция отклонена';
+        else if (appeal.status === 'left') action = 'Покинул(а) сервер при апелляции';
+
+        if (action) {
+          history.push({
+            guildId,
+            userId,
+            type: 'appeal',
+            action,
+            details: appeal.reason ?? undefined,
+            actorId: appeal.reviewerId ?? undefined,
+            timestamp: appeal.resolvedAt || appeal.submittedAt + 1,
+          });
+        }
       }
     }
   }
 
   history.sort((a, b) => b.timestamp - a.timestamp);
-  return history;
+
+  // Deduplicate entries that refer to the same event within a short time window
+  const uniqueHistory: HistoryRecord[] = [];
+  for (const rec of history) {
+    const isDup = uniqueHistory.some((existing) => {
+      if (existing.id !== undefined && rec.id !== undefined && existing.id === rec.id) {
+        return true;
+      }
+      const timeDiff = Math.abs(existing.timestamp - rec.timestamp);
+      if (timeDiff > 10000) {
+        return false;
+      }
+      if (existing.action === rec.action) {
+        return true;
+      }
+      if (
+        (existing.action.includes('Подача заявки') && rec.action.includes('Подача заявки')) ||
+        (existing.action.includes('Подача апелляции') && rec.action.includes('Подача апелляции')) ||
+        ((existing.action.includes('ЧС') || existing.type === 'blacklist') && (rec.action.includes('ЧС') || rec.type === 'blacklist')) ||
+        ((existing.action.includes('Снятие') || existing.type === 'unblacklist') && (rec.action.includes('Снятие') || rec.type === 'unblacklist'))
+      ) {
+        return true;
+      }
+      return false;
+    });
+
+    if (!isDup) {
+      uniqueHistory.push(rec);
+    }
+  }
+
+  return uniqueHistory;
 }
