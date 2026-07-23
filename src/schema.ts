@@ -43,6 +43,7 @@ export const appeals = mysqlTable(
     resolvedAt: bigint('resolvedAt', { mode: 'number' }),
     questionChannelId: varchar('questionChannelId', { length: 32 }),
     blacklistReason: text('blacklistReason'),
+    blacklistType: varchar('blacklistType', { length: 16 }),
     number: int('number'),
   },
   (table) => [primaryKey({ columns: [table.guildId, table.userId] })],

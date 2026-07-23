@@ -50,6 +50,7 @@ export async function initStorage(): Promise<void> {
       resolvedAt BIGINT NULL,
       questionChannelId VARCHAR(32) NULL,
       blacklistReason TEXT NULL,
+      blacklistType VARCHAR(16) NULL,
       number INT NULL,
       PRIMARY KEY (guildId, userId)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
@@ -116,6 +117,7 @@ export async function initStorage(): Promise<void> {
   await addColumnIfMissing('appeals', 'resolvedAt BIGINT NULL');
   await addColumnIfMissing('appeals', 'questionChannelId VARCHAR(32) NULL');
   await addColumnIfMissing('appeals', 'blacklistReason TEXT NULL');
+  await addColumnIfMissing('appeals', 'blacklistType VARCHAR(16) NULL');
   await addColumnIfMissing('appeals', 'number INT NULL');
 
   initialized = true;
@@ -428,6 +430,7 @@ function rowToAppeal(row: typeof schema.appeals.$inferSelect): Appeal {
     resolvedAt: row.resolvedAt ?? undefined,
     questionChannelId: row.questionChannelId ?? undefined,
     blacklistReason: row.blacklistReason ?? undefined,
+    blacklistType: row.blacklistType ?? undefined,
     number: row.number ?? undefined,
   };
 }
@@ -446,6 +449,7 @@ export async function saveAppeal(appeal: Appeal): Promise<void> {
     resolvedAt: appeal.resolvedAt ?? null,
     questionChannelId: appeal.questionChannelId ?? null,
     blacklistReason: appeal.blacklistReason ?? null,
+    blacklistType: appeal.blacklistType ?? null,
     number: appeal.number ?? null,
   };
 
@@ -464,6 +468,7 @@ export async function saveAppeal(appeal: Appeal): Promise<void> {
         resolvedAt: values.resolvedAt,
         questionChannelId: values.questionChannelId,
         blacklistReason: values.blacklistReason,
+        blacklistType: values.blacklistType,
         number: values.number,
       },
     });
@@ -484,8 +489,8 @@ export async function reserveAppeal(appeal: Appeal): Promise<boolean> {
     await conn.execute(
       `INSERT INTO appeals (
         guildId, userId, username, text, submittedAt, status,
-        reviewMessageUrl, reviewerId, reason, resolvedAt, questionChannelId, blacklistReason, number
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        reviewMessageUrl, reviewerId, reason, resolvedAt, questionChannelId, blacklistReason, blacklistType, number
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON DUPLICATE KEY UPDATE
         username = VALUES(username),
         text = VALUES(text),
@@ -497,6 +502,7 @@ export async function reserveAppeal(appeal: Appeal): Promise<boolean> {
         resolvedAt = VALUES(resolvedAt),
         questionChannelId = VALUES(questionChannelId),
         blacklistReason = VALUES(blacklistReason),
+        blacklistType = VALUES(blacklistType),
         number = VALUES(number)`,
       [
         appeal.guildId,
@@ -511,6 +517,7 @@ export async function reserveAppeal(appeal: Appeal): Promise<boolean> {
         appeal.resolvedAt ?? null,
         appeal.questionChannelId ?? null,
         appeal.blacklistReason ?? null,
+        appeal.blacklistType ?? null,
         appeal.number ?? null,
       ],
     );

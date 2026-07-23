@@ -7,9 +7,10 @@ import { buildAppealEmbed, buildAppealReviewButtons } from '../ui';
 const DENY_COOLDOWN_MS = 48 * 60 * 60 * 1000;
 
 const handler: ModalHandler = {
-	customId: 'appeal:submit',
+	customId: /^appeal:submit:(.+)$/,
 
 	async execute(interaction: ModalSubmitInteraction, gc: GuildConfig): Promise<void> {
+		const [, type] = interaction.customId.split('submit:');
 		const text = appealQuestions
 			.slice(0, 5)
 			.map((q) => {
@@ -35,9 +36,14 @@ const handler: ModalHandler = {
 			});
 			return;
 		}
+
+		// We already checked roles in appeal:start, but let's just make sure they still have SOME blacklist role.
 		const hasBlacklist = member.roles.cache.has(gc.roles.blacklist);
+		const hasBlacklistZ = gc.roles.blacklistZ ? member.roles.cache.has(gc.roles.blacklistZ) : false;
+		const hasBlacklistA = gc.roles.blacklistA ? member.roles.cache.has(gc.roles.blacklistA) : false;
 		const hasSoftBlacklist = gc.roles.blacklistSoft?.some((id) => member.roles.cache.has(id)) ?? false;
-		if (!hasBlacklist && !hasSoftBlacklist) {
+		
+		if (!hasBlacklist && !hasBlacklistZ && !hasBlacklistA && !hasSoftBlacklist) {
 			await interaction.editReply({
 				content: 'Апелляция доступна только участникам в чёрном списке.',
 			});
@@ -77,7 +83,11 @@ const handler: ModalHandler = {
 		}
 
 		const number = await nextAppealNumber(guildId);
-		const embed = buildAppealEmbed(interaction.user, text, blacklistReason, number);
+		// Let's modify the embed to include the type. We will prefix the text with the type.
+		// A cleaner way is to just pass it to the embed builder, but we can just prepend it to the text for simplicity or modify buildAppealEmbed.
+		// For now, let's prepend it to the text so the moderators see it clearly.
+		const fullText = `**Тип блокировки:** ${type}\n\n${text}`;
+		const embed = buildAppealEmbed(interaction.user, fullText, blacklistReason, number);
 
 		const row = buildAppealReviewButtons(interaction.user.id);
 
@@ -106,6 +116,7 @@ const handler: ModalHandler = {
 				status: 'pending',
 				reviewMessageUrl: msg.url,
 				blacklistReason,
+				blacklistType: type,
 				number,
 			});
 		} catch (err) {
@@ -122,7 +133,7 @@ const handler: ModalHandler = {
 			guildId,
 			userId: interaction.user.id,
 			type: 'appeal',
-			action: `Подача апелляции №${number}`,
+			action: `Подача апелляции №${number} (${type})`,
 			details: text,
 			linkUrl: msg.url,
 			timestamp: Date.now(),

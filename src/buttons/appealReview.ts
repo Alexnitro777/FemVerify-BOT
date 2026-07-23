@@ -241,15 +241,33 @@ const handler: ButtonHandler = {
 
 		let warning: string | undefined;
 		if (realAction === 'amnesty') {
-			const removed = await member?.roles
-				.remove(gc.roles.blacklist)
-				.then(() => true)
-				.catch((e) => {
-					console.error('[appealReview] roles.remove failed', e);
-					return false;
+			let roleToRemove: string | undefined = undefined;
+			if (appeal.blacklistType === 'ЧСП') roleToRemove = gc.roles.blacklist;
+			else if (appeal.blacklistType === 'ЧСЗ') roleToRemove = gc.roles.blacklistZ;
+			else if (appeal.blacklistType === 'ЧСА') roleToRemove = gc.roles.blacklistA;
+
+			let removed = false;
+			if (roleToRemove && member) {
+				removed = await member.roles
+					.remove(roleToRemove)
+					.then(() => true)
+					.catch((e) => {
+						console.error('[appealReview] roles.remove failed', e);
+						return false;
+					});
+			} else if (appeal.blacklistType === 'ЧС' && member) {
+				// Remove all blacklists
+				const toRemove = [gc.roles.blacklist, ...(gc.roles.blacklistSoft ?? [])];
+				await member.roles.remove(toRemove).then(() => { removed = true; }).catch((e) => {
+					console.error('[appealReview] roles.remove all failed', e);
 				});
+			} else {
+				// fallback if not mapped
+				removed = await member?.roles.remove(gc.roles.blacklist).then(() => true).catch(() => false) ?? false;
+			}
+
 			if (member && !removed) {
-				warning = '⚠️ Не удалось снять роль ЧС — проверьте иерархию ролей бота.';
+				warning = `⚠️ Не удалось снять роль ЧС (${appeal.blacklistType ?? 'ЧСП'}) — проверьте иерархию ролей бота.`;
 			}
 			const application = await getApplication(guildId, userId);
 			if (member && application?.removedRoles?.length) {
@@ -263,25 +281,48 @@ const handler: ButtonHandler = {
 			if (application) {
 				await updateApplication(guildId, userId, { status: 'amnestied', removedRoles: [] });
 			}
+			let dmTextAccept = 'С вас снят чёрный список.';
+			let dmTextDenyPrefix = 'Ваша апелляция отклонена.';
+
+			if (appeal.blacklistType === 'ЧСП') {
+				dmTextAccept = 'С вас снят черный список проекта.';
+				dmTextDenyPrefix = 'Ваша апелляция на снятие черного списка проекта отклонена.';
+			} else if (appeal.blacklistType === 'ЧСЗ') {
+				dmTextAccept = 'С вас снят черный список знакомств.';
+				dmTextDenyPrefix = 'Ваша апелляция на снятие черного списка знакомств отклонена.';
+			} else if (appeal.blacklistType === 'ЧСА') {
+				dmTextAccept = 'С вас снят черный список администрации.';
+				dmTextDenyPrefix = 'Ваша апелляция на снятие черного списка администрации отклонена.';
+			}
+
 			await member
 				?.send({
 					embeds: [
 						buildDmEmbed(
 							'✅ Амнистия принята',
-							'С вас снят чёрный список.',
+							dmTextAccept,
 							0x57f287,
 						),
 					],
 				})
 				.catch(() => null);
 		} else {
+			let dmTextDenyPrefix = 'Ваша апелляция отклонена.';
+			if (appeal.blacklistType === 'ЧСП') {
+				dmTextDenyPrefix = 'Ваша апелляция на снятие черного списка проекта отклонена.';
+			} else if (appeal.blacklistType === 'ЧСЗ') {
+				dmTextDenyPrefix = 'Ваша апелляция на снятие черного списка знакомств отклонена.';
+			} else if (appeal.blacklistType === 'ЧСА') {
+				dmTextDenyPrefix = 'Ваша апелляция на снятие черного списка администрации отклонена.';
+			}
+
 			const ts = Math.floor((Date.now() + DENY_COOLDOWN_MS) / 1000);
 			await member
 				?.send({
 					embeds: [
 						buildDmEmbed(
 							'❌ В амнистии отказано',
-							`Ваша апелляция отклонена. ЧС сохраняется.\n\nВы сможете подать новую апелляцию <t:${ts}:R> (<t:${ts}:f>).`,
+							`${dmTextDenyPrefix} ЧС сохраняется.\n\nВы сможете подать новую апелляцию <t:${ts}:R> (<t:${ts}:f>).`,
 							0xed4245,
 						),
 					],

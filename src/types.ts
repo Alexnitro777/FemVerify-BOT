@@ -12,6 +12,8 @@ export interface GuildConfig {
   roles: {
     verified: string;
     blacklist: string;
+    blacklistZ?: string;
+    blacklistA?: string;
     blacklistSoft?: string[];
     staff: string[];
     ststaff: string[];
@@ -91,5 +93,6 @@ export interface Appeal {
   resolvedAt?: number;
   questionChannelId?: string;
   blacklistReason?: string;
+  blacklistType?: string;
   number?: number;
 }
