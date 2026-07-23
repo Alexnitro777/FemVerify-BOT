@@ -20,7 +20,7 @@ FemVerify-BOT/
 │   │   └── unchsp.ts          /снятьчсп (ststaff) — снять участника с ЧС (убрать роль ЧС + вернуть роли)
 │   ├── buttons/               Кнопки
 │   │   ├── verifyStart.ts     Старт анкеты (verify:start)
-│   │   ├── review.ts          4 решения по анкете (approve/confirm_approve/cancel/reject/question/blacklist)
+│   │   ├── review.ts          4 решения по анкете (approve/reject/question/blacklist)
 │   │   ├── appealStart.ts     Старт апелляции (appeal:start)
 │   │   ├── appealReview.ts    3 действия по апелляции (amnesty/confirm_amnesty/deny/confirm_deny/cancel/question)
 │   │   ├── questionClose.ts   Закрытие канала-вопроса (question:close)

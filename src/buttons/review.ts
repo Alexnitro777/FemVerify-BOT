@@ -31,7 +31,7 @@ import {
 import { hasButtonAccess, getGuild } from '../permissions';
 
 const handler: ButtonHandler = {
-	customId: /^review:(approve|confirm_approve|cancel|reject|question|blacklist):\d+$/,
+	customId: /^review:(approve|reject|question|blacklist):\d+$/,
 
 	async execute(interaction: ButtonInteraction, gc: GuildConfig): Promise<void> {
 		if (!hasButtonAccess(interaction, gc, 'staff')) {
@@ -49,14 +49,6 @@ const handler: ButtonHandler = {
 		}
 
 		const [, action, userId] = interaction.customId.split(':');
-		if (action === 'cancel') {
-			await interaction.update({
-				content: '❌ Действие отменено.',
-				components: [],
-			});
-			return;
-		}
-
 		const guildId = guild.id;
 		const app = await getApplication(guildId, userId);
 		if (!app) {
@@ -67,27 +59,6 @@ const handler: ButtonHandler = {
 		if (app.status !== 'pending') {
 			await interaction.reply({
 				content: `Заявка уже обработана (${app.status}).`,
-				flags: MessageFlags.Ephemeral,
-			});
-			return;
-		}
-
-		if (action === 'approve') {
-			const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
-				new ButtonBuilder()
-					.setCustomId(`review:confirm_approve:${userId}`)
-					.setLabel('Подтвердить')
-					.setStyle(ButtonStyle.Success)
-					.setEmoji('✅'),
-				new ButtonBuilder()
-					.setCustomId(`review:cancel:${userId}`)
-					.setLabel('Отмена')
-					.setStyle(ButtonStyle.Secondary)
-					.setEmoji('❌'),
-			);
-			await interaction.reply({
-				content: `❓ Вы действительно хотите **принять** анкету пользователя <@${userId}>?`,
-				components: [row],
 				flags: MessageFlags.Ephemeral,
 			});
 			return;
@@ -203,13 +174,12 @@ const handler: ButtonHandler = {
 			return;
 		}
 
-		await interaction.deferUpdate();
+		await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
 		const member = await guild.members.fetch(userId).catch(() => null);
 		if (!member) {
 			await interaction.editReply({
 				content: 'Пользователь покинул сервер.',
-				components: [],
 			});
 			return;
 		}
@@ -219,7 +189,6 @@ const handler: ButtonHandler = {
 			const fresh = await getApplication(guildId, userId);
 			await interaction.editReply({
 				content: `Заявка уже обработана (${fresh?.status ?? 'не найдена'}).`,
-				components: [],
 			});
 			return;
 		}
@@ -232,7 +201,6 @@ const handler: ButtonHandler = {
 			await interaction.editReply({
 				content:
 					'❌ Не удалось выдать роль — проверьте, что роль бота выше выдаваемой. Статус заявки возвращён в ожидание.',
-				components: [],
 			});
 			return;
 		}
