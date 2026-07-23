@@ -202,7 +202,11 @@ export function buildHistoryView(
 			lines.push(`💬 **${label}:** \`${cleanDetails.length > 500 ? cleanDetails.slice(0, 500) + '...' : cleanDetails}\``);
 		}
 		if (rec.linkUrl) {
-			lines.push(`🔗 **Анкета:** [Перейти к сообщению](${rec.linkUrl})`);
+			let linkLabel = 'Сообщение';
+			if (rec.type === 'appeal') linkLabel = 'Апелляция';
+			else if (rec.type === 'application') linkLabel = 'Анкета';
+			
+			lines.push(`🔗 **${linkLabel}:** [Перейти к сообщению](${rec.linkUrl})`);
 		}
 		return {
 			name: `${emoji} ${rec.action}`,
