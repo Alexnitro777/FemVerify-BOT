@@ -53,7 +53,6 @@ const handler: ButtonHandler = {
 
 		const guildId = interaction.guildId!;
 
-		const appeal = await getAppeal(guildId, userId); // we actually need the specific appeal! But wait, getAppeal needs updating to fetch the specific appeal or we can fetch all and filter.
 		const appealsRows = await getPendingAppeals(guildId, userId);
 		const appeal = appealsRows.find(a => blacklistType ? a.blacklistType === blacklistType : true) || (await getAppeal(guildId, userId));
 		if (!appeal) {
