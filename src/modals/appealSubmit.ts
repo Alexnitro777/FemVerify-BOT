@@ -82,11 +82,14 @@ const handler: ModalHandler = {
 		}
 
 		const number = await nextAppealNumber(guildId);
-		// Let's modify the embed to include the type. We will prefix the text with the type.
-		// A cleaner way is to just pass it to the embed builder, but we can just prepend it to the text for simplicity or modify buildAppealEmbed.
-		// For now, let's prepend it to the text so the moderators see it clearly.
-		const fullText = `**Тип блокировки:** ${type}\n\n${text}`;
-		const embed = buildAppealEmbed(interaction.user, fullText, blacklistReason, number);
+		
+		let pingText = type;
+		if (type === 'ЧСП') pingText = `<@&${gc.roles.blacklist}>`;
+		else if (type === 'ЧСЗ' && gc.roles.blacklistZ) pingText = `<@&${gc.roles.blacklistZ}>`;
+		else if (type === 'ЧСА' && gc.roles.blacklistA) pingText = `<@&${gc.roles.blacklistA}>`;
+
+		// Pass the blacklist type directly to the embed builder
+		const embed = buildAppealEmbed(interaction.user, text, blacklistReason, number, pingText);
 
 		const row = buildAppealReviewButtons(interaction.user.id);
 

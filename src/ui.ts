@@ -60,6 +60,7 @@ export function buildAppealEmbed(
 	text: string,
 	blacklistReason?: string,
 	number?: number,
+	blacklistType?: string,
 ): EmbedBuilder {
 	const createdTs = Math.floor(user.createdTimestamp / 1000);
 
@@ -83,6 +84,10 @@ export function buildAppealEmbed(
 			.join('\n');
 		const value = quoted.length > 1000 ? quoted.slice(0, 1000) + '…' : quoted;
 		embed.addFields({ name: 'Причина ЧС', value });
+	}
+
+	if (blacklistType) {
+		embed.addFields({ name: 'Тип блокировки', value: blacklistType });
 	}
 
 	const rawValue = text.trim() || '—';
