@@ -1,7 +1,10 @@
 import { ModalSubmitInteraction, TextChannel, MessageFlags } from 'discord.js';
 import { ModalHandler, GuildConfig } from '../types';
 import { appealQuestions } from '../questions';
-import { getApplication, getAppeal, reserveAppeal, nextAppealNumber, addHistoryRecord } from '../storage';
+import { getApplication, getAppeal, getPendingAppeals, reserveAppeal, nextAppealNumber, addHistoryRecord } from '../storage';
+import { db } from '../db';
+import * as schema from '../schema';
+import { eq, and, desc } from 'drizzle-orm';
 import { buildAppealEmbed, buildAppealReviewButtons } from '../ui';
 
 const DENY_COOLDOWN_MS = 48 * 60 * 60 * 1000;
@@ -49,17 +52,22 @@ const handler: ModalHandler = {
 			return;
 		}
 
-		const existingAppeal = await getAppeal(guildId, interaction.user.id);
-		if (existingAppeal?.status === 'pending') {
-			await interaction.editReply({ content: 'Ваша апелляция уже на рассмотрении.' });
+		const userAppeals = await db.select().from(schema.appeals).where(and(eq(schema.appeals.guildId, guildId), eq(schema.appeals.userId, interaction.user.id))).orderBy(desc(schema.appeals.submittedAt));
+		const pendingAppeals = userAppeals.filter(a => a.status === 'pending');
+		
+		if (pendingAppeals.some(a => a.blacklistType === type || (!a.blacklistType && type === 'ЧСП'))) {
+			await interaction.editReply({ content: 'Ваша апелляция на этот тип блокировки уже на рассмотрении.' });
 			return;
 		}
+
+		const existingAppealForType = userAppeals.find(a => a.blacklistType === type || (!a.blacklistType && type === 'ЧСП'));
+		// Check cooldown only if the latest appeal for this type is denied
 		if (
-			existingAppeal?.status === 'denied' &&
-			existingAppeal.resolvedAt &&
-			Date.now() < existingAppeal.resolvedAt + DENY_COOLDOWN_MS
+			existingAppealForType?.status === 'denied' &&
+			existingAppealForType.resolvedAt &&
+			Date.now() < existingAppealForType.resolvedAt + DENY_COOLDOWN_MS
 		) {
-			const ts = Math.floor((existingAppeal.resolvedAt + DENY_COOLDOWN_MS) / 1000);
+			const ts = Math.floor((existingAppealForType.resolvedAt + DENY_COOLDOWN_MS) / 1000);
 			await interaction.editReply({
 				content: `⛔ Вашу прошлую апелляцию отклонили. Новую можно подать <t:${ts}:R> (<t:${ts}:f>).`,
 			});
@@ -91,7 +99,7 @@ const handler: ModalHandler = {
 		// Pass the blacklist type directly to the embed builder
 		const embed = buildAppealEmbed(interaction.user, text, blacklistReason, number, pingText);
 
-		const row = buildAppealReviewButtons(interaction.user.id);
+		const row = buildAppealReviewButtons(interaction.user.id, undefined, type);
 
 		const msg = await (channel as TextChannel)
 			.send({ embeds: [embed], components: [row] })

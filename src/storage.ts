@@ -120,6 +120,15 @@ export async function initStorage(): Promise<void> {
   await addColumnIfMissing('appeals', 'blacklistType VARCHAR(16) NULL');
   await addColumnIfMissing('appeals', 'number INT NULL');
 
+  try {
+    const [cols] = await pool.query("SHOW COLUMNS FROM appeals LIKE 'id'");
+    if ((cols as any[]).length === 0) {
+      await pool.query("ALTER TABLE appeals DROP PRIMARY KEY, ADD COLUMN id INT AUTO_INCREMENT PRIMARY KEY FIRST, ADD INDEX idx_guild_user (guildId, userId)");
+    }
+  } catch (err) {
+    console.error("Migration error for appeals:", err);
+  }
+
   initialized = true;
 }
 
@@ -479,10 +488,10 @@ export async function reserveAppeal(appeal: Appeal): Promise<boolean> {
   try {
     await conn.beginTransaction();
     const [rows] = await conn.execute<any[]>(
-      'SELECT status FROM appeals WHERE guildId = ? AND userId = ? FOR UPDATE',
-      [appeal.guildId, appeal.userId],
+      'SELECT status FROM appeals WHERE guildId = ? AND userId = ? AND (blacklistType = ? OR blacklistType IS NULL) FOR UPDATE',
+      [appeal.guildId, appeal.userId, appeal.blacklistType ?? null],
     );
-    if (rows.length && rows[0].status === 'pending') {
+    if (rows.length && rows.some(r => r.status === 'pending')) {
       await conn.rollback();
       return false;
     }
@@ -490,20 +499,7 @@ export async function reserveAppeal(appeal: Appeal): Promise<boolean> {
       `INSERT INTO appeals (
         guildId, userId, username, text, submittedAt, status,
         reviewMessageUrl, reviewerId, reason, resolvedAt, questionChannelId, blacklistReason, blacklistType, number
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      ON DUPLICATE KEY UPDATE
-        username = VALUES(username),
-        text = VALUES(text),
-        submittedAt = VALUES(submittedAt),
-        status = VALUES(status),
-        reviewMessageUrl = VALUES(reviewMessageUrl),
-        reviewerId = VALUES(reviewerId),
-        reason = VALUES(reason),
-        resolvedAt = VALUES(resolvedAt),
-        questionChannelId = VALUES(questionChannelId),
-        blacklistReason = VALUES(blacklistReason),
-        blacklistType = VALUES(blacklistType),
-        number = VALUES(number)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         appeal.guildId,
         appeal.userId,
@@ -554,9 +550,23 @@ export async function getAppeal(
   const [row] = await db
     .select()
     .from(schema.appeals)
-    .where(and(eq(schema.appeals.guildId, guildId), eq(schema.appeals.userId, userId)));
+    .where(and(eq(schema.appeals.guildId, guildId), eq(schema.appeals.userId, userId)))
+    .orderBy(desc(schema.appeals.submittedAt))
+    .limit(1);
 
   return row ? rowToAppeal(row) : undefined;
+}
+
+export async function getPendingAppeals(
+  guildId: string,
+  userId: string,
+): Promise<Appeal[]> {
+  const rows = await db
+    .select()
+    .from(schema.appeals)
+    .where(and(eq(schema.appeals.guildId, guildId), eq(schema.appeals.userId, userId), eq(schema.appeals.status, 'pending')));
+
+  return rows.map(rowToAppeal);
 }
 
 export async function getAppealByQuestionChannel(
@@ -593,11 +603,45 @@ export async function updateAppeal(
   guildId: string,
   userId: string,
   patch: Partial<Appeal>,
+  blacklistType?: string,
 ): Promise<Appeal | undefined> {
-  const current = await getAppeal(guildId, userId);
-  if (!current) return undefined;
+  // Try to find the specific appeal to update
+  const rows = await db
+    .select()
+    .from(schema.appeals)
+    .where(and(
+      eq(schema.appeals.guildId, guildId),
+      eq(schema.appeals.userId, userId),
+      blacklistType ? eq(schema.appeals.blacklistType, blacklistType) : undefined
+    ))
+    .orderBy(desc(schema.appeals.submittedAt))
+    .limit(1);
+
+  if (!rows.length) return undefined;
+  
+  const current = rowToAppeal(rows[0]);
   const updated = { ...current, ...patch };
-  await saveAppeal(updated);
+
+  const values = {
+    username: updated.username,
+    text: updated.text,
+    submittedAt: updated.submittedAt,
+    status: updated.status,
+    reviewMessageUrl: updated.reviewMessageUrl ?? null,
+    reviewerId: updated.reviewerId ?? null,
+    reason: updated.reason ?? null,
+    resolvedAt: updated.resolvedAt ?? null,
+    questionChannelId: updated.questionChannelId ?? null,
+    blacklistReason: updated.blacklistReason ?? null,
+    blacklistType: updated.blacklistType ?? null,
+    number: updated.number ?? null,
+  };
+
+  await db
+    .update(schema.appeals)
+    .set(values)
+    .where(eq(schema.appeals.id, rows[0].id));
+
   return updated;
 }
 
@@ -608,17 +652,25 @@ export async function claimAppeal(
   reviewerId: string,
   reason?: string,
   resolvedAt: number = Date.now(),
+  blacklistType?: string,
 ): Promise<boolean> {
+  let conditions = and(
+    eq(schema.appeals.guildId, guildId),
+    eq(schema.appeals.userId, userId),
+    eq(schema.appeals.status, 'pending'),
+  );
+
+  if (blacklistType) {
+    conditions = and(conditions, eq(schema.appeals.blacklistType, blacklistType));
+  } else {
+    // Legacy fallback: if no type is given, we must pick ONE pending appeal or it updates all.
+    // Drizzle's update will update all matching rows if there's multiple pending.
+  }
+
   const result = await db
     .update(schema.appeals)
     .set({ status: to, reviewerId, reason: reason ?? null, resolvedAt })
-    .where(
-      and(
-        eq(schema.appeals.guildId, guildId),
-        eq(schema.appeals.userId, userId),
-        eq(schema.appeals.status, 'pending'),
-      ),
-    );
+    .where(conditions);
 
   const affectedRows = (result as any)?.[0]?.affectedRows ?? (result as any)?.affectedRows ?? 0;
   return affectedRows === 1;

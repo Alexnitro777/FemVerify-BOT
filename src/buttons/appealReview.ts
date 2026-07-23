@@ -18,6 +18,7 @@ import {
 	getApplication,
 	updateApplication,
 	addHistoryRecord,
+	getPendingAppeals,
 } from '../storage';
 import {
 	buildResolvedEmbed,
@@ -32,7 +33,7 @@ import { restoreMemberRoles } from '../roles';
 const DENY_COOLDOWN_MS = 48 * 60 * 60 * 1000;
 
 const handler: ButtonHandler = {
-	customId: /^appeal:(amnesty|confirm_amnesty|deny|confirm_deny|cancel|question):\d+$/,
+	customId: /^appeal:(amnesty|confirm_amnesty|deny|confirm_deny|cancel|question):\d+(?:_[a-zA-Zа-яА-Я0-9]+)?$/,
 
 	async execute(interaction: ButtonInteraction, gc: GuildConfig): Promise<void> {
 		if (!hasButtonAccess(interaction, gc, 'ststaff')) {
@@ -40,7 +41,8 @@ const handler: ButtonHandler = {
 			return;
 		}
 
-		const [, action, userId] = interaction.customId.split(':');
+		const [, action, idAndType] = interaction.customId.split(':');
+		const [userId, blacklistType] = idAndType.split('_');
 		if (action === 'cancel') {
 			await interaction.update({
 				content: '❌ Действие отменено.',
@@ -51,7 +53,9 @@ const handler: ButtonHandler = {
 
 		const guildId = interaction.guildId!;
 
-		const appeal = await getAppeal(guildId, userId);
+		const appeal = await getAppeal(guildId, userId); // we actually need the specific appeal! But wait, getAppeal needs updating to fetch the specific appeal or we can fetch all and filter.
+		const appealsRows = await getPendingAppeals(guildId, userId);
+		const appeal = appealsRows.find(a => blacklistType ? a.blacklistType === blacklistType : true) || (await getAppeal(guildId, userId));
 		if (!appeal) {
 			await interaction.reply({ content: 'Апелляция не найдена.', flags: MessageFlags.Ephemeral });
 			return;
@@ -68,12 +72,12 @@ const handler: ButtonHandler = {
 		if (action === 'amnesty') {
 			const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
 				new ButtonBuilder()
-					.setCustomId(`appeal:confirm_amnesty:${userId}`)
+					.setCustomId(`appeal:confirm_amnesty:${idAndType}`)
 					.setLabel('Подтвердить')
 					.setStyle(ButtonStyle.Success)
 					.setEmoji('✅'),
 				new ButtonBuilder()
-					.setCustomId(`appeal:cancel:${userId}`)
+					.setCustomId(`appeal:cancel:${idAndType}`)
 					.setLabel('Отмена')
 					.setStyle(ButtonStyle.Secondary)
 					.setEmoji('❌'),
@@ -89,12 +93,12 @@ const handler: ButtonHandler = {
 		if (action === 'deny') {
 			const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
 				new ButtonBuilder()
-					.setCustomId(`appeal:confirm_deny:${userId}`)
+					.setCustomId(`appeal:confirm_deny:${idAndType}`)
 					.setLabel('Подтвердить')
 					.setStyle(ButtonStyle.Danger)
 					.setEmoji('⛔'),
 				new ButtonBuilder()
-					.setCustomId(`appeal:cancel:${userId}`)
+					.setCustomId(`appeal:cancel:${idAndType}`)
 					.setLabel('Отмена')
 					.setStyle(ButtonStyle.Secondary)
 					.setEmoji('❌'),
@@ -206,7 +210,7 @@ const handler: ButtonHandler = {
 			await pingMsg.delete().catch(() => null);
 
 			await interaction.editReply({
-				components: [buildAppealReviewButtons(userId, channel.url)],
+				components: [buildAppealReviewButtons(userId, channel.url, blacklistType)],
 			});
 			return;
 		}
@@ -215,7 +219,7 @@ const handler: ButtonHandler = {
 
 		const realAction = action === 'confirm_amnesty' ? 'amnesty' : 'deny';
 		const newStatus = realAction === 'amnesty' ? 'amnestied' : 'denied';
-		const claimed = await claimAppeal(guildId, userId, newStatus, interaction.user.id);
+		const claimed = await claimAppeal(guildId, userId, newStatus, interaction.user.id, undefined, Date.now(), blacklistType);
 		if (!claimed) {
 			const fresh = await getAppeal(guildId, userId);
 			await interaction.editReply({
@@ -362,7 +366,7 @@ const handler: ButtonHandler = {
 				console.error('[appealReview] failed to delete question channel', e);
 				return null;
 			});
-			await updateAppeal(guildId, userId, { questionChannelId: undefined });
+			await updateAppeal(guildId, userId, { questionChannelId: undefined }, blacklistType);
 		}
 
 		let statusText = realAction === 'amnesty'

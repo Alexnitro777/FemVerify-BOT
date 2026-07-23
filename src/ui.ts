@@ -285,7 +285,10 @@ export function buildReviewButtons(
 export function buildAppealReviewButtons(
 	userId: string,
 	questionChannelUrl?: string,
+	blacklistType?: string,
 ): ActionRowBuilder<ButtonBuilder> {
+	const idSuffix = blacklistType ? `${userId}_${blacklistType}` : userId;
+
 	const questionButton = questionChannelUrl
 		? new ButtonBuilder()
 				.setLabel('Перейти к вопросу')
@@ -293,19 +296,19 @@ export function buildAppealReviewButtons(
 				.setURL(questionChannelUrl)
 				.setEmoji('❓')
 		: new ButtonBuilder()
-				.setCustomId(`appeal:question:${userId}`)
+				.setCustomId(`appeal:question:${idSuffix}`)
 				.setLabel('Задать вопрос')
 				.setStyle(ButtonStyle.Primary)
 				.setEmoji('❓');
 
 	return new ActionRowBuilder<ButtonBuilder>().addComponents(
 		new ButtonBuilder()
-			.setCustomId(`appeal:amnesty:${userId}`)
+			.setCustomId(`appeal:amnesty:${idSuffix}`)
 			.setLabel('Принять амнистию')
 			.setStyle(ButtonStyle.Success)
 			.setEmoji('✅'),
 		new ButtonBuilder()
-			.setCustomId(`appeal:deny:${userId}`)
+			.setCustomId(`appeal:deny:${idSuffix}`)
 			.setLabel('Отказать в амнистии')
 			.setStyle(ButtonStyle.Danger)
 			.setEmoji('❌'),

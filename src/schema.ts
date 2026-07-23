@@ -31,6 +31,7 @@ export const applications = mysqlTable(
 export const appeals = mysqlTable(
   'appeals',
   {
+    id: int('id').autoincrement().primaryKey().notNull(),
     guildId: varchar('guildId', { length: 32 }).notNull(),
     userId: varchar('userId', { length: 32 }).notNull(),
     username: varchar('username', { length: 255 }).notNull(),
@@ -46,7 +47,7 @@ export const appeals = mysqlTable(
     blacklistType: varchar('blacklistType', { length: 16 }),
     number: int('number'),
   },
-  (table) => [primaryKey({ columns: [table.guildId, table.userId] })],
+  (table) => [index('idx_appeals_guild_user').on(table.guildId, table.userId)],
 );
 
 export const counters = mysqlTable(

@@ -10,7 +10,10 @@ import {
 } from 'discord.js';
 import { ButtonHandler, GuildConfig } from '../types';
 import { appealQuestions } from '../questions';
-import { getAppeal } from '../storage';
+import { getAppeal, getPendingAppeals } from '../storage';
+import { db } from '../db';
+import * as schema from '../schema';
+import { eq, and, desc } from 'drizzle-orm';
 
 const DENY_COOLDOWN_MS = 48 * 60 * 60 * 1000;
 
@@ -27,7 +30,7 @@ const handler: ButtonHandler = {
       return;
     }
 
-    const availableBlacklists: { type: string; label: string; style: ButtonStyle }[] = [];
+    let availableBlacklists: { type: string; label: string; style: ButtonStyle }[] = [];
 
     if (member.roles.cache.has(gc.roles.blacklist)) {
       availableBlacklists.push({ type: 'ЧСП', label: 'ЧСП', style: ButtonStyle.Danger });
@@ -48,29 +51,42 @@ const handler: ButtonHandler = {
       return;
     }
 
-    const existing = await getAppeal(interaction.guildId!, interaction.user.id);
-    if (existing?.status === 'pending') {
-      await interaction.reply({ content: 'Ваша апелляция уже на рассмотрении.', flags: MessageFlags.Ephemeral });
+    const userAppeals = await db.select().from(schema.appeals).where(and(eq(schema.appeals.guildId, interaction.guildId!), eq(schema.appeals.userId, interaction.user.id))).orderBy(desc(schema.appeals.submittedAt));
+    const pendingAppeals = userAppeals.filter(a => a.status === 'pending');
+
+    // Filter availableBlacklists by pending and cooldown
+    const validBlacklists = [];
+    let lastError = 'Ваша апелляция уже на рассмотрении.';
+
+    for (const bl of availableBlacklists) {
+      if (pendingAppeals.some(a => a.blacklistType === bl.type || (!a.blacklistType && bl.type === 'ЧСП'))) {
+        lastError = 'Ваша апелляция уже на рассмотрении.';
+        continue;
+      }
+      
+      const existingAppealForType = userAppeals.find(a => a.blacklistType === bl.type || (!a.blacklistType && bl.type === 'ЧСП'));
+      if (
+        existingAppealForType?.status === 'denied' &&
+        existingAppealForType.resolvedAt &&
+        Date.now() < existingAppealForType.resolvedAt + DENY_COOLDOWN_MS
+      ) {
+        const ts = Math.floor((existingAppealForType.resolvedAt + DENY_COOLDOWN_MS) / 1000);
+        lastError = `⛔ Вашу прошлую апелляцию отклонили. Новую можно подать <t:${ts}:R> (<t:${ts}:f>).`;
+        continue;
+      }
+      
+      validBlacklists.push(bl);
+    }
+
+    if (validBlacklists.length === 0) {
+      await interaction.reply({ content: lastError, flags: MessageFlags.Ephemeral });
       return;
     }
 
-    if (existing?.status === 'denied' && existing.resolvedAt) {
-      const availableAt = existing.resolvedAt + DENY_COOLDOWN_MS;
-      if (Date.now() < availableAt) {
-        const ts = Math.floor(availableAt / 1000);
-        await interaction.reply({
-          content:
-            `⛔ Вашу прошлую апелляцию отклонили. Новую можно подать <t:${ts}:R> (<t:${ts}:f>).`,
-          flags: MessageFlags.Ephemeral,
-        });
-        return;
-      }
-    }
-
-    if (availableBlacklists.length > 1) {
+    if (validBlacklists.length > 1) {
       // User has multiple blacklist roles, let them choose
       const row = new ActionRowBuilder<ButtonBuilder>();
-      for (const bl of availableBlacklists) {
+      for (const bl of validBlacklists) {
         row.addComponents(
           new ButtonBuilder()
             .setCustomId(`appeal:select_type:${bl.type}`)
@@ -86,8 +102,8 @@ const handler: ButtonHandler = {
       return;
     }
 
-    // User has exactly 1 blacklist role
-    const selectedType = availableBlacklists[0].type;
+    // User has exactly 1 valid blacklist role
+    const selectedType = validBlacklists[0].type;
     const modal = new ModalBuilder().setCustomId(`appeal:submit:${selectedType}`).setTitle(`Апелляция: ${selectedType}`);
     const rows = appealQuestions.slice(0, 5).map((q) => {
       const input = new TextInputBuilder()
