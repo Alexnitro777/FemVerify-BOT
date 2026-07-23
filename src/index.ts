@@ -62,7 +62,7 @@ async function bootstrap(): Promise<void> {
 
   registerVoiceKick(client);
 
-  client.once('clientReady', (c) => {
+  client.once('ready', (c) => {
     console.log(`Logged in as ${c.user.tag}`);
     void (async () => {
       for (const guild of c.guilds.cache.values()) {

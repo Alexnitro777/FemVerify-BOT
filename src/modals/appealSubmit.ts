@@ -41,9 +41,8 @@ const handler: ModalHandler = {
 		const hasBlacklist = member.roles.cache.has(gc.roles.blacklist);
 		const hasBlacklistZ = gc.roles.blacklistZ ? member.roles.cache.has(gc.roles.blacklistZ) : false;
 		const hasBlacklistA = gc.roles.blacklistA ? member.roles.cache.has(gc.roles.blacklistA) : false;
-		const hasSoftBlacklist = gc.roles.blacklistSoft?.some((id) => member.roles.cache.has(id)) ?? false;
 		
-		if (!hasBlacklist && !hasBlacklistZ && !hasBlacklistA && !hasSoftBlacklist) {
+		if (!hasBlacklist && !hasBlacklistZ && !hasBlacklistA) {
 			await interaction.editReply({
 				content: 'Апелляция доступна только участникам в чёрном списке.',
 			});

@@ -186,7 +186,7 @@ async function detectJoinMethod(guild: Guild): Promise<string> {
 }
 
 export function registerInviteTracker(client: Client): void {
-  client.once('clientReady', async () => {
+  client.once('ready', async () => {
     for (const guild of client.guilds.cache.values()) {
       await cacheGuildInvites(guild);
     }

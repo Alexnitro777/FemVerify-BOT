@@ -14,7 +14,6 @@ export interface GuildConfig {
     blacklist: string;
     blacklistZ?: string;
     blacklistA?: string;
-    blacklistSoft?: string[];
     staff: string[];
     ststaff: string[];
     roleTag?: string;

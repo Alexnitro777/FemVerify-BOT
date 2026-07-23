@@ -39,20 +39,12 @@ const handler: ButtonHandler = {
       availableBlacklists.push({ type: 'ЧСА', label: 'ЧСА' });
     }
 
-    const hasSoftBlacklist = gc.roles.blacklistSoft?.some((id) => member.roles.cache.has(id)) ?? false;
-    
-    // If they have no recognized blacklist role, but have a soft blacklist role, they can just appeal for "ЧС" generically
-    // But since the user wants them to select ЧСП, ЧСЗ, ЧСА, let's treat soft blacklist as "ЧС" if none of the above match.
     if (availableBlacklists.length === 0) {
-      if (hasSoftBlacklist) {
-         availableBlacklists.push({ type: 'ЧС', label: 'Чёрный список' });
-      } else {
-        await interaction.reply({
-          content: 'Апелляция доступна только участникам в чёрном списке.',
-          flags: MessageFlags.Ephemeral,
-        });
-        return;
-      }
+      await interaction.reply({
+        content: 'Апелляция доступна только участникам в чёрном списке.',
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
     }
 
     const existing = await getAppeal(interaction.guildId!, interaction.user.id);

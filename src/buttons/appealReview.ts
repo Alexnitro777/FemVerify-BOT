@@ -255,12 +255,6 @@ const handler: ButtonHandler = {
 						console.error('[appealReview] roles.remove failed', e);
 						return false;
 					});
-			} else if (appeal.blacklistType === 'ЧС' && member) {
-				// Remove all blacklists
-				const toRemove = [gc.roles.blacklist, ...(gc.roles.blacklistSoft ?? [])];
-				await member.roles.remove(toRemove).then(() => { removed = true; }).catch((e) => {
-					console.error('[appealReview] roles.remove all failed', e);
-				});
 			} else {
 				// fallback if not mapped
 				removed = await member?.roles.remove(gc.roles.blacklist).then(() => true).catch(() => false) ?? false;

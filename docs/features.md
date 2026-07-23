@@ -152,7 +152,7 @@
 - **Переменные окружения** — подключение к MySQL/MariaDB: `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME`, `DB_CONNECTION_LIMIT`.
 - **Таблица `app_config`** — `token` и `clientId` бота (при первом запуске можно задать через env `BOT_TOKEN`/`CLIENT_ID`, бот сам запишет их в БД).
 - **Таблица `guild_settings`** — настройки каждого сервера (вносятся напрямую в БД, ключи с точками):
-  - **Роли:** `roles.verified`, `roles.blacklist`, `roles.blacklistZ` (опц.), `roles.blacklistA` (опц.), `roles.blacklistSoft` (опц.), `roles.staff`, `roles.ststaff`, `roles.roleTag` (опц.).
+  - **Роли:** `roles.verified`, `roles.blacklist`, `roles.blacklistZ` (опц.), `roles.blacklistA` (опц.), `roles.staff`, `roles.ststaff`, `roles.roleTag` (опц.).
   - **Каналы:** `channels.review`, `channels.appealReview`, `channels.welcome` (опц.), `channels.decisions` (опц.), `channels.appeal` (опц.), `channels.tagLog` (опц.), `channels.blacklistLog` (опц.).
   - **Прочее:** `questionCategoryId`. Списки `roles.staff` и `roles.ststaff` — ID через запятую. Уровень **owner** в БД не хранится — это `OWNER_IDS` в `permissions.ts`.
 

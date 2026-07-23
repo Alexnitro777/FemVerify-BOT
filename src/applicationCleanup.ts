@@ -137,7 +137,7 @@ export function registerApplicationCleanup(client: Client): void {
     );
   };
 
-  client.once('clientReady', () => {
+  client.once('ready', () => {
     console.log(
       `[applicationCleanup] включено: TTL=${Math.round(APPLICATION_TTL_MS / 3_600_000)} ч, ` +
         `проверка каждые ${Math.round(SWEEP_INTERVAL_MS / 1000)} с`,
