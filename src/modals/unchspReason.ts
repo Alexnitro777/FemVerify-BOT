@@ -90,7 +90,7 @@ const handler: ModalHandler = {
       action: 'Снятие ЧСП',
       details: reason,
       actorId: interaction.user.id,
-      linkUrl: appeal?.reviewMessageUrl ?? existing?.reviewMessageUrl ?? undefined,
+      linkUrl: appeal?.reviewMessageUrl ?? undefined,
       timestamp: Date.now(),
     });
 

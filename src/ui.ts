@@ -204,7 +204,7 @@ export function buildHistoryView(
 		if (rec.linkUrl) {
 			let linkLabel = 'Сообщение';
 			if (rec.type === 'appeal') linkLabel = 'Апелляция';
-			else if (rec.type === 'application') linkLabel = 'Анкета';
+			else if (rec.type === 'application' || rec.type === 'blacklist') linkLabel = 'Анкета';
 			
 			lines.push(`🔗 **${linkLabel}:** [Перейти к сообщению](${rec.linkUrl})`);
 		}
