@@ -198,7 +198,8 @@ export function buildHistoryView(
 		}
 		if (rec.details) {
 			const cleanDetails = rec.details.trim();
-			lines.push(`💬 **Причина/Детали:** \`${cleanDetails.length > 500 ? cleanDetails.slice(0, 500) + '...' : cleanDetails}\``);
+			const label = rec.action.includes('Подача апелляции') ? 'Текст апелляции' : 'Причина/Детали';
+			lines.push(`💬 **${label}:** \`${cleanDetails.length > 500 ? cleanDetails.slice(0, 500) + '...' : cleanDetails}\``);
 		}
 		if (rec.linkUrl) {
 			lines.push(`🔗 **Анкета:** [Перейти к сообщению](${rec.linkUrl})`);

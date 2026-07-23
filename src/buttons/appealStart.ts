@@ -39,7 +39,7 @@ const handler: ButtonHandler = {
         availableBlacklists.push({ type: 'ЧСЗ', label: 'ЧСЗ', style: ButtonStyle.Primary });
       }
       if (gc.roles.blacklistA && member.roles.cache.has(gc.roles.blacklistA)) {
-        availableBlacklists.push({ type: 'ЧСА', label: 'ЧСА', style: ButtonStyle.Secondary });
+        availableBlacklists.push({ type: 'ЧСА', label: 'ЧСА', style: ButtonStyle.Danger });
       }
     }
 
