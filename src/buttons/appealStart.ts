@@ -27,16 +27,17 @@ const handler: ButtonHandler = {
       return;
     }
 
-    const availableBlacklists: { type: string; label: string }[] = [];
+    const availableBlacklists: { type: string; label: string; style: ButtonStyle }[] = [];
 
     if (member.roles.cache.has(gc.roles.blacklist)) {
-      availableBlacklists.push({ type: 'ЧСП', label: 'ЧСП' });
-    }
-    if (gc.roles.blacklistZ && member.roles.cache.has(gc.roles.blacklistZ)) {
-      availableBlacklists.push({ type: 'ЧСЗ', label: 'ЧСЗ' });
-    }
-    if (gc.roles.blacklistA && member.roles.cache.has(gc.roles.blacklistA)) {
-      availableBlacklists.push({ type: 'ЧСА', label: 'ЧСА' });
+      availableBlacklists.push({ type: 'ЧСП', label: 'ЧСП', style: ButtonStyle.Danger });
+    } else {
+      if (gc.roles.blacklistZ && member.roles.cache.has(gc.roles.blacklistZ)) {
+        availableBlacklists.push({ type: 'ЧСЗ', label: 'ЧСЗ', style: ButtonStyle.Primary });
+      }
+      if (gc.roles.blacklistA && member.roles.cache.has(gc.roles.blacklistA)) {
+        availableBlacklists.push({ type: 'ЧСА', label: 'ЧСА', style: ButtonStyle.Secondary });
+      }
     }
 
     if (availableBlacklists.length === 0) {
@@ -74,7 +75,7 @@ const handler: ButtonHandler = {
           new ButtonBuilder()
             .setCustomId(`appeal:select_type:${bl.type}`)
             .setLabel(bl.label)
-            .setStyle(ButtonStyle.Primary)
+            .setStyle(bl.style)
         );
       }
       await interaction.reply({
