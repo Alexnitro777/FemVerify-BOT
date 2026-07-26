@@ -17,7 +17,6 @@ import {
 	claimAppealQuestionChannel,
 	getApplication,
 	updateApplication,
-	addHistoryRecord,
 	getPendingAppeals,
 } from '../storage';
 import {
@@ -229,15 +228,6 @@ const handler: ButtonHandler = {
 		}
 
 		const reviewUrl = appeal.reviewMessageUrl ?? (interaction.message.flags.has(MessageFlags.Ephemeral) ? undefined : interaction.message.url);
-		await addHistoryRecord({
-			guildId,
-			userId,
-			type: 'appeal',
-			action: realAction === 'amnesty' ? 'Апелляция принята (Амнистия)' : 'Апелляция отклонена',
-			actorId: interaction.user.id,
-			linkUrl: reviewUrl,
-			timestamp: Date.now(),
-		});
 
 		const guild = getGuild(interaction);
 		const member = guild ? await guild.members.fetch(userId).catch(() => null) : null;

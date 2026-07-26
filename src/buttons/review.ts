@@ -18,7 +18,6 @@ import {
 	claimApplication,
 	updateApplication,
 	claimApplicationQuestionChannel,
-	addHistoryRecord,
 } from '../storage';
 import {
 	buildResolvedEmbed,
@@ -213,15 +212,6 @@ const handler: ButtonHandler = {
 			.catch(() => false);
 
 		const reviewUrl = app.reviewMessageUrl ?? (interaction.message.flags.has(MessageFlags.Ephemeral) ? undefined : interaction.message.url);
-		await addHistoryRecord({
-			guildId,
-			userId,
-			type: 'application',
-			action: 'Заявка одобрена',
-			actorId: interaction.user.id,
-			linkUrl: reviewUrl,
-			timestamp: Date.now(),
-		});
 
 		if (reviewUrl) {
 			const parsed = reviewUrl.match(/channels\/(\d+)\/(\d+)\/(\d+)/);

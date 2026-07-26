@@ -1,7 +1,7 @@
 import { ModalSubmitInteraction, TextChannel, MessageFlags } from 'discord.js';
 import { ModalHandler, GuildConfig } from '../types';
 import { appealQuestions } from '../questions';
-import { getApplication, getAppeal, getPendingAppeals, reserveAppeal, nextAppealNumber, addHistoryRecord } from '../storage';
+import { getApplication, getAppeal, getPendingAppeals, reserveAppeal, nextAppealNumber } from '../storage';
 import { db } from '../db';
 import * as schema from '../schema';
 import { eq, and, desc } from 'drizzle-orm';
@@ -139,15 +139,6 @@ const handler: ModalHandler = {
 			return;
 		}
 
-		await addHistoryRecord({
-			guildId,
-			userId: interaction.user.id,
-			type: 'appeal',
-			action: `Подача апелляции №${number} (${type})`,
-			details: text,
-			linkUrl: msg.url,
-			timestamp: Date.now(),
-		});
 
 		await interaction.editReply({
 			content: '✅ Апелляция отправлена. Ожидайте решения модерации.',

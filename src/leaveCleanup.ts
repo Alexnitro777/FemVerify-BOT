@@ -6,7 +6,6 @@ import {
   markAppealLeft,
   updateApplication,
   updateAppeal,
-  addHistoryRecord,
 } from './storage';
 import { buildLeftServerButtonRow } from './ui';
 
@@ -62,14 +61,7 @@ async function handleMemberRemove(
 
   const app = await getApplication(guildId, userId);
   if (app && app.status === 'pending' && (await markApplicationLeft(guildId, userId))) {
-    await addHistoryRecord({
-      guildId,
-      userId,
-      type: 'application',
-      action: 'Покинул(а) сервер при проверке заявки',
-      linkUrl: app.reviewMessageUrl ?? undefined,
-      timestamp: Date.now(),
-    });
+
     await markReviewMessageLeft(guild, app.reviewMessageUrl);
     if (app.questionChannelId) {
       await deleteQuestionChannel(guild, app.questionChannelId);
@@ -79,14 +71,7 @@ async function handleMemberRemove(
 
   const appeal = await getAppeal(guildId, userId);
   if (appeal && appeal.status === 'pending' && (await markAppealLeft(guildId, userId))) {
-    await addHistoryRecord({
-      guildId,
-      userId,
-      type: 'appeal',
-      action: 'Покинул(а) сервер при рассмотрении апелляции',
-      linkUrl: appeal.reviewMessageUrl ?? undefined,
-      timestamp: Date.now(),
-    });
+
     await markReviewMessageLeft(guild, appeal.reviewMessageUrl);
     if (appeal.questionChannelId) {
       await deleteQuestionChannel(guild, appeal.questionChannelId);

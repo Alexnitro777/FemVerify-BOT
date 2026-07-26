@@ -86,18 +86,3 @@ export const appConfig = mysqlTable('app_config', {
   value: text('value').notNull(),
 });
 
-export const userHistory = mysqlTable(
-  'user_history',
-  {
-    id: int('id').autoincrement().primaryKey().notNull(),
-    guildId: varchar('guildId', { length: 32 }).notNull(),
-    userId: varchar('userId', { length: 32 }).notNull(),
-    type: varchar('type', { length: 32 }).notNull(),
-    action: varchar('action', { length: 255 }).notNull(),
-    details: text('details'),
-    actorId: varchar('actorId', { length: 32 }),
-    linkUrl: text('linkUrl'),
-    timestamp: bigint('timestamp', { mode: 'number' }).notNull(),
-  },
-  (table) => [index('idx_guild_user_time').on(table.guildId, table.userId, table.timestamp)],
-);

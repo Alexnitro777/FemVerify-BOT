@@ -10,7 +10,6 @@ import {
 } from 'discord.js';
 import { Application } from './types';
 import { verifyQuestions } from './questions';
-import { HistoryRecord } from './storage';
 
 export function buildApplicationEmbed(
 	user: User,
@@ -162,94 +161,6 @@ export function buildPendingListView(
 	return { embed, row };
 }
 
-const HISTORY_PAGE_SIZE = 5;
-
-export function buildHistoryView(
-	userId: string,
-	userTag: string | undefined,
-	avatarUrl: string | undefined,
-	records: HistoryRecord[],
-	requestedPage: number,
-): { embed: EmbedBuilder; row?: ActionRowBuilder<ButtonBuilder> } {
-	const pages = Math.max(1, Math.ceil(records.length / HISTORY_PAGE_SIZE));
-	const page = Math.min(Math.max(0, requestedPage), pages - 1);
-	const start = page * HISTORY_PAGE_SIZE;
-	const slice = records.slice(start, start + HISTORY_PAGE_SIZE);
-
-	const getActionEmoji = (rec: HistoryRecord) => {
-		if (rec.action.includes('одобрена')) return '✅';
-		if (rec.action.includes('отклонена')) return '❌';
-		if (rec.action.includes('Выдача ЧС') || rec.action.includes('Выдача ЧСП')) return '🚫';
-		if (rec.action.includes('Снятие ЧС') || rec.action.includes('Снятие ЧСП') || rec.action.includes('Амнистия')) return '🕊️';
-		if (rec.action.includes('Подача заявки')) return '📝';
-		if (rec.action.includes('Подача апелляции')) return '⚖️';
-		if (rec.action.includes('Покинул')) return '🚪';
-		if (rec.action.includes('просрочена')) return '⏰';
-		return '📌';
-	};
-
-	const fields = slice.map((rec) => {
-		const ts = Math.floor(rec.timestamp / 1000);
-		const emoji = getActionEmoji(rec);
-		const lines: string[] = [];
-		lines.push(`📅 **Дата:** <t:${ts}:f> (<t:${ts}:R>)`);
-		if (rec.actorId) {
-			lines.push(`👤 **Модератор:** <@${rec.actorId}>`);
-		}
-		if (rec.details) {
-			const cleanDetails = rec.details.trim();
-			const label = rec.action.includes('Подача апелляции') ? 'Текст апелляции' : 'Причина/Детали';
-			lines.push(`💬 **${label}:** \`${cleanDetails.length > 500 ? cleanDetails.slice(0, 500) + '...' : cleanDetails}\``);
-		}
-		if (rec.linkUrl) {
-			let linkLabel = 'Сообщение';
-			if (rec.type === 'appeal') linkLabel = 'Апелляция';
-			else if (rec.type === 'application' || rec.type === 'blacklist') linkLabel = 'Анкета';
-			
-			lines.push(`🔗 **${linkLabel}:** [Перейти к сообщению](${rec.linkUrl})`);
-		}
-		return {
-			name: `${emoji} ${rec.action}`,
-			value: lines.join('\n'),
-			inline: false,
-		};
-	});
-
-	const embed = new EmbedBuilder()
-		.setTitle(`📜 История действий: ${userTag ? userTag : userId}`)
-		.setDescription(`Участник: <@${userId}> (ID: \`${userId}\`)`)
-		.setColor(0x5865f2)
-		.addFields(fields)
-		.setFooter({ text: `Страница ${page + 1}/${pages} • Всего записей: ${records.length}` })
-		.setTimestamp();
-
-	if (avatarUrl) {
-		embed.setThumbnail(avatarUrl);
-	}
-
-	let row: ActionRowBuilder<ButtonBuilder> | undefined;
-	if (pages > 1) {
-		row = new ActionRowBuilder<ButtonBuilder>().addComponents(
-			new ButtonBuilder()
-				.setCustomId(`history:page:${userId}:${page - 1}`)
-				.setLabel('◀ Назад')
-				.setStyle(ButtonStyle.Secondary)
-				.setDisabled(page <= 0),
-			new ButtonBuilder()
-				.setCustomId(`history:pageinfo:${userId}`)
-				.setLabel(`${page + 1} / ${pages}`)
-				.setStyle(ButtonStyle.Secondary)
-				.setDisabled(true),
-			new ButtonBuilder()
-				.setCustomId(`history:page:${userId}:${page + 1}`)
-				.setLabel('Вперёд ▶')
-				.setStyle(ButtonStyle.Secondary)
-				.setDisabled(page >= pages - 1),
-		);
-	}
-
-	return { embed, row };
-}
 
 export function buildReviewButtons(
 	userId: string,
