@@ -50,6 +50,7 @@ const command: SlashCommand = {
           if (isBlacklisted && !member.roles.cache.has(guildGc.roles.blacklist)) {
             const result = await blacklistMemberRoles(member, guildGc);
             if (result.ok) {
+              console.log(`[sync_all] Выдано глобальное ЧС: ${member.user.tag} (${member.id}) на сервере ${guild.name}`);
               blacklistedCount++;
             }
           }
@@ -59,6 +60,7 @@ const command: SlashCommand = {
             const isVerified = await isUserGloballyVerified(member.id);
             if (isVerified && !member.roles.cache.has(guildGc.roles.verified)) {
               await member.roles.add(guildGc.roles.verified).catch(() => null);
+              console.log(`[sync_all] Выдана глобальная верификация: ${member.user.tag} (${member.id}) на сервере ${guild.name}`);
               verifiedCount++;
             }
           }
