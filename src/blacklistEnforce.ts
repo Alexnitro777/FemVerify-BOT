@@ -1,6 +1,7 @@
 import { Client, GuildMember, PartialGuildMember } from 'discord.js';
 import { isUserGloballyBlacklisted, getApplication, updateApplication, saveApplication } from './storage';
 import { getGuildConfig } from './guildConfig';
+import { postDecisionMessage } from './ui';
 
 async function enforceBlacklistOnJoin(
   member: GuildMember | PartialGuildMember,
@@ -35,6 +36,15 @@ async function enforceBlacklistOnJoin(
         reason: 'Глобальный ЧС при входе'
       });
     }
+
+    await postDecisionMessage(full.client, gc.channels.blacklistLog, 'application', {
+      label: 'Авто-ЧС',
+      color: 0x992d22,
+      reviewerId: full.client.user!.id,
+      targetUserId: full.id,
+      reason: { title: 'Причина', text: 'Глобальный ЧС при входе' },
+      title: 'Автоматическая выдача ЧСП',
+    });
 
     console.log(`[blacklistEnforce] возвращена роль ЧС ${full.user.tag} (${full.id})`);
   } catch (e) {

@@ -9,6 +9,7 @@ import {
 import { ButtonHandler, GuildConfig } from '../types';
 import { verifyQuestions } from '../questions';
 import { getApplication, isUserGloballyVerified } from '../storage';
+import { postDecisionMessage } from '../ui';
 
 const handler: ButtonHandler = {
   customId: 'verify:start',
@@ -36,6 +37,14 @@ const handler: ButtonHandler = {
     const isVerified = await isUserGloballyVerified(interaction.user.id);
     if (isVerified && member) {
       await member.roles.add(gc.roles.verified).catch(() => null);
+      await postDecisionMessage(interaction.client, gc.channels.decisions, 'application', {
+        label: 'Авто-Верификация',
+        color: 0x57f287,
+        reviewerId: interaction.client.user!.id,
+        targetUserId: interaction.user.id,
+        reason: { title: 'Причина', text: 'Уже верифицирован на другом сервере проекта' },
+        title: 'Автоматическая верификация',
+      });
       await interaction.reply({ content: 'Вы были автоматически верифицированы, так как уже прошли проверку на другом сервере проекта.', flags: MessageFlags.Ephemeral });
       return;
     }
