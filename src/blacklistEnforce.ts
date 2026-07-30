@@ -1,5 +1,5 @@
 import { Client, GuildMember, PartialGuildMember } from 'discord.js';
-import { isUserGloballyBlacklisted } from './storage';
+import { isUserGloballyBlacklisted, getApplication, updateApplication, saveApplication } from './storage';
 import { getGuildConfig } from './guildConfig';
 
 async function enforceBlacklistOnJoin(
@@ -20,6 +20,22 @@ async function enforceBlacklistOnJoin(
 
   try {
     await full.roles.add(gc.roles.blacklist, 'Возврат в ЧС при перезаходе');
+    
+    const existing = await getApplication(full.guild.id, full.id);
+    if (existing) {
+      await updateApplication(full.guild.id, full.id, { status: 'blacklisted' });
+    } else {
+      await saveApplication({
+        userId: full.id,
+        username: full.user.tag,
+        guildId: full.guild.id,
+        answers: {},
+        submittedAt: Date.now(),
+        status: 'blacklisted',
+        reason: 'Глобальный ЧС при входе'
+      });
+    }
+
     console.log(`[blacklistEnforce] возвращена роль ЧС ${full.user.tag} (${full.id})`);
   } catch (e) {
     console.error(`[blacklistEnforce] не удалось вернуть роль ЧС для ${full.id}:`, e);

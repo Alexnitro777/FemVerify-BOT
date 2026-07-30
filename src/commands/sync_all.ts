@@ -4,7 +4,7 @@ import {
   MessageFlags,
 } from 'discord.js';
 import { SlashCommand, GuildConfig } from '../types';
-import { isUserGloballyBlacklisted, isUserGloballyVerified } from '../storage';
+import { isUserGloballyBlacklisted, isUserGloballyVerified, getApplication, updateApplication, saveApplication } from '../storage';
 import { getGuildConfig } from '../guildConfig';
 import { blacklistMemberRoles } from '../roles';
 
@@ -50,6 +50,24 @@ const command: SlashCommand = {
           if (isBlacklisted && !member.roles.cache.has(guildGc.roles.blacklist)) {
             const result = await blacklistMemberRoles(member, guildGc);
             if (result.ok) {
+              const existing = await getApplication(guild.id, member.id);
+              if (existing) {
+                await updateApplication(guild.id, member.id, {
+                  status: 'blacklisted',
+                  removedRoles: result.removed.length ? result.removed : existing.removedRoles,
+                });
+              } else {
+                await saveApplication({
+                  userId: member.id,
+                  username: member.user.tag,
+                  guildId: guild.id,
+                  answers: {},
+                  submittedAt: Date.now(),
+                  status: 'blacklisted',
+                  removedRoles: result.removed.length ? result.removed : undefined,
+                  reason: 'Глобальная синхронизация',
+                });
+              }
               console.log(`[sync_all] Выдано глобальное ЧС: ${member.user.tag} (${member.id}) на сервере ${guild.name}`);
               blacklistedCount++;
             }

@@ -47,15 +47,15 @@ export async function removeGlobalBlacklist(client: Client, userId: string, excl
     if (!gc) continue;
 
     const existing = await getApplication(guild.id, userId);
-    if (existing && existing.status === 'blacklisted') {
+    if (existing) {
       await updateApplication(guild.id, userId, { status: 'amnestied', removedRoles: [] });
-      
-      const member = await guild.members.fetch(userId).catch(() => null);
-      if (member) {
-        await member.roles.remove(gc.roles.blacklist).catch(() => null);
-        if (existing.removedRoles && existing.removedRoles.length > 0) {
-          await restoreMemberRoles(member, gc, existing.removedRoles);
-        }
+    }
+    
+    const member = await guild.members.fetch(userId).catch(() => null);
+    if (member) {
+      await member.roles.remove(gc.roles.blacklist).catch(() => null);
+      if (existing && existing.removedRoles && existing.removedRoles.length > 0) {
+        await restoreMemberRoles(member, gc, existing.removedRoles);
       }
     }
   }
