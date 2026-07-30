@@ -4,6 +4,7 @@ import { getApplication, updateApplication, saveApplication } from '../storage';
 import { buildDmEmbed, postDecisionMessage, buildResolvedEmbed, buildProcessedButtonRow } from '../ui';
 import { blacklistMemberRoles } from '../roles';
 import { canManageByHierarchy } from '../permissions';
+import { applyGlobalBlacklist } from '../sync';
 
 const handler: ModalHandler = {
   customId: /^chsp:reason:\d+$/,
@@ -139,6 +140,8 @@ const handler: ModalHandler = {
       number: existing?.number,
       title: 'Выдача ЧСП',
     });
+
+    await applyGlobalBlacklist(interaction.client, userId, reason, interaction.user.id, guildId);
 
     const baseReply = `Участник <@${userId}> добавлен в ЧС.`;
     await interaction.editReply({

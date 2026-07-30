@@ -28,6 +28,7 @@ import {
 } from '../ui';
 import { hasButtonAccess, getGuild } from '../permissions';
 import { restoreMemberRoles } from '../roles';
+import { removeGlobalBlacklist } from '../sync';
 
 const DENY_COOLDOWN_MS = 48 * 60 * 60 * 1000;
 
@@ -267,6 +268,9 @@ const handler: ButtonHandler = {
 			}
 			if (application) {
 				await updateApplication(guildId, userId, { status: 'amnestied', removedRoles: [] });
+			}
+			if (appeal.blacklistType === 'ЧСП') {
+				await removeGlobalBlacklist(interaction.client, userId, guildId);
 			}
 			let dmTextAccept = 'С вас снят чёрный список.';
 			let dmTextDenyPrefix = 'Ваша апелляция отклонена.';

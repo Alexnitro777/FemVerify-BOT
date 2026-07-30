@@ -28,6 +28,7 @@ import {
 	buildReviewButtons,
 } from '../ui';
 import { hasButtonAccess, getGuild } from '../permissions';
+import { applyGlobalVerification } from '../sync';
 
 const handler: ButtonHandler = {
 	customId: /^review:(approve|reject|question|blacklist):\d+$/,
@@ -194,6 +195,7 @@ const handler: ButtonHandler = {
 
 		try {
 			await member.roles.add(gc.roles.verified);
+			await applyGlobalVerification(interaction.client, userId, guildId);
 		} catch (e) {
 			console.error('[review] roles.add failed', e);
 			await updateApplication(guildId, userId, { status: 'pending', reviewerId: undefined });

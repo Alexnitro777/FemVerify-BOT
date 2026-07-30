@@ -4,6 +4,7 @@ import { getApplication, updateApplication, getAppeal, updateAppeal } from '../s
 import { buildDmEmbed, postDecisionMessage, buildResolvedEmbed, buildProcessedButtonRow } from '../ui';
 import { restoreMemberRoles } from '../roles';
 import { canManageByHierarchy, canManageRoles } from '../permissions';
+import { removeGlobalBlacklist } from '../sync';
 
 const handler: ModalHandler = {
   customId: /^unchsp:reason:\d+$/,
@@ -146,6 +147,8 @@ const handler: ModalHandler = {
       number: existing?.number,
       title: 'Снятие ЧСП',
     });
+
+    await removeGlobalBlacklist(interaction.client, userId, guildId);
 
     const baseReply = `Участник <@${userId}> снят с ЧС.`;
     await interaction.editReply({

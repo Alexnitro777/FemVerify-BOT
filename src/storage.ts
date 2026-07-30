@@ -681,3 +681,20 @@ export async function markAppealLeft(
   return affectedRows === 1;
 }
 
+export async function isUserGloballyBlacklisted(userId: string): Promise<boolean> {
+  const [row] = await db
+    .select({ status: schema.applications.status })
+    .from(schema.applications)
+    .where(and(eq(schema.applications.userId, userId), eq(schema.applications.status, 'blacklisted')))
+    .limit(1);
+  return !!row;
+}
+
+export async function isUserGloballyVerified(userId: string): Promise<boolean> {
+  const [row] = await db
+    .select({ status: schema.applications.status })
+    .from(schema.applications)
+    .where(and(eq(schema.applications.userId, userId), eq(schema.applications.status, 'approved')))
+    .limit(1);
+  return !!row;
+}

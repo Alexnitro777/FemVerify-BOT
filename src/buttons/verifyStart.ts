@@ -8,7 +8,7 @@ import {
 } from 'discord.js';
 import { ButtonHandler, GuildConfig } from '../types';
 import { verifyQuestions } from '../questions';
-import { getApplication } from '../storage';
+import { getApplication, isUserGloballyVerified } from '../storage';
 
 const handler: ButtonHandler = {
   customId: 'verify:start',
@@ -30,6 +30,13 @@ const handler: ButtonHandler = {
     }
     if (member?.roles.cache.has(gc.roles.verified)) {
       await interaction.reply({ content: 'Вы уже верифицированы.', flags: MessageFlags.Ephemeral });
+      return;
+    }
+
+    const isVerified = await isUserGloballyVerified(interaction.user.id);
+    if (isVerified && member) {
+      await member.roles.add(gc.roles.verified).catch(() => null);
+      await interaction.reply({ content: 'Вы были автоматически верифицированы, так как уже прошли проверку на другом сервере проекта.', flags: MessageFlags.Ephemeral });
       return;
     }
 

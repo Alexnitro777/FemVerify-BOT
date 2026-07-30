@@ -1,5 +1,5 @@
 import { Client, GuildMember, PartialGuildMember } from 'discord.js';
-import { getApplication } from './storage';
+import { isUserGloballyBlacklisted } from './storage';
 import { getGuildConfig } from './guildConfig';
 
 async function enforceBlacklistOnJoin(
@@ -13,8 +13,8 @@ async function enforceBlacklistOnJoin(
   const gc = await getGuildConfig(full.guild.id);
   if (!gc) return;
 
-  const app = await getApplication(full.guild.id, full.id);
-  if (!app || app.status !== 'blacklisted') return;
+  const isBlacklisted = await isUserGloballyBlacklisted(full.id);
+  if (!isBlacklisted) return;
 
   if (full.roles.cache.has(gc.roles.blacklist)) return;
 

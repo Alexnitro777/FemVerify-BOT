@@ -12,6 +12,7 @@ import { registerQuestionCleanup } from './questionCleanup';
 import { registerApplicationCleanup } from './applicationCleanup';
 import { registerInviteTracker } from './inviteTracker';
 import { registerVoiceKick } from './voiceKick';
+import { registerVerificationEnforcement } from './verificationEnforce';
 import { registerCommandsForGuild, buildCommandBodies } from './commandRegistration';
 import { invalidateGuildConfig } from './guildConfig';
 
@@ -53,6 +54,7 @@ async function bootstrap(): Promise<void> {
   registerLeaveCleanupEvents(client);
 
   registerBlacklistEnforcement(client);
+  registerVerificationEnforcement(client);
 
   registerQuestionCleanup(client);
 

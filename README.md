@@ -16,7 +16,8 @@ FemVerify-BOT/
 │   │   ├── amnesties.ts       /амнистии (ststaff) — список непринятых апелляций
 │   │   ├── tag.ts             /тег (staff) — статистика по тегу сервера
 │   │   ├── chsp.ts            /выдатьчсп (ststaff) — занести участника в ЧС (снять все роли + роль ЧС)
-│   │   └── unchsp.ts          /снятьчсп (ststaff) — снять участника с ЧС (убрать роль ЧС + вернуть роли)
+│   │   ├── unchsp.ts          /снятьчсп (ststaff) — снять участника с ЧС (убрать роль ЧС + вернуть роли)
+│   │   └── sync_all.ts        /синхронизировать (owner-id) — применить глобальный статус на все серверы
 │   ├── buttons/               Кнопки
 │   │   ├── verifyStart.ts     Старт анкеты (verify:start)
 │   │   ├── review.ts          4 решения по анкете (approve/reject/question/blacklist)
@@ -37,7 +38,8 @@ FemVerify-BOT/
 │   ├── roleTag.ts             Детект тега сервера + автовыдача/снятие роли
 │   ├── inviteTracker.ts       Трекинг инвайтов — определяет способ вступления
 │   ├── leaveCleanup.ts        Обработка выхода участника (статус left)
-│   ├── blacklistEnforce.ts    Возврат роли ЧС при перезаходе участника
+│   ├── blacklistEnforce.ts    Возврат роли ЧС при перезаходе участника (работает глобально)
+│   ├── verificationEnforce.ts Выдача роли верификации при заходе участника (глобально)
 │   ├── voiceKick.ts           Автоотключение с голосового при роли ЧС
 │   ├── questionCleanup.ts     Автоудаление просроченных каналов-вопросов (TTL 2 дня)
 │   ├── questionRestore.ts     Возврат кнопки «Задать вопрос» при закрытии канала
@@ -49,6 +51,7 @@ FemVerify-BOT/
 │   ├── roles.ts               Снятие ролей + выдача роли ЧС и возврат ролей при амнистии (общий помощник)
 │   ├── questions.ts           Вопросы анкеты (5 полей) и апелляции (1 поле) — лимит Discord 5
 │   ├── storage.ts             MySQL (mysql2): applications, appeals, counters, join_methods, guild_settings, app_config, user_history
+│   ├── sync.ts                Глобальная синхронизация статуса пользователей между серверами (ЧСП/Верификация)
 │   ├── ui.ts                  Построение embed и кнопок
 │   ├── types.ts               Общие типы
 │   ├── commandRegistration.ts Регистрация slash-команд (по серверам)
