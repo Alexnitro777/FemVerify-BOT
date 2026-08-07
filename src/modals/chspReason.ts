@@ -32,30 +32,39 @@ const handler: ModalHandler = {
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
     const guildId = interaction.guild.id;
+    const user = await interaction.client.users.fetch(userId).catch(() => null);
+    if (!user) {
+      await interaction.editReply({ content: 'Пользователь не найден в Discord.' });
+      return;
+    }
+
     const member = await interaction.guild.members.fetch(userId).catch(() => null);
-    if (!member) {
-      await interaction.editReply({ content: 'Пользователь не найден на сервере.' });
+    const existing = await getApplication(guildId, userId);
+
+    if (member && member.roles.cache.has(gc.roles.blacklist)) {
+      await interaction.editReply({ content: 'Участник уже находится в чёрном списке на сервере.' });
+      return;
+    }
+    if (existing?.status === 'blacklisted') {
+      await interaction.editReply({ content: 'Участник уже находится в чёрном списке в базе данных.' });
       return;
     }
 
-    if (member.roles.cache.has(gc.roles.blacklist)) {
-      await interaction.editReply({ content: 'Участник уже находится в чёрном списке.' });
-      return;
-    }
-
-    const moderator = await interaction.guild.members
-      .fetch(interaction.user.id)
-      .catch(() => null);
-    if (!moderator || !canManageByHierarchy(moderator as GuildMember, member)) {
+    const moderator = await interaction.guild.members.fetch(interaction.user.id).catch(() => null);
+    if (member && (!moderator || !canManageByHierarchy(moderator as GuildMember, member))) {
       await interaction.editReply({
         content: 'Нельзя занести в чёрный список участника, чья роль выше вашей или равна ей.',
       });
       return;
     }
 
-    const { ok: rolesOk, removed } = await blacklistMemberRoles(member, gc);
-
-    const existing = await getApplication(guildId, userId);
+    let rolesOk = true;
+    let removed: string[] = [];
+    if (member) {
+      const res = await blacklistMemberRoles(member, gc);
+      rolesOk = res.ok;
+      removed = res.removed;
+    }
     if (existing) {
       await updateApplication(guildId, userId, {
         status: 'blacklisted',
@@ -105,7 +114,7 @@ const handler: ModalHandler = {
     } else {
       await saveApplication({
         userId,
-        username: member.user.tag,
+        username: user.tag,
         guildId,
         answers: {},
         submittedAt: Date.now(),
@@ -117,7 +126,7 @@ const handler: ModalHandler = {
     }
 
 
-    await member
+    await user
       .send({
         embeds: [
           buildDmEmbed(

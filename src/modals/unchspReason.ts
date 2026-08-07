@@ -32,47 +32,50 @@ const handler: ModalHandler = {
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
     const guildId = interaction.guild.id;
-    const member = await interaction.guild.members.fetch(userId).catch(() => null);
-    if (!member) {
-      await interaction.editReply({ content: 'Пользователь не найден на сервере.' });
+    const user = await interaction.client.users.fetch(userId).catch(() => null);
+    if (!user) {
+      await interaction.editReply({ content: 'Пользователь не найден в Discord.' });
       return;
     }
 
-    if (!member.roles.cache.has(gc.roles.blacklist)) {
+    const member = await interaction.guild.members.fetch(userId).catch(() => null);
+    const existing = await getApplication(guildId, userId);
+
+    const isBlacklistedInGuild = member?.roles.cache.has(gc.roles.blacklist);
+    const isBlacklistedInDb = existing?.status === 'blacklisted';
+
+    if (!isBlacklistedInGuild && !isBlacklistedInDb) {
       await interaction.editReply({ content: 'Участник не находится в чёрном списке.' });
       return;
     }
 
-    const moderator = await interaction.guild.members
-      .fetch(interaction.user.id)
-      .catch(() => null);
-    const existing = await getApplication(guildId, userId);
+    const moderator = await interaction.guild.members.fetch(interaction.user.id).catch(() => null);
     const toRestore = existing?.removedRoles ?? [];
-    if (
-      !moderator ||
-      !canManageByHierarchy(moderator as GuildMember, member) ||
-      !canManageRoles(moderator as GuildMember, toRestore)
-    ) {
-      await interaction.editReply({
-        content: 'Нельзя снять с чёрного списка участника, чьи роли выше ваших или равны им.',
-      });
-      return;
+    if (member) {
+      if (!moderator || !canManageByHierarchy(moderator as GuildMember, member) || !canManageRoles(moderator as GuildMember, toRestore)) {
+        await interaction.editReply({
+          content: 'Нельзя снять с чёрного списка участника, чьи роли выше ваших или равны им.',
+        });
+        return;
+      }
     }
 
     const warnings: string[] = [];
 
-    const roleRemoved = await member.roles
-      .remove(gc.roles.blacklist)
-      .then(() => true)
-      .catch((e) => {
-        console.error('[unchspReason] roles.remove failed', e);
-        return false;
-      });
-    if (!roleRemoved) {
-      warnings.push('⚠️ Не удалось снять роль ЧС — проверьте иерархию ролей бота.');
+    if (member) {
+      const roleRemoved = await member.roles
+        .remove(gc.roles.blacklist)
+        .then(() => true)
+        .catch((e) => {
+          console.error('[unchspReason] roles.remove failed', e);
+          return false;
+        });
+      if (!roleRemoved) {
+        warnings.push('⚠️ Не удалось снять роль ЧС — проверьте иерархию ролей бота.');
+      }
     }
 
-    if (toRestore.length > 0) {
+    if (member && toRestore.length > 0) {
       const restored = await restoreMemberRoles(member, gc, toRestore);
       if (!restored) {
         warnings.push('⚠️ Не удалось вернуть часть ролей — проверьте иерархию ролей бота.');
@@ -126,7 +129,7 @@ const handler: ModalHandler = {
       }
     }
 
-    await member
+    await user
       .send({
         embeds: [
           buildDmEmbed(
