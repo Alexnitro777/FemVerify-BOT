@@ -110,6 +110,15 @@ async function detectJoinMethod(guild: Guild): Promise<string> {
   }
 
   const snapshotSize = state.invites.size;
+
+  // Если снапшот пустой — бот только стартовал и не успел закэшировать инвайты.
+  // Обновляем снапшот для следующих заходов и возвращаем Неизвестно.
+  if (snapshotSize === 0) {
+    snapshotInvites(guild.id, fresh);
+    console.warn(`[inviteTracker] ${guild.name}: снапшот был пустым — не можем определить способ входа. Снапшот обновлён.`);
+    return UNKNOWN;
+  }
+
   const strong = new Map<string, string | null>();
   const weak = new Map<string, string | null>();
   const grewCodes: string[] = [];
@@ -198,7 +207,7 @@ async function detectJoinMethod(guild: Guild): Promise<string> {
 export function registerInviteTracker(client: Client): void {
   client.once('ready', async () => {
     for (const guild of client.guilds.cache.values()) {
-      await cacheGuildInvites(guild);
+      await runExclusive(guild.id, () => cacheGuildInvites(guild));
     }
 
     setInterval(() => {
