@@ -161,14 +161,17 @@ async function detectJoinMethod(guild: Guild): Promise<string> {
   }
 
   try {
+    console.log(`[inviteTracker] ${guild.name}: запрашиваем vanity-данные...`);
     const vanity = await guild.fetchVanityData();
+    console.log(`[inviteTracker] ${guild.name}: vanity-данные получены`);
     const uses = typeof vanity.uses === 'number' ? vanity.uses : null;
     const prevVanity = state.vanityUses;
     state.vanityUses = uses;
     if (prevVanity !== null && uses !== null && uses > prevVanity) {
       return vanity.code ? `https://discord.gg/${vanity.code}` : VANITY;
     }
-  } catch {
+  } catch (err: any) {
+    console.log(`[inviteTracker] ${guild.name}: vanity-данных нет или ошибка (${err.message})`);
   }
 
   if (weak.size === 1) {
@@ -240,7 +243,9 @@ export function registerInviteTracker(client: Client): void {
     void runExclusive(guildId, async () => {
       // Даем Discord API 2 секунды на обновление счетчика инвайтов
       await new Promise((resolve) => setTimeout(resolve, 2000));
+      console.log(`[inviteTracker] начинаем detectJoinMethod для ${member.id}...`);
       const method = await detectJoinMethod(member.guild);
+      console.log(`[inviteTracker] detectJoinMethod завершен для ${member.id}, результат: ${method}. Сохраняем в БД...`);
       await saveJoinMethod(guildId, member.id, method);
       console.log(`[inviteTracker] ${member.user.tag} (${member.id}) — способ входа: ${method}`);
     }).catch((err) => console.error('[inviteTracker] ошибка определения способа входа', err));
