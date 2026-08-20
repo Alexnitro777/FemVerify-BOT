@@ -65,6 +65,17 @@ function hasManageGuild(guild: Guild): boolean {
   return me ? me.permissions.has(PermissionFlagsBits.ManageGuild) : true;
 }
 
+const CACHE_TIMEOUT_MS = 5_000;
+
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) =>
+      setTimeout(() => reject(new Error(`timeout after ${ms}ms (${label})`)), ms),
+    ),
+  ]);
+}
+
 async function cacheGuildInvites(guild: Guild): Promise<void> {
   const state = stateFor(guild.id);
 
@@ -75,7 +86,7 @@ async function cacheGuildInvites(guild: Guild): Promise<void> {
   }
 
   try {
-    const invites = await guild.invites.fetch();
+    const invites = await withTimeout(guild.invites.fetch(), CACHE_TIMEOUT_MS, 'invites.fetch');
     snapshotInvites(guild.id, invites);
     console.log(`[inviteTracker] ${guild.name}: закэшировано инвайтов: ${state.invites.size}`);
   } catch (err) {
@@ -86,7 +97,7 @@ async function cacheGuildInvites(guild: Guild): Promise<void> {
   }
 
   try {
-    const vanity = await guild.fetchVanityData();
+    const vanity = await withTimeout(guild.fetchVanityData(), CACHE_TIMEOUT_MS, 'fetchVanityData');
     state.vanityUses = typeof vanity.uses === 'number' ? vanity.uses : null;
   } catch {
     state.vanityUses = null;
