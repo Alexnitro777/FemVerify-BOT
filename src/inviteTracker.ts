@@ -103,9 +103,10 @@ async function detectJoinMethod(guild: Guild): Promise<string> {
 
   let fresh: Collection<string, Invite>;
   try {
-    fresh = await guild.invites.fetch();
-  } catch {
-    return UNKNOWN;
+    fresh = await guild.invites.fetch({ force: true });
+  } catch (err: any) {
+    const msg = err?.message || 'ошибка';
+    return `Ошибка API: ${msg.substring(0, 30)}`;
   }
 
   const snapshotSize = state.invites.size;
@@ -148,15 +149,15 @@ async function detectJoinMethod(guild: Guild): Promise<string> {
   );
 
   if (strong.size === 1) {
-    const inviterId = firstValue(strong);
-    return inviterId ? `<@${inviterId}>` : UNKNOWN;
+    const code = strong.keys().next().value as string;
+    const inviterId = strong.get(code);
+    return inviterId ? `<@${inviterId}>` : `Инвайт: ${code}`;
   }
 
   if (strong.size > 1) {
-    console.warn(
-      `[inviteTracker] ${guild.name}: неоднозначно — изменилось несколько инвайтов: [${[...strong.keys()].join(', ')}]. Способ входа «Неизвестно».`,
-    );
-    return UNKNOWN;
+    const codes = [...strong.keys()].join(', ');
+    console.warn(`[inviteTracker] ${guild.name}: неоднозначно — изменилось несколько инвайтов: [${codes}].`);
+    return `Несколько инвайтов: ${codes}`;
   }
 
   try {
@@ -171,15 +172,15 @@ async function detectJoinMethod(guild: Guild): Promise<string> {
   }
 
   if (weak.size === 1) {
-    const inviterId = firstValue(weak);
-    return inviterId ? `<@${inviterId}>` : UNKNOWN;
+    const code = weak.keys().next().value as string;
+    const inviterId = weak.get(code);
+    return inviterId ? `<@${inviterId}>` : `Новый инвайт: ${code}`;
   }
 
   if (weak.size > 1) {
-    console.warn(
-      `[inviteTracker] ${guild.name}: неоднозначно — несколько ранее неизвестных инвайтов: [${[...weak.keys()].join(', ')}]. Способ входа «Неизвестно».`,
-    );
-    return UNKNOWN;
+    const codes = [...weak.keys()].join(', ');
+    console.warn(`[inviteTracker] ${guild.name}: неоднозначно — несколько ранее неизвестных инвайтов: [${codes}].`);
+    return `Несколько новых: ${codes}`;
   }
 
   return TRAVEL;
