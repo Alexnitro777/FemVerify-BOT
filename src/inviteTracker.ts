@@ -103,7 +103,7 @@ async function detectJoinMethod(guild: Guild): Promise<string> {
 
   let fresh: Collection<string, Invite>;
   try {
-    fresh = await guild.invites.fetch({ force: true });
+    fresh = await guild.invites.fetch({ cache: false });
   } catch (err: any) {
     const msg = err?.message || 'ошибка';
     return `Ошибка API: ${msg.substring(0, 30)}`;
