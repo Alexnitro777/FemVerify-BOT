@@ -206,6 +206,7 @@ async function detectJoinMethod(guild: Guild): Promise<string> {
 
 export function registerInviteTracker(client: Client): void {
   client.once('ready', async () => {
+    console.log(`[inviteTracker] начинаем кэширование для ${client.guilds.cache.size} серверов...`);
     for (const guild of client.guilds.cache.values()) {
       await runExclusive(guild.id, () => cacheGuildInvites(guild));
     }

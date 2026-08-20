@@ -66,6 +66,8 @@ async function bootstrap(): Promise<void> {
 
   client.once('ready', (c) => {
     console.log(`Logged in as ${c.user.tag}`);
+    const guildList = [...c.guilds.cache.values()].map((g) => `  • ${g.name} (${g.id})`).join('\n');
+    console.log(`[boot] серверов в кэше: ${c.guilds.cache.size}\n${guildList}`);
     void (async () => {
       for (const guild of c.guilds.cache.values()) {
         await registerCommandsForGuild(guild.id).catch((e) =>
