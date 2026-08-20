@@ -162,7 +162,13 @@ async function detectJoinMethod(guild: Guild): Promise<string> {
 
   try {
     console.log(`[inviteTracker] ${guild.name}: запрашиваем vanity-данные...`);
-    const vanity = await guild.fetchVanityData();
+    if (!guild.features.includes('VANITY_URL')) {
+      throw new Error('No vanity URL feature');
+    }
+    const vanity = await Promise.race([
+      guild.fetchVanityData(),
+      new Promise<any>((_, reject) => setTimeout(() => reject(new Error('timeout')), 2000))
+    ]);
     console.log(`[inviteTracker] ${guild.name}: vanity-данные получены`);
     const uses = typeof vanity.uses === 'number' ? vanity.uses : null;
     const prevVanity = state.vanityUses;
