@@ -238,6 +238,8 @@ export function registerInviteTracker(client: Client): void {
     if (member.user.bot) return;
     const guildId = member.guild.id;
     void runExclusive(guildId, async () => {
+      // Даем Discord API 2 секунды на обновление счетчика инвайтов
+      await new Promise((resolve) => setTimeout(resolve, 2000));
       const method = await detectJoinMethod(member.guild);
       await saveJoinMethod(guildId, member.id, method);
       console.log(`[inviteTracker] ${member.user.tag} (${member.id}) — способ входа: ${method}`);
