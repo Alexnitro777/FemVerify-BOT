@@ -1,5 +1,5 @@
-import { Client, Collection, Guild, Invite, PermissionFlagsBits } from 'discord.js';
-import { saveJoinMethod } from './storage';
+import { Client, Collection, Guild, Invite, PermissionFlagsBits, EmbedBuilder } from 'discord.js';
+import { saveJoinMethod, hasUserJoinedAnyGuild } from './storage';
 
 interface CachedInvite {
   uses: number;
@@ -273,8 +273,37 @@ export function registerInviteTracker(client: Client): void {
       console.log(`[inviteTracker] начинаем detectJoinMethod для ${member.id}...`);
       const method = await detectJoinMethod(member.guild);
       console.log(`[inviteTracker] detectJoinMethod завершен для ${member.id}, результат: ${method}. Сохраняем в БД...`);
+      
+      const hasJoinedBefore = await hasUserJoinedAnyGuild(member.id);
+      
       await saveJoinMethod(guildId, member.id, method);
       console.log(`[inviteTracker] ${member.user.tag} (${member.id}) — способ входа: ${method}`);
+      
+      if (!hasJoinedBefore) {
+        try {
+          const serversEmbed = new EmbedBuilder()
+            .setColor('#ffb6c1')
+            .setTitle('Мяу! Добро пожаловать в нашу пушистую семью :3')
+            .setDescription('Приветик, милашка! Ищешь компанию самых милых фурри-фембойчиков? Ты попал прямо по адресу! Мы подготовили для тебя два уютных местечка. Выбирай, где твоим лапкам будет комфортнее, или залетай сразу на оба сервера! 👉👈')
+            .addFields(
+              { 
+                name: '🎀 Femboy Party [SFW]', 
+                value: 'Наш главный, абсолютно безопасный домик! Здесь мы общаемся, играем, делимся артами и просто мурчим в войсах. Никаких пошлостей, только чистая милота и пушистые обнимашки! UwU\n**Прыгнуть к нам:** [Тык сюда~](https://discord.gg/jFAFp3WbrJ)', 
+                inline: false 
+              },
+              { 
+                name: '🔞 FemParty Lounge [NSFW]', 
+                value: 'Тссс... А это наша секретная зона для тех, кто уже взрослый! Здесь можно расслабиться, делиться горячим контентом и общаться без цензуры. Только для самых смелых котиков\n**Зайти на огонек:** [Тык сюда~](https://discord.gg/zNce8fBVny)', 
+                inline: false 
+              }
+            )
+            .setFooter({ text: 'Ждем только тебя, лапочка! 💖' });
+          await member.send({ embeds: [serversEmbed] });
+          console.log(`[welcomeDM] Успешно отправлено ЛС для ${member.user.tag}`);
+        } catch (err) {
+          console.log(`[welcomeDM] Не удалось отправить ЛС для ${member.user.tag} (возможно, у него закрыты ЛС)`);
+        }
+      }
     }).catch((err) => console.error('[inviteTracker] ошибка определения способа входа', err));
   });
 }

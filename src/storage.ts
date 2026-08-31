@@ -171,6 +171,16 @@ export async function getJoinMethod(
   return row?.method;
 }
 
+export async function hasUserJoinedAnyGuild(userId: string): Promise<boolean> {
+  const [row] = await db
+    .select({ method: schema.joinMethods.method })
+    .from(schema.joinMethods)
+    .where(eq(schema.joinMethods.userId, userId))
+    .limit(1);
+
+  return !!row;
+}
+
 async function nextNumber(guildId: string, name: string): Promise<number> {
   const [result] = await pool.execute<any>(
     `INSERT INTO counters (guildId, name, value) VALUES (?, ?, LAST_INSERT_ID(1))
