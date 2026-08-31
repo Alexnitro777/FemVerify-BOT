@@ -15,7 +15,7 @@ import { db } from '../db';
 import * as schema from '../schema';
 import { eq, and, desc } from 'drizzle-orm';
 
-const DENY_COOLDOWN_MS = 48 * 60 * 60 * 1000;
+const DENY_COOLDOWN_MS = 7 * 24 * 60 * 60 * 1000; // 1 week
 
 const handler: ButtonHandler = {
   customId: 'appeal:start',
@@ -59,12 +59,19 @@ const handler: ButtonHandler = {
     let lastError = 'Ваша апелляция уже на рассмотрении.';
 
     for (const bl of availableBlacklists) {
+      const appealsForType = userAppeals.filter(a => a.blacklistType === bl.type || (!a.blacklistType && bl.type === 'ЧСП'));
+
+      if (appealsForType.length >= 2) {
+        lastError = '🚫 Вы исчерпали лимит подачи апелляций для данного типа блокировки (максимум 2).';
+        continue;
+      }
+
       if (pendingAppeals.some(a => a.blacklistType === bl.type || (!a.blacklistType && bl.type === 'ЧСП'))) {
         lastError = 'Ваша апелляция уже на рассмотрении.';
         continue;
       }
       
-      const existingAppealForType = userAppeals.find(a => a.blacklistType === bl.type || (!a.blacklistType && bl.type === 'ЧСП'));
+      const existingAppealForType = appealsForType[0];
       if (
         existingAppealForType?.status === 'denied' &&
         existingAppealForType.resolvedAt &&
