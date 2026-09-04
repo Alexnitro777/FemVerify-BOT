@@ -1,4 +1,4 @@
-import { Client, Guild, GuildMember, PartialGuildMember } from 'discord.js';
+import { Client, Events, Guild, GuildMember, PartialGuildMember } from 'discord.js';
 import {
   getApplication,
   getAppeal,
@@ -81,7 +81,7 @@ async function handleMemberRemove(
 }
 
 export function registerLeaveCleanupEvents(client: Client): void {
-  client.on('guildMemberRemove', (member) => {
+  client.on(Events.GuildMemberRemove, (member) => {
     void handleMemberRemove(member).catch((e) =>
       console.error('[leaveCleanup] handler failed', e),
     );

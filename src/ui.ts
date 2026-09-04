@@ -6,6 +6,7 @@ import {
 	User,
 	GuildMember,
 	Client,
+	Message,
 	TextChannel,
 } from 'discord.js';
 import { Application } from './types';
@@ -256,6 +257,81 @@ export function buildDmEmbed(title: string, description: string, color: number):
 	return new EmbedBuilder().setTitle(title).setDescription(description).setColor(color).setTimestamp();
 }
 
+export function parseMessageUrl(url: string): { channelId: string; messageId: string } | null {
+	const parsed = url.match(/channels\/(\d+)\/(\d+)\/(\d+)/);
+	return parsed ? { channelId: parsed[2], messageId: parsed[3] } : null;
+}
+
+export async function resolveReviewMessage(
+	client: Client,
+	reviewMessageUrl: string | undefined,
+	known?: Message | null,
+): Promise<Message | null> {
+	if (!reviewMessageUrl) return null;
+	if (known && known.url === reviewMessageUrl) return known;
+
+	const parsed = parseMessageUrl(reviewMessageUrl);
+	if (!parsed) return null;
+
+	const channel = await client.channels.fetch(parsed.channelId).catch(() => null);
+	if (!channel?.isTextBased()) return null;
+
+	return (channel as TextChannel).messages.fetch(parsed.messageId).catch(() => null);
+}
+
+export async function markReviewMessageResolved(
+	client: Client,
+	reviewMessageUrl: string | undefined,
+	opts: {
+		kind: DecisionKind;
+		label: string;
+		color: number;
+		reviewerId: string;
+		reason?: { title: string; text: string };
+		row?: ActionRowBuilder<ButtonBuilder>;
+		known?: Message | null;
+	},
+): Promise<void> {
+	const message = await resolveReviewMessage(client, reviewMessageUrl, opts.known);
+	if (!message || !message.embeds[0]) return;
+
+	const resolved = buildResolvedEmbed(
+		EmbedBuilder.from(message.embeds[0]),
+		opts.label,
+		opts.color,
+		opts.reviewerId,
+		opts.reason,
+	);
+	await message
+		.edit({
+			embeds: [resolved],
+			components: [opts.row ?? buildProcessedButtonRow(opts.kind)],
+		})
+		.catch((e) => {
+			console.error('[ui] не удалось обновить сообщение ревью', e);
+			return null;
+		});
+}
+
+export async function postWelcomeMessage(
+	client: Client,
+	channelId: string | undefined,
+	member: GuildMember,
+): Promise<void> {
+	if (!channelId) return;
+	try {
+		const channel = await client.channels.fetch(channelId).catch(() => null);
+		if (!channel?.isTextBased()) return;
+		await (channel as TextChannel).send({
+			content: `<@${member.id}>`,
+			embeds: [buildWelcomeEmbed(member)],
+			allowedMentions: { users: [member.id] },
+		});
+	} catch (e) {
+		console.error('[ui] не удалось отправить приветствие', e);
+	}
+}
+
 export function buildWelcomeEmbed(member: GuildMember): EmbedBuilder {
 	const { guild, user } = member;
 
@@ -345,9 +421,10 @@ export function buildDecisionEmbed(
 		.addFields({ name: 'Участник', value: `<@${targetUserId}>`, inline: true });
 
 	if (reason) {
+		const text = reason.text.trim();
 		embed.addFields({
 			name: reason.title,
-			value: reason.text ? `\`${reason.text}\`` : '—',
+			value: text ? `\`${text.length > 1000 ? text.slice(0, 1000) + '...' : text}\`` : '—',
 			inline: true,
 		});
 	} else {

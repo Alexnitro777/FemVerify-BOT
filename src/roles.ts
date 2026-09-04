@@ -11,7 +11,7 @@ export async function blacklistMemberRoles(
 
   for (const role of member.roles.cache.values()) {
     if (role.id === member.guild.id || role.id === gc.roles.blacklist) continue;
-    if (role.managed || role.position >= botTop) {
+    if (role.managed || role.id === gc.roles.roleTag || role.position >= botTop) {
       keep.push(role.id);
     } else {
       removed.push(role.id);

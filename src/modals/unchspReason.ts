@@ -1,10 +1,12 @@
-import { ModalSubmitInteraction, GuildMember, MessageFlags, EmbedBuilder, TextChannel } from 'discord.js';
+import { ModalSubmitInteraction, GuildMember, MessageFlags } from 'discord.js';
 import { ModalHandler, GuildConfig } from '../types';
-import { getApplication, updateApplication, getAppeal, updateAppeal } from '../storage';
-import { buildDmEmbed, postDecisionMessage, buildResolvedEmbed, buildProcessedButtonRow } from '../ui';
+import { getApplication, amnestyApplication, claimAppeal } from '../storage';
+import { buildDmEmbed, postDecisionMessage, markReviewMessageResolved } from '../ui';
+import { deleteQuestionChannel } from '../channels';
 import { restoreMemberRoles } from '../roles';
 import { canManageByHierarchy, canManageRoles } from '../permissions';
 import { removeGlobalBlacklist } from '../sync';
+import { logSettledFailures } from '../concurrency';
 
 const handler: ModalHandler = {
   customId: /^unchsp:reason:\d+$/,
@@ -31,15 +33,21 @@ const handler: ModalHandler = {
 
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
-    const guildId = interaction.guild.id;
-    const user = await interaction.client.users.fetch(userId).catch(() => null);
+    const guild = interaction.guild;
+    const guildId = guild.id;
+
+    const [user, member, moderator, existing] = await Promise.all([
+      interaction.client.users.fetch(userId).catch(() => null),
+      guild.members.cache.get(userId) ?? guild.members.fetch(userId).catch(() => null),
+      guild.members.cache.get(interaction.user.id) ??
+        guild.members.fetch(interaction.user.id).catch(() => null),
+      getApplication(guildId, userId),
+    ]);
+
     if (!user) {
       await interaction.editReply({ content: 'Пользователь не найден в Discord.' });
       return;
     }
-
-    const member = await interaction.guild.members.fetch(userId).catch(() => null);
-    const existing = await getApplication(guildId, userId);
 
     const isBlacklistedInGuild = member?.roles.cache.has(gc.roles.blacklist);
     const isBlacklistedInDb = existing?.status === 'blacklisted';
@@ -49,10 +57,13 @@ const handler: ModalHandler = {
       return;
     }
 
-    const moderator = await interaction.guild.members.fetch(interaction.user.id).catch(() => null);
     const toRestore = existing?.removedRoles ?? [];
     if (member) {
-      if (!moderator || !canManageByHierarchy(moderator as GuildMember, member) || !canManageRoles(moderator as GuildMember, toRestore)) {
+      if (
+        !moderator ||
+        !canManageByHierarchy(moderator as GuildMember, member) ||
+        !canManageRoles(moderator as GuildMember, toRestore)
+      ) {
         await interaction.editReply({
           content: 'Нельзя снять с чёрного списка участника, чьи роли выше ваших или равны им.',
         });
@@ -73,90 +84,65 @@ const handler: ModalHandler = {
       if (!roleRemoved) {
         warnings.push('⚠️ Не удалось снять роль ЧС — проверьте иерархию ролей бота.');
       }
-    }
 
-    if (member && toRestore.length > 0) {
-      const restored = await restoreMemberRoles(member, gc, toRestore);
-      if (!restored) {
-        warnings.push('⚠️ Не удалось вернуть часть ролей — проверьте иерархию ролей бота.');
-      }
-    }
-    if (existing) {
-      await updateApplication(guildId, userId, { status: 'amnestied', removedRoles: [] });
-    }
-
-    const appeal = await getAppeal(guildId, userId);
-
-    if (appeal && appeal.status === 'pending') {
-      await updateAppeal(guildId, userId, {
-        status: 'amnestied',
-        reviewerId: interaction.user.id,
-        reason,
-        resolvedAt: Date.now(),
-      });
-
-      if (appeal.reviewMessageUrl) {
-        const parsed = appeal.reviewMessageUrl.match(/channels\/(\d+)\/(\d+)\/(\d+)/);
-        if (parsed) {
-          const [, , channelId, messageId] = parsed;
-          const reviewChannel = await interaction.client.channels.fetch(channelId).catch(() => null);
-          if (reviewChannel?.isTextBased()) {
-            const msg = await (reviewChannel as TextChannel).messages.fetch(messageId).catch(() => null);
-            if (msg && msg.embeds[0]) {
-              const resolved = buildResolvedEmbed(
-                EmbedBuilder.from(msg.embeds[0]),
-                'Амнистия принята',
-                0x57f287,
-                interaction.user.id,
-              );
-              await msg
-                .edit({ embeds: [resolved], components: [buildProcessedButtonRow('appeal')] })
-                .catch(() => null);
-            }
-          }
+      if (toRestore.length > 0) {
+        const restored = await restoreMemberRoles(member, gc, toRestore);
+        if (!restored) {
+          warnings.push('⚠️ Не удалось вернуть часть ролей — проверьте иерархию ролей бота.');
         }
       }
-
-      if (appeal.questionChannelId) {
-        const questionChannel = await interaction.guild?.channels
-          .fetch(appeal.questionChannelId)
-          .catch(() => null);
-        await questionChannel?.delete().catch((e) => {
-          console.error('[unchspReason] failed to delete question channel', e);
-          return null;
-        });
-        await updateAppeal(guildId, userId, { questionChannelId: undefined });
-      }
     }
 
-    await user
-      .send({
-        embeds: [
-          buildDmEmbed(
-            '✅ С вас снят чёрный список',
-            'Модерация сняла вас с чёрного списка. Вы можете снова пользоваться сервером.',
-            0x57f287,
-          ),
-        ],
-      })
-      .catch(() => null);
-
-    await postDecisionMessage(interaction.client, gc.channels.blacklistLog, 'application', {
-      label: 'Снят с ЧС',
-      color: 0x57f287,
-      reviewerId: interaction.user.id,
-      targetUserId: userId,
-      reason: { title: 'Причина снятия ЧС', text: reason },
-      number: existing?.number,
-      title: 'Снятие ЧСП',
-    });
-
-    await removeGlobalBlacklist(interaction.client, userId, guildId);
+    const [claimedAppeal] = await Promise.all([
+      claimAppeal(guildId, userId, 'amnestied', interaction.user.id, reason),
+      existing ? amnestyApplication(guildId, userId) : Promise.resolve(),
+    ]);
 
     const baseReply = `Участник <@${userId}> снят с ЧС.`;
     await interaction.editReply({
       content: warnings.length ? `${baseReply}\n${warnings.join('\n')}` : baseReply,
     });
+
+    void removeGlobalBlacklist(interaction.client, userId, guildId).catch((e) =>
+      console.error('[unchspReason] removeGlobalBlacklist failed', e),
+    );
+
+    logSettledFailures(
+      'unchspReason',
+      await Promise.allSettled([
+        user
+          .send({
+            embeds: [
+              buildDmEmbed(
+                '✅ С вас снят чёрный список',
+                'Модерация сняла вас с чёрного списка. Вы можете снова пользоваться сервером.',
+                0x57f287,
+              ),
+            ],
+          })
+          .catch(() => null),
+        claimedAppeal
+          ? markReviewMessageResolved(interaction.client, claimedAppeal.reviewMessageUrl, {
+              kind: 'appeal',
+              label: 'Амнистия принята',
+              color: 0x57f287,
+              reviewerId: interaction.user.id,
+            })
+          : Promise.resolve(),
+        claimedAppeal
+          ? deleteQuestionChannel(guild, claimedAppeal.questionChannelId, 'Снятие ЧСП')
+          : Promise.resolve(),
+        postDecisionMessage(interaction.client, gc.channels.blacklistLog, 'application', {
+          label: 'Снят с ЧС',
+          color: 0x57f287,
+          reviewerId: interaction.user.id,
+          targetUserId: userId,
+          reason: { title: 'Причина снятия ЧС', text: reason },
+          number: existing?.number,
+          title: 'Снятие ЧСП',
+        }),
+      ]),
+    );
   },
 };
 

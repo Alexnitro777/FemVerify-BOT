@@ -42,10 +42,12 @@ const command: SlashCommand = {
       return;
     }
 
-    const target = await interaction.guild.members.fetch(user.id).catch(() => null);
-    const moderator = await interaction.guild.members
-      .fetch(interaction.user.id)
-      .catch(() => null);
+    const [target, moderator] = await Promise.all([
+      interaction.guild.members.cache.get(user.id) ??
+        interaction.guild.members.fetch(user.id).catch(() => null),
+      interaction.guild.members.cache.get(interaction.user.id) ??
+        interaction.guild.members.fetch(interaction.user.id).catch(() => null),
+    ]);
 
     if (target?.roles.cache.has(gc.roles.blacklist)) {
       await interaction.reply({

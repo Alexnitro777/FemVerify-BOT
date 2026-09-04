@@ -28,8 +28,7 @@ export async function loadButtons(client: BotClient): Promise<void> {
   for (const file of files) {
     const mod = await import(file);
     const handler: ButtonHandler = mod.default;
-    const key = handler.customId instanceof RegExp ? handler.customId.source : handler.customId;
-    client.buttons.set(key, handler);
+    client.buttons.add(handler);
   }
 }
 
@@ -38,7 +37,6 @@ export async function loadModals(client: BotClient): Promise<void> {
   for (const file of files) {
     const mod = await import(file);
     const handler: ModalHandler = mod.default;
-    const key = handler.customId instanceof RegExp ? handler.customId.source : handler.customId;
-    client.modals.set(key, handler);
+    client.modals.add(handler);
   }
 }

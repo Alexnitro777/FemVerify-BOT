@@ -6,6 +6,7 @@ import {
   Client,
   Collection,
 } from 'discord.js';
+import { HandlerRegistry } from './handlers/registry';
 
 export interface GuildConfig {
   guildId: string;
@@ -48,8 +49,8 @@ export interface ModalHandler {
 
 export interface BotClient extends Client {
   commands: Collection<string, SlashCommand>;
-  buttons: Collection<string, ButtonHandler>;
-  modals: Collection<string, ModalHandler>;
+  buttons: HandlerRegistry<ButtonHandler>;
+  modals: HandlerRegistry<ModalHandler>;
 }
 
 export type ApplicationStatus =

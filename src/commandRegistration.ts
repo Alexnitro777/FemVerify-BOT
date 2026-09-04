@@ -1,10 +1,13 @@
 import { REST, Routes } from 'discord.js';
+import { createHash } from 'crypto';
 import { promises as fs } from 'fs';
 import path from 'path';
 import { getAppConfig } from './config';
+import { getAppConfigValue, setAppConfigValue } from './storage';
 import { SlashCommand } from './types';
 
 let cachedBodies: unknown[] | null = null;
+let cachedHash: string | null = null;
 
 export async function buildCommandBodies(): Promise<unknown[]> {
   if (cachedBodies) return cachedBodies;
@@ -22,6 +25,7 @@ export async function buildCommandBodies(): Promise<unknown[]> {
   }
 
   cachedBodies = bodies;
+  cachedHash = createHash('sha1').update(JSON.stringify(bodies)).digest('hex');
   return bodies;
 }
 
@@ -32,8 +36,16 @@ function getRest(): REST {
   return rest;
 }
 
-export async function registerCommandsForGuild(guildId: string): Promise<void> {
+export async function registerCommandsForGuild(guildId: string, force = false): Promise<void> {
   const body = await buildCommandBodies();
+  const hashKey = `commandsHash:${guildId}`;
+
+  if (!force) {
+    const stored = await getAppConfigValue(hashKey).catch(() => undefined);
+    if (stored && stored === cachedHash) return;
+  }
+
   await getRest().put(Routes.applicationGuildCommands(getAppConfig().clientId, guildId), { body });
+  if (cachedHash) await setAppConfigValue(hashKey, cachedHash);
   console.log(`[commands] зарегистрировано ${body.length} команд для гильдии ${guildId}`);
 }

@@ -1,4 +1,4 @@
-import { Client, GuildMember, PartialGuildMember, VoiceState } from 'discord.js';
+import { Client, Events, GuildMember, PartialGuildMember, VoiceState } from 'discord.js';
 import { getGuildConfig } from './guildConfig';
 
 async function kickBlacklistedFromVoice(
@@ -25,14 +25,14 @@ async function kickBlacklistedFromVoice(
 }
 
 export function registerVoiceKick(client: Client): void {
-  client.on('voiceStateUpdate', (_oldState: VoiceState, newState: VoiceState) => {
+  client.on(Events.VoiceStateUpdate, (_oldState: VoiceState, newState: VoiceState) => {
     if (!newState.channelId || !newState.member) return;
     void kickBlacklistedFromVoice(newState.member).catch((e) =>
       console.error('[voiceKick] voiceStateUpdate handler failed', e),
     );
   });
 
-  client.on('guildMemberUpdate', (_oldMember, newMember) => {
+  client.on(Events.GuildMemberUpdate, (_oldMember, newMember) => {
     void kickBlacklistedFromVoice(newMember).catch((e) =>
       console.error('[voiceKick] guildMemberUpdate handler failed', e),
     );

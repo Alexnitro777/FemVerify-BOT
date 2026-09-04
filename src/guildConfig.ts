@@ -1,7 +1,8 @@
 import { GuildConfig } from './types';
-import { getGuildSettings } from './storage';
+import { getGuildSettings, getGuildSettingsBulk } from './storage';
 
 const cache = new Map<string, GuildConfig | null>();
+const inflight = new Map<string, Promise<GuildConfig | null>>();
 
 function required(value: string | undefined, name: string): string {
   if (!value || !value.trim()) {
@@ -58,12 +59,7 @@ function build(guildId: string, raw: Record<string, string>): GuildConfig {
   };
 }
 
-export async function getGuildConfig(guildId: string): Promise<GuildConfig | null> {
-  if (cache.has(guildId)) {
-    return cache.get(guildId) ?? null;
-  }
-
-  const raw = await getGuildSettings(guildId);
+function buildAndCache(guildId: string, raw: Record<string, string>): GuildConfig | null {
   if (Object.keys(raw).length === 0) {
     cache.set(guildId, null);
     return null;
@@ -80,6 +76,35 @@ export async function getGuildConfig(guildId: string): Promise<GuildConfig | nul
   return gc;
 }
 
+async function load(guildId: string): Promise<GuildConfig | null> {
+  const raw = await getGuildSettings(guildId);
+  return buildAndCache(guildId, raw);
+}
+
+export async function getGuildConfig(guildId: string): Promise<GuildConfig | null> {
+  const cached = cache.get(guildId);
+  if (cached !== undefined) return cached;
+
+  const pending = inflight.get(guildId);
+  if (pending) return pending;
+
+  const promise = load(guildId).finally(() => inflight.delete(guildId));
+  inflight.set(guildId, promise);
+  return promise;
+}
+
+export async function warmGuildConfigs(guildIds: string[]): Promise<void> {
+  const missing = guildIds.filter((id) => cache.get(id) === undefined);
+  if (missing.length === 0) return;
+
+  const settings = await getGuildSettingsBulk(missing);
+  for (const [guildId, raw] of settings) {
+    buildAndCache(guildId, raw);
+  }
+  console.log(`[guildConfig] прогрето конфигураций: ${missing.length}`);
+}
+
 export function invalidateGuildConfig(guildId: string): void {
   cache.delete(guildId);
+  inflight.delete(guildId);
 }

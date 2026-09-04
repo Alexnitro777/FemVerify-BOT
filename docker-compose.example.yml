@@ -3,9 +3,11 @@ services:
     build: .
     image: your-image-name:latest
     container_name: your-container-name
+    init: true
     restart: unless-stopped
     tty: true
     environment:
+      NODE_ENV: production
       # Подключение к MariaDB/MySQL (единственная конфигурация вне БД).
       DB_HOST: your-mariadb-host
       DB_PORT: "3306"

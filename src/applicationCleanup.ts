@@ -1,18 +1,15 @@
-import { Client, EmbedBuilder, Guild, TextChannel } from 'discord.js';
+import { Client, Events, Guild } from 'discord.js';
 import { Application, GuildConfig } from './types';
 import { getGuildConfig } from './guildConfig';
-import {
-  listPendingApplications,
-  claimApplication,
-  updateApplication,
-  getApplication,
-} from './storage';
+import { listExpiredPendingApplications, claimApplication } from './storage';
 import {
   buildDmEmbed,
-  buildResolvedEmbed,
   buildAutoClosedButtonRow,
   postDecisionMessage,
+  markReviewMessageResolved,
 } from './ui';
+import { deleteQuestionChannel } from './channels';
+import { mapWithConcurrency, logSettledFailures } from './concurrency';
 
 const APPLICATION_TTL_MS = 2 * 24 * 60 * 60_000;
 
@@ -24,48 +21,7 @@ const SWEEP_INTERVAL_MS = Math.min(
 const AUTO_CLOSE_REASON = 'Переподайте заявку на верификацию';
 const AUTO_CLOSE_LABEL = 'Закрыто автоматически';
 const AUTO_CLOSE_COLOR = 0x99aab5;
-
-async function deleteQuestionChannel(guild: Guild, app: Application): Promise<void> {
-  if (!app.questionChannelId) return;
-  const channel = await guild.channels.fetch(app.questionChannelId).catch(() => null);
-  await channel
-    ?.delete('Автозакрытие анкеты: истёк срок рассмотрения')
-    .catch((e) => {
-      console.error('[applicationCleanup] не удалось удалить канал вопроса', e);
-      return null;
-    });
-  await updateApplication(app.guildId, app.userId, { questionChannelId: undefined });
-}
-
-async function markReviewMessageResolved(
-  client: Client,
-  reviewMessageUrl: string | undefined,
-  reviewerId: string,
-): Promise<void> {
-  if (!reviewMessageUrl) return;
-  const parsed = reviewMessageUrl.match(/channels\/(\d+)\/(\d+)\/(\d+)/);
-  if (!parsed) return;
-
-  const [, , channelId, messageId] = parsed;
-  const channel = await client.channels.fetch(channelId).catch(() => null);
-  if (!channel?.isTextBased()) return;
-
-  const msg = await (channel as TextChannel).messages.fetch(messageId).catch(() => null);
-  if (!msg || !msg.embeds[0]) return;
-
-  const resolved = buildResolvedEmbed(
-    EmbedBuilder.from(msg.embeds[0]),
-    AUTO_CLOSE_LABEL,
-    AUTO_CLOSE_COLOR,
-    reviewerId,
-  );
-  await msg
-    .edit({ embeds: [resolved], components: [buildAutoClosedButtonRow()] })
-    .catch((e) => {
-      console.error('[applicationCleanup] не удалось обновить сообщение ревью', e);
-      return null;
-    });
-}
+const CLOSE_CONCURRENCY = 5;
 
 async function closeExpiredApplication(
   client: Client,
@@ -73,60 +29,86 @@ async function closeExpiredApplication(
   gc: GuildConfig,
   app: Application,
 ): Promise<void> {
-  const reviewerId = client.user?.id ?? guild.client.user?.id ?? guild.id;
+  const reviewerId = client.user?.id ?? guild.id;
 
-  const claimed = await claimApplication(app.guildId, app.userId, 'expired', reviewerId, AUTO_CLOSE_REASON);
+  const claimed = await claimApplication(
+    app.guildId,
+    app.userId,
+    'expired',
+    reviewerId,
+    AUTO_CLOSE_REASON,
+  );
   if (!claimed) return;
 
+  const member =
+    guild.members.cache.get(app.userId) ??
+    (await guild.members.fetch(app.userId).catch(() => null));
 
-  const fresh = (await getApplication(app.guildId, app.userId)) ?? app;
+  logSettledFailures(
+    'applicationCleanup',
+    await Promise.allSettled([
+      deleteQuestionChannel(
+        guild,
+        claimed.questionChannelId,
+        'Автозакрытие анкеты: истёк срок рассмотрения',
+      ),
+      markReviewMessageResolved(client, claimed.reviewMessageUrl, {
+        kind: 'application',
+        label: AUTO_CLOSE_LABEL,
+        color: AUTO_CLOSE_COLOR,
+        reviewerId,
+        row: buildAutoClosedButtonRow(),
+      }),
+      member
+        ?.send({
+          embeds: [buildDmEmbed('⌛ Заявка закрыта', `${AUTO_CLOSE_REASON}.`, AUTO_CLOSE_COLOR)],
+        })
+        .catch(() => null) ?? Promise.resolve(null),
+      postDecisionMessage(client, gc.channels.decisions, 'application', {
+        label: AUTO_CLOSE_LABEL,
+        color: AUTO_CLOSE_COLOR,
+        reviewerId,
+        targetUserId: app.userId,
+        reviewMessageUrl: claimed.reviewMessageUrl,
+        reason: { title: 'Причина', text: AUTO_CLOSE_REASON },
+        number: claimed.number,
+      }),
+    ]),
+  );
+}
 
-  await deleteQuestionChannel(guild, fresh);
-  await markReviewMessageResolved(client, fresh.reviewMessageUrl, reviewerId);
+async function sweepGuild(client: Client, guild: Guild, expiredBefore: number): Promise<void> {
+  const gc = await getGuildConfig(guild.id);
+  if (!gc) return;
 
-  const member = await guild.members.fetch(app.userId).catch(() => null);
-  await member
-    ?.send({
-      embeds: [buildDmEmbed('⌛ Заявка закрыта', `${AUTO_CLOSE_REASON}.`, AUTO_CLOSE_COLOR)],
-    })
-    .catch(() => null);
+  const apps = await listExpiredPendingApplications(guild.id, expiredBefore);
+  if (apps.length === 0) return;
 
-  await postDecisionMessage(client, gc.channels.decisions, 'application', {
-    label: AUTO_CLOSE_LABEL,
-    color: AUTO_CLOSE_COLOR,
-    reviewerId,
-    targetUserId: app.userId,
-    reviewMessageUrl: fresh.reviewMessageUrl,
-    reason: { title: 'Причина', text: AUTO_CLOSE_REASON },
-    number: fresh.number,
-  });
+  logSettledFailures(
+    'applicationCleanup',
+    await mapWithConcurrency(apps, CLOSE_CONCURRENCY, (app) =>
+      closeExpiredApplication(client, guild, gc, app),
+    ),
+  );
 }
 
 async function sweep(client: Client): Promise<void> {
-  const now = Date.now();
+  const expiredBefore = Date.now() - APPLICATION_TTL_MS;
 
-  for (const guild of client.guilds.cache.values()) {
-    const gc = await getGuildConfig(guild.id);
-    if (!gc) continue;
-
-    const apps = await listPendingApplications(guild.id);
-    for (const app of apps) {
-      if (now - app.submittedAt < APPLICATION_TTL_MS) continue;
-      await closeExpiredApplication(client, guild, gc, app).catch((e) =>
-        console.error('[applicationCleanup] не удалось закрыть анкету', app.userId, e),
-      );
-    }
-  }
+  logSettledFailures(
+    'applicationCleanup',
+    await Promise.allSettled(
+      [...client.guilds.cache.values()].map((guild) => sweepGuild(client, guild, expiredBefore)),
+    ),
+  );
 }
 
 export function registerApplicationCleanup(client: Client): void {
   const run = (): void => {
-    void sweep(client).catch((e) =>
-      console.error('[applicationCleanup] ошибка прохода', e),
-    );
+    void sweep(client).catch((e) => console.error('[applicationCleanup] ошибка прохода', e));
   };
 
-  client.once('ready', () => {
+  client.once(Events.ClientReady, () => {
     console.log(
       `[applicationCleanup] включено: TTL=${Math.round(APPLICATION_TTL_MS / 3_600_000)} ч, ` +
         `проверка каждые ${Math.round(SWEEP_INTERVAL_MS / 1000)} с`,

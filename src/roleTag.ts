@@ -1,12 +1,15 @@
-import { Client, EmbedBuilder, GuildMember, TextChannel, User } from 'discord.js';
+import { Client, EmbedBuilder, Events, Guild, TextChannel, User } from 'discord.js';
 import { GuildConfig } from './types';
 import { getGuildConfig } from './guildConfig';
+import { mapWithConcurrency, logSettledFailures } from './concurrency';
 
 export interface PrimaryGuildInfo {
   identityGuildId: string | null;
   identityEnabled: boolean | null;
   tag: string | null;
 }
+
+const SYNC_CONCURRENCY = 5;
 
 function normalizePrimaryGuild(pg: Record<string, unknown> | null | undefined): PrimaryGuildInfo | null {
   if (!pg) return null;
@@ -52,7 +55,8 @@ function rawUserHasServerTag(
 }
 
 async function sendTagLog(
-  member: GuildMember,
+  guild: Guild,
+  userId: string,
   gc: GuildConfig,
   action: 'added' | 'removed',
 ): Promise<void> {
@@ -62,9 +66,13 @@ async function sendTagLog(
 
   try {
     const channel =
-      member.guild.channels.cache.get(channelId) ??
-      (await member.guild.channels.fetch(channelId).catch(() => null));
+      guild.channels.cache.get(channelId) ??
+      (await guild.channels.fetch(channelId).catch(() => null));
     if (!channel || !channel.isTextBased()) return;
+
+    const member =
+      guild.members.cache.get(userId) ?? (await guild.members.fetch(userId).catch(() => null));
+    if (!member) return;
 
     const added = action === 'added';
 
@@ -72,9 +80,9 @@ async function sendTagLog(
       .setColor(added ? 0x57f287 : 0xed4245)
       .setAuthor({ name: member.user.tag, iconURL: member.user.displayAvatarURL() })
       .setTitle(added ? '🏷️ Выдана роль за тег сервера' : '🏷️ Снята роль за тег сервера')
-      .setDescription(`<@${member.id}>`)
+      .setDescription(`<@${userId}>`)
       .addFields(
-        { name: 'Участник', value: `${member.user.tag}\n\`${member.id}\``, inline: true },
+        { name: 'Участник', value: `${member.user.tag}\n\`${userId}\``, inline: true },
         { name: 'Роль', value: roleId ? `<@&${roleId}>` : '—', inline: true },
         {
           name: 'Действие',
@@ -87,7 +95,7 @@ async function sendTagLog(
 
     await (channel as TextChannel).send({ embeds: [embed] });
   } catch (err) {
-    console.error(`[roleTag] не удалось отправить лог для ${member.id}:`, err);
+    console.error(`[roleTag] не удалось отправить лог для ${userId}:`, err);
   }
 }
 
@@ -104,53 +112,57 @@ function runExclusive(key: string, task: () => Promise<void>): Promise<void> {
 }
 
 async function applyTagRole(
-  member: GuildMember,
+  guild: Guild,
+  userId: string,
   gc: GuildConfig,
   shouldHave: boolean,
 ): Promise<void> {
   const roleId = gc.roles.roleTag;
   if (!roleId) return;
-  if (member.user.bot) return;
 
-  const key = `${member.guild.id}:${member.id}`;
-  await runExclusive(key, async () => {
-    const fresh = member.guild.members.cache.get(member.id) ?? member;
-    const hasRole = fresh.roles.cache.has(roleId);
+  await runExclusive(`${guild.id}:${userId}`, async () => {
+    const cached = guild.members.cache.get(userId);
+    if (cached && cached.roles.cache.has(roleId) === shouldHave) return;
 
     try {
-      if (shouldHave && !hasRole) {
-        await fresh.roles.add(roleId, 'Надел тег сервера');
-        console.log(`[roleTag] выдана роль ${fresh.user.tag} (${fresh.id})`);
-        await sendTagLog(fresh, gc, 'added');
-      } else if (!shouldHave && hasRole) {
-        await fresh.roles.remove(roleId, 'Снял тег сервера');
-        console.log(`[roleTag] снята роль ${fresh.user.tag} (${fresh.id})`);
-        await sendTagLog(fresh, gc, 'removed');
+      if (shouldHave) {
+        await guild.members.addRole({ user: userId, role: roleId, reason: 'Надел тег сервера' });
+      } else {
+        await guild.members.removeRole({ user: userId, role: roleId, reason: 'Снял тег сервера' });
       }
     } catch (err) {
-      console.error(`[roleTag] не удалось обновить роль для ${fresh.id}:`, err);
+      console.error(`[roleTag] не удалось обновить роль для ${userId}:`, err);
+      return;
     }
-  });
-}
 
-export async function syncMemberTagRole(member: GuildMember): Promise<void> {
-  const gc = await getGuildConfig(member.guild.id);
-  if (!gc || !gc.roles.roleTag) return;
-  await applyTagRole(member, gc, hasServerTag(member.user, member.guild.id));
+    console.log(`[roleTag] ${shouldHave ? 'выдана' : 'снята'} роль ${userId}`);
+    void sendTagLog(guild, userId, gc, shouldHave ? 'added' : 'removed');
+  });
 }
 
 export async function syncAllTagRoles(client: Client): Promise<void> {
   for (const guild of client.guilds.cache.values()) {
     const gc = await getGuildConfig(guild.id);
-    if (!gc || !gc.roles.roleTag) continue;
+    const roleId = gc?.roles.roleTag;
+    if (!gc || !roleId) continue;
 
     try {
       const members = await guild.members.fetch();
-      for (const member of members.values()) {
-        await applyTagRole(member, gc, hasServerTag(member.user, guild.id));
-      }
+      const pending = [...members.values()].filter((member) => {
+        if (member.user.bot) return false;
+        return hasServerTag(member.user, guild.id) !== member.roles.cache.has(roleId);
+      });
+
+      logSettledFailures(
+        'roleTag',
+        await mapWithConcurrency(pending, SYNC_CONCURRENCY, (member) =>
+          applyTagRole(guild, member.id, gc, hasServerTag(member.user, guild.id)),
+        ),
+      );
+
       console.log(
-        `[roleTag] синхронизация для ${guild.name} завершена (${members.size} участников).`,
+        `[roleTag] синхронизация для ${guild.name} завершена ` +
+          `(${members.size} участников, изменений: ${pending.length}).`,
       );
     } catch (err) {
       console.error(`[roleTag] синхронизация для ${guild.id} не удалась:`, err);
@@ -159,41 +171,33 @@ export async function syncAllTagRoles(client: Client): Promise<void> {
 }
 
 export function registerTagRoleEvents(client: Client): void {
-  client.on('guildMemberAdd', async (member) => {
-    const m = member.partial ? await member.fetch().catch(() => null) : member;
-    if (m) await syncMemberTagRole(m);
-  });
-
-  client.on('guildMemberUpdate', async (_oldMember, newMember) => {
-    const m = newMember.partial ? await newMember.fetch().catch(() => null) : newMember;
-    if (m) await syncMemberTagRole(m);
-  });
-
-  client.on('userUpdate', async (_oldUser, newUser) => {
-    for (const guild of client.guilds.cache.values()) {
-      const member = await guild.members.fetch(newUser.id).catch(() => null);
-      if (member) await syncMemberTagRole(member);
-    }
-  });
-
-  client.on('raw', async (packet: { t?: string; d?: Record<string, unknown> }) => {
+  client.on(Events.Raw, (packet: { t?: string; d?: Record<string, unknown> }) => {
     if (!packet || packet.t !== 'GUILD_MEMBER_UPDATE') return;
     const data = packet.d;
     if (!data) return;
+
     const guildId = data.guild_id as string | undefined;
     if (!guildId) return;
+
     const rawUser = data.user as Record<string, unknown> | undefined;
     const userId = rawUser?.id as string | undefined;
     if (!userId) return;
-
-    const gc = await getGuildConfig(guildId);
-    if (!gc || !gc.roles.roleTag) return;
+    if (rawUser?.bot === true) return;
 
     const guild = client.guilds.cache.get(guildId);
     if (!guild) return;
-    const member = await guild.members.fetch(userId).catch(() => null);
-    if (!member) return;
 
-    await applyTagRole(member, gc, rawUserHasServerTag(rawUser, guildId));
+    const shouldHave = rawUserHasServerTag(rawUser, guildId);
+    const roles = data.roles;
+    const packetRoles = Array.isArray(roles) ? (roles as string[]) : null;
+
+    void (async () => {
+      const gc = await getGuildConfig(guildId);
+      const roleId = gc?.roles.roleTag;
+      if (!gc || !roleId) return;
+      if (packetRoles && packetRoles.includes(roleId) === shouldHave) return;
+
+      await applyTagRole(guild, userId, gc, shouldHave);
+    })().catch((err) => console.error('[roleTag] raw handler failed', err));
   });
 }

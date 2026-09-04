@@ -43,10 +43,13 @@ const command: SlashCommand = {
       return;
     }
 
-    const target = await interaction.guild.members.fetch(user.id).catch(() => null);
-    const moderator = await interaction.guild.members
-      .fetch(interaction.user.id)
-      .catch(() => null);
+    const [target, moderator, existing] = await Promise.all([
+      interaction.guild.members.cache.get(user.id) ??
+        interaction.guild.members.fetch(user.id).catch(() => null),
+      interaction.guild.members.cache.get(interaction.user.id) ??
+        interaction.guild.members.fetch(interaction.user.id).catch(() => null),
+      getApplication(interaction.guild.id, user.id),
+    ]);
 
     if (target && !target.roles.cache.has(gc.roles.blacklist)) {
       await interaction.reply({
@@ -57,7 +60,6 @@ const command: SlashCommand = {
     }
 
     if (target && moderator) {
-      const existing = await getApplication(interaction.guild.id, user.id);
       const toRestore = existing?.removedRoles ?? [];
       if (
         !canManageByHierarchy(moderator as GuildMember, target) ||

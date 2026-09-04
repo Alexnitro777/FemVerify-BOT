@@ -41,6 +41,10 @@ export const pool = mysql.createPool({
   waitForConnections: true,
   charset: 'utf8mb4',
   supportBigNumbers: true,
+  enableKeepAlive: true,
+  keepAliveInitialDelay: 10_000,
+  connectTimeout: 10_000,
+  decimalNumbers: true,
 });
 
 export const db = drizzle({ client: pool, schema, mode: 'default' });
