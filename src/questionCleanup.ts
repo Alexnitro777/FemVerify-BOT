@@ -69,7 +69,7 @@ async function sweepCategoryOrphans(
   trackedChannelIds: Set<string>,
 ): Promise<void> {
   const fetchedChannels = await guild.channels.fetch().catch(() => guild.channels.cache);
-  const orphans = [...fetchedChannels.values()].filter((c) => {
+  const orphans = [...fetchedChannels.values()].filter((c): c is GuildBasedChannel => {
     if (!c || c.parentId !== categoryId || !c.isTextBased()) return false;
     if (exemptChannelIds.has(c.id)) return false;
     if (trackedChannelIds.has(c.id)) return false;
@@ -83,6 +83,7 @@ async function sweepCategoryOrphans(
   logSettledFailures(
     'questionCleanup',
     await mapWithConcurrency(orphans, SWEEP_CONCURRENCY, async (channel) => {
+      if (!channel) return;
       await channel.delete('Автоудаление: вопрос не закрыли вовремя').catch((e) => {
         console.error('[questionCleanup] не удалось удалить осиротевший канал', channel.id, e);
         return null;
