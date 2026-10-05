@@ -480,6 +480,33 @@ export async function upsertBlacklistedApplication(entry: {
   );
 }
 
+export async function upsertVerifiedApplication(entry: {
+  guildId: string;
+  userId: string;
+  username: string;
+  reason: string;
+  reviewerId: string;
+}): Promise<void> {
+  await pool.execute(
+    `INSERT INTO applications (
+       guildId, userId, username, answers, submittedAt, status, reason, reviewerId
+     ) VALUES (?, ?, ?, '{}', ?, 'approved', ?, ?)
+     ON DUPLICATE KEY UPDATE
+       status = 'approved',
+       reason = VALUES(reason),
+       reviewerId = VALUES(reviewerId),
+       questionChannelId = NULL`,
+    [
+      entry.guildId,
+      entry.userId,
+      entry.username,
+      Date.now(),
+      entry.reason,
+      entry.reviewerId,
+    ],
+  );
+}
+
 export async function amnestyApplication(guildId: string, userId: string): Promise<void> {
   await pool.execute(
     "UPDATE applications SET status = 'amnestied', removedRoles = NULL WHERE guildId = ? AND userId = ?",
