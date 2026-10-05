@@ -10,6 +10,7 @@ import { ButtonHandler, GuildConfig } from '../types';
 import { verifyQuestions } from '../questions';
 import { getApplication, isUserGloballyVerified } from '../storage';
 import { postDecisionMessage } from '../ui';
+import { isMainGuild, getMainGuildInvite } from '../config';
 
 const handler: ButtonHandler = {
   customId: 'verify:start',
@@ -17,8 +18,15 @@ const handler: ButtonHandler = {
   async execute(interaction: ButtonInteraction, gc: GuildConfig): Promise<void> {
     const member = interaction.member as GuildMember | null;
     if (member && member.roles.cache.has(gc.roles.blacklist)) {
+      const isMain = isMainGuild(interaction.guildId);
+      const invite = getMainGuildInvite();
+      const content = !isMain && invite
+        ? `Вы находитесь в чёрном списке. Подать апелляцию можно на основном сервере проекта: ${invite}`
+        : !isMain
+        ? 'Вы находитесь в чёрном списке. Подать апелляцию можно на основном сервере проекта.'
+        : 'Вы находитесь в чёрном списке. Используйте канал апелляции.';
       await interaction.reply({
-        content: 'Вы находитесь в чёрном списке. Используйте канал апелляции.',
+        content,
         flags: MessageFlags.Ephemeral,
       });
       return;

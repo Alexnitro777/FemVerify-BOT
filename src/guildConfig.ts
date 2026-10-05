@@ -48,7 +48,7 @@ function build(guildId: string, raw: Record<string, string>): GuildConfig {
     },
     channels: {
       review: required(raw['channels.review'], 'channels.review'),
-      appealReview: required(raw['channels.appealReview'], 'channels.appealReview'),
+      appealReview: optional(raw['channels.appealReview']),
       welcome: optional(raw['channels.welcome']),
       decisions: optional(raw['channels.decisions']),
       appeal: optional(raw['channels.appeal']),

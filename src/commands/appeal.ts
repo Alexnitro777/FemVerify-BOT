@@ -10,6 +10,7 @@ import {
   MessageFlags,
 } from 'discord.js';
 import { SlashCommand } from '../types';
+import { isMainGuild } from '../config';
 
 const command: SlashCommand = {
   data: new SlashCommandBuilder()
@@ -20,6 +21,14 @@ const command: SlashCommand = {
   access: 'owner',
 
   async execute(interaction: ChatInputCommandInteraction): Promise<void> {
+    if (!isMainGuild(interaction.guildId)) {
+      await interaction.reply({
+        content: 'Команда /апелляция доступна только на основном сервере.',
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
+
     if (!interaction.channel || interaction.channel.type !== ChannelType.GuildText) {
       await interaction.reply({ content: 'Команду нужно запускать в текстовом канале.', flags: MessageFlags.Ephemeral });
       return;

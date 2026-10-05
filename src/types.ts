@@ -21,7 +21,7 @@ export interface GuildConfig {
   };
   channels: {
     review: string;
-    appealReview: string;
+    appealReview?: string;
     welcome?: string;
     decisions?: string;
     appeal?: string;

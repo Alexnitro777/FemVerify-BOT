@@ -7,6 +7,7 @@ import {
 import { SlashCommand, GuildConfig } from '../types';
 import { listPendingAppeals } from '../storage';
 import { buildPendingListView } from '../ui';
+import { isMainGuild } from '../config';
 
 const command: SlashCommand = {
   data: new SlashCommandBuilder()
@@ -17,6 +18,14 @@ const command: SlashCommand = {
   access: 'ststaff',
 
   async execute(interaction: ChatInputCommandInteraction, _gc: GuildConfig): Promise<void> {
+    if (!isMainGuild(interaction.guildId)) {
+      await interaction.reply({
+        content: 'Команда /амнистии доступна только на основном сервере.',
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
+
     const pending = await listPendingAppeals(interaction.guildId!);
 
     if (pending.length === 0) {

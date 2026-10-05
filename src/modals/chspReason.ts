@@ -7,6 +7,7 @@ import { blacklistMemberRoles } from '../roles';
 import { canManageByHierarchy } from '../permissions';
 import { applyGlobalBlacklist } from '../sync';
 import { logSettledFailures } from '../concurrency';
+import { isMainGuild, getMainGuildInvite } from '../config';
 
 const handler: ModalHandler = {
   customId: /^chsp:reason:\d+$/,
@@ -95,6 +96,13 @@ const handler: ModalHandler = {
 
     const wasOpen = existing?.status === 'pending' || existing?.status === 'amnestied';
 
+    const isMain = isMainGuild(guildId);
+    const invite = getMainGuildInvite();
+    const appealTarget = isMain
+      ? (gc.channels.appeal ? `<#${gc.channels.appeal}>` : 'соответствующем канале')
+      : (invite ? `основном сервере проекта (${invite})` : 'основном сервере проекта');
+    const appealPhrase = isMain ? `в ${appealTarget}` : `на ${appealTarget}`;
+
     logSettledFailures(
       'chspReason',
       await Promise.allSettled([
@@ -103,9 +111,7 @@ const handler: ModalHandler = {
             embeds: [
               buildDmEmbed(
                 '🚫 Вы добавлены в чёрный список',
-                `Причина: \`${reason}\`\n\nВы можете подать апелляцию в ${
-                  gc.channels.appeal ? `<#${gc.channels.appeal}>` : 'соответствующем канале'
-                }.`,
+                `Причина: \`${reason}\`\n\nВы можете подать апелляцию ${appealPhrase}.`,
                 0x992d22,
               ),
             ],

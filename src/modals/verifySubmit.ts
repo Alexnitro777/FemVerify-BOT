@@ -4,6 +4,7 @@ import { verifyQuestions } from '../questions';
 import { getApplication, reserveApplication, nextApplicationNumber, getJoinMethod, saveApplication } from '../storage';
 import { buildApplicationEmbed, buildReviewButtons, buildDmEmbed, postDecisionMessage } from '../ui';
 import { blacklistMemberRoles } from '../roles';
+import { isMainGuild, getMainGuildInvite } from '../config';
 
 const handler: ModalHandler = {
   customId: 'verify:submit',
@@ -78,14 +79,19 @@ const handler: ModalHandler = {
       });
 
 
+      const isMain = isMainGuild(guildId);
+      const invite = getMainGuildInvite();
+      const appealTarget = isMain
+        ? (gc.channels.appeal ? `<#${gc.channels.appeal}>` : 'соответствующем канале')
+        : (invite ? `основном сервере проекта (${invite})` : 'основном сервере проекта');
+      const appealPhrase = isMain ? `в ${appealTarget}` : `на ${appealTarget}`;
+
       await submitter
         ?.send({
           embeds: [
             buildDmEmbed(
               '🚫 Вы добавлены в чёрный список',
-              `Причина: \`${reason}\`\n\nВы можете подать апелляцию в ${
-                gc.channels.appeal ? `<#${gc.channels.appeal}>` : 'соответствующем канале'
-              }.`,
+              `Причина: \`${reason}\`\n\nВы можете подать апелляцию ${appealPhrase}.`,
               0x992d22,
             ),
           ],

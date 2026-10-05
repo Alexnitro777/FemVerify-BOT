@@ -6,6 +6,7 @@ import { db } from '../db';
 import * as schema from '../schema';
 import { eq, and, desc } from 'drizzle-orm';
 import { buildAppealEmbed, buildAppealReviewButtons } from '../ui';
+import { isMainGuild } from '../config';
 
 const DENY_COOLDOWN_MS = 48 * 60 * 60 * 1000;
 
@@ -30,6 +31,13 @@ const handler: ModalHandler = {
 		await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
 		const guildId = interaction.guildId!;
+		if (!isMainGuild(guildId)) {
+			await interaction.editReply({
+				content: 'Подать апелляцию можно только на основном сервере проекта.',
+			});
+			return;
+		}
+
 		const member = await interaction.guild?.members
 			.fetch(interaction.user.id)
 			.catch(() => null);
@@ -40,7 +48,6 @@ const handler: ModalHandler = {
 			return;
 		}
 
-		// We already checked roles in appeal:start, but let's just make sure they still have SOME blacklist role.
 		const hasBlacklist = member.roles.cache.has(gc.roles.blacklist);
 		const hasBlacklistZ = gc.roles.blacklistZ ? member.roles.cache.has(gc.roles.blacklistZ) : false;
 		const hasBlacklistA = gc.roles.blacklistA ? member.roles.cache.has(gc.roles.blacklistA) : false;
@@ -61,7 +68,6 @@ const handler: ModalHandler = {
 		}
 
 		const existingAppealForType = userAppeals.find(a => a.blacklistType === type || (!a.blacklistType && type === 'ЧСП'));
-		// Check cooldown only if the latest appeal for this type is denied
 		if (
 			existingAppealForType?.status === 'denied' &&
 			existingAppealForType.resolvedAt &&
@@ -77,6 +83,13 @@ const handler: ModalHandler = {
 		const application = await getApplication(guildId, interaction.user.id);
 		const blacklistReason =
 			application?.status === 'blacklisted' ? application.reason : undefined;
+
+		if (!gc.channels.appealReview) {
+			await interaction.editReply({
+				content: '❌ Не удалось отправить апелляцию: канал модерации недоступен. Сообщите администрации.',
+			});
+			return;
+		}
 
 		const channel = await interaction.client.channels
 			.fetch(gc.channels.appealReview)
@@ -96,7 +109,6 @@ const handler: ModalHandler = {
 		else if (type === 'ЧСЗ' && gc.roles.blacklistZ) pingText = `<@&${gc.roles.blacklistZ}>`;
 		else if (type === 'ЧСА' && gc.roles.blacklistA) pingText = `<@&${gc.roles.blacklistA}>`;
 
-		// Pass the blacklist type directly to the embed builder
 		const embed = buildAppealEmbed(interaction.user, text, blacklistReason, number, pingText);
 
 		const row = buildAppealReviewButtons(interaction.user.id, undefined, type);

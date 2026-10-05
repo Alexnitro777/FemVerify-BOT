@@ -14,13 +14,26 @@ import { getAppeal, getPendingAppeals } from '../storage';
 import { db } from '../db';
 import * as schema from '../schema';
 import { eq, and, desc } from 'drizzle-orm';
+import { isMainGuild, getMainGuildInvite } from '../config';
 
-const DENY_COOLDOWN_MS = 7 * 24 * 60 * 60 * 1000; // 1 week
+const DENY_COOLDOWN_MS = 7 * 24 * 60 * 60 * 1000;
 
 const handler: ButtonHandler = {
   customId: 'appeal:start',
 
   async execute(interaction: ButtonInteraction, gc: GuildConfig): Promise<void> {
+    if (!isMainGuild(interaction.guildId)) {
+      const invite = getMainGuildInvite();
+      const content = invite
+        ? `Подать апелляцию можно только на основном сервере проекта: ${invite}`
+        : 'Подать апелляцию можно только на основном сервере проекта.';
+      await interaction.reply({
+        content,
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
+
     const member = interaction.member as GuildMember | null;
     if (!member) {
       await interaction.reply({
@@ -54,7 +67,6 @@ const handler: ButtonHandler = {
     const userAppeals = await db.select().from(schema.appeals).where(and(eq(schema.appeals.guildId, interaction.guildId!), eq(schema.appeals.userId, interaction.user.id))).orderBy(desc(schema.appeals.submittedAt));
     const pendingAppeals = userAppeals.filter(a => a.status === 'pending');
 
-    // Filter availableBlacklists by pending and cooldown
     const validBlacklists = [];
     let lastError = 'Ваша апелляция уже на рассмотрении.';
 
@@ -91,7 +103,6 @@ const handler: ButtonHandler = {
     }
 
     if (validBlacklists.length > 1) {
-      // User has multiple blacklist roles, let them choose
       const row = new ActionRowBuilder<ButtonBuilder>();
       for (const bl of validBlacklists) {
         row.addComponents(
@@ -109,7 +120,6 @@ const handler: ButtonHandler = {
       return;
     }
 
-    // User has exactly 1 valid blacklist role
     const selectedType = validBlacklists[0].type;
     const modal = new ModalBuilder().setCustomId(`appeal:submit:${selectedType}`).setTitle(`Апелляция: ${selectedType}`);
     const rows = appealQuestions.slice(0, 5).map((q) => {

@@ -13,6 +13,7 @@ import {
 import { deleteQuestionChannel } from '../channels';
 import { blacklistMemberRoles } from '../roles';
 import { logSettledFailures } from '../concurrency';
+import { isMainGuild, getMainGuildInvite } from '../config';
 
 const handler: ModalHandler = {
   customId: /^review:reason:(reject|blacklist):\d+$/,
@@ -66,12 +67,17 @@ const handler: ModalHandler = {
       text: reason,
     };
 
+    const isMain = isMainGuild(interaction.guildId);
+    const invite = getMainGuildInvite();
+    const appealTarget = isMain
+      ? (gc.channels.appeal ? `<#${gc.channels.appeal}>` : 'соответствующем канале')
+      : (invite ? `основном сервере проекта (${invite})` : 'основном сервере проекта');
+    const appealPhrase = isMain ? `в ${appealTarget}` : `на ${appealTarget}`;
+
     const dmEmbed = isBlacklist
       ? buildDmEmbed(
           '🚫 Вы добавлены в чёрный список',
-          `Причина: \`${reason}\`\n\nВы можете подать апелляцию в ${
-            gc.channels.appeal ? `<#${gc.channels.appeal}>` : 'соответствующем канале'
-          }.`,
+          `Причина: \`${reason}\`\n\nВы можете подать апелляцию ${appealPhrase}.`,
           0x992d22,
         )
       : buildDmEmbed(

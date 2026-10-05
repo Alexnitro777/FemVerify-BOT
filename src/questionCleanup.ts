@@ -52,10 +52,13 @@ async function sweepQuestionChannel(
   if (createdAt === null) return;
   if (now - createdAt < QUESTION_TTL_MS) return;
 
-  await channel.delete('Автоудаление: вопрос не закрыли вовремя').catch((e) => {
+  const deleted = await channel.delete('Автоудаление: вопрос не закрыли вовремя').then(() => true).catch((e) => {
     console.error('[questionCleanup] не удалось удалить канал', e);
-    return null;
+    return false;
   });
+  if (deleted) {
+    console.log(`[questionCleanup] удалён канал вопроса ${channel.name} (${channel.id})`);
+  }
 
   await restoreReviewButton(client, channelId);
 }
@@ -84,10 +87,13 @@ async function sweepCategoryOrphans(
     'questionCleanup',
     await mapWithConcurrency(orphans, SWEEP_CONCURRENCY, async (channel) => {
       if (!channel) return;
-      await channel.delete('Автоудаление: вопрос не закрыли вовремя').catch((e) => {
+      const deleted = await channel.delete('Автоудаление: вопрос не закрыли вовремя').then(() => true).catch((e) => {
         console.error('[questionCleanup] не удалось удалить осиротевший канал', channel.id, e);
-        return null;
+        return false;
       });
+      if (deleted) {
+        console.log(`[questionCleanup] удалён осиротевший канал-вопрос ${channel.name} (${channel.id})`);
+      }
       await restoreReviewButton(client, channel.id);
     }),
   );
