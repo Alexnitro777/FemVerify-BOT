@@ -103,6 +103,18 @@ export async function initStorage(): Promise<void> {
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   `);
 
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS special_blacklists (
+      guildId VARCHAR(32) NOT NULL,
+      userId VARCHAR(32) NOT NULL,
+      type VARCHAR(16) NOT NULL,
+      reason TEXT NULL,
+      reviewerId VARCHAR(32) NULL,
+      createdAt BIGINT NOT NULL,
+      PRIMARY KEY (guildId, userId, type)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+
 
   await addColumnIfMissing('applications', 'questionChannelId VARCHAR(32) NULL');
   await addColumnIfMissing('applications', 'number INT NULL');
@@ -132,6 +144,7 @@ export async function initStorage(): Promise<void> {
   await addIndexIfMissing('appeals', 'idx_appeals_guild_status', 'guildId, status');
   await addIndexIfMissing('appeals', 'idx_appeals_question_channel', 'questionChannelId');
   await addIndexIfMissing('join_methods', 'idx_join_methods_user', 'userId');
+  await addIndexIfMissing('special_blacklists', 'idx_special_blacklists_user', 'userId');
 
   initialized = true;
 }
@@ -504,6 +517,90 @@ export async function upsertVerifiedApplication(entry: {
       entry.reason,
       entry.reviewerId,
     ],
+  );
+}
+
+export interface SpecialBlacklistEntry {
+  guildId: string;
+  userId: string;
+  type: string;
+  reason?: string;
+  reviewerId?: string;
+  createdAt: number;
+}
+
+export async function getSpecialBlacklist(
+  guildId: string,
+  userId: string,
+  type: string,
+): Promise<SpecialBlacklistEntry | null> {
+  const [rows] = await pool.execute<any[]>(
+    'SELECT guildId, userId, type, reason, reviewerId, createdAt FROM special_blacklists WHERE guildId = ? AND userId = ? AND type = ?',
+    [guildId, userId, type],
+  );
+  const row = rows[0];
+  if (!row) return null;
+  return {
+    guildId: row.guildId,
+    userId: row.userId,
+    type: row.type,
+    reason: row.reason ?? undefined,
+    reviewerId: row.reviewerId ?? undefined,
+    createdAt: Number(row.createdAt),
+  };
+}
+
+export async function getSpecialBlacklistsForUser(
+  guildId: string,
+  userId: string,
+): Promise<SpecialBlacklistEntry[]> {
+  const [rows] = await pool.execute<any[]>(
+    'SELECT guildId, userId, type, reason, reviewerId, createdAt FROM special_blacklists WHERE guildId = ? AND userId = ?',
+    [guildId, userId],
+  );
+  return rows.map((row) => ({
+    guildId: row.guildId,
+    userId: row.userId,
+    type: row.type,
+    reason: row.reason ?? undefined,
+    reviewerId: row.reviewerId ?? undefined,
+    createdAt: Number(row.createdAt),
+  }));
+}
+
+export async function upsertSpecialBlacklist(entry: {
+  guildId: string;
+  userId: string;
+  type: string;
+  reason: string;
+  reviewerId: string;
+}): Promise<void> {
+  await pool.execute(
+    `INSERT INTO special_blacklists (
+       guildId, userId, type, reason, reviewerId, createdAt
+     ) VALUES (?, ?, ?, ?, ?, ?)
+     ON DUPLICATE KEY UPDATE
+       reason = VALUES(reason),
+       reviewerId = VALUES(reviewerId)`,
+    [
+      entry.guildId,
+      entry.userId,
+      entry.type,
+      entry.reason,
+      entry.reviewerId,
+      Date.now(),
+    ],
+  );
+}
+
+export async function removeSpecialBlacklist(
+  guildId: string,
+  userId: string,
+  type: string,
+): Promise<void> {
+  await pool.execute(
+    'DELETE FROM special_blacklists WHERE guildId = ? AND userId = ? AND type = ?',
+    [guildId, userId, type],
   );
 }
 

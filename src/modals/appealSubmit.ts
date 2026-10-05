@@ -1,7 +1,7 @@
 import { ModalSubmitInteraction, TextChannel, MessageFlags } from 'discord.js';
 import { ModalHandler, GuildConfig } from '../types';
 import { appealQuestions } from '../questions';
-import { getApplication, getAppeal, getPendingAppeals, reserveAppeal, nextAppealNumber } from '../storage';
+import { getApplication, getAppeal, getPendingAppeals, reserveAppeal, nextAppealNumber, getSpecialBlacklist } from '../storage';
 import { db } from '../db';
 import * as schema from '../schema';
 import { eq, and, desc } from 'drizzle-orm';
@@ -81,8 +81,12 @@ const handler: ModalHandler = {
 		}
 
 		const application = await getApplication(guildId, interaction.user.id);
-		const blacklistReason =
+		let blacklistReason =
 			application?.status === 'blacklisted' ? application.reason : undefined;
+		if (!blacklistReason && (type === 'ЧСА' || type === 'ЧСЗ')) {
+			const special = await getSpecialBlacklist(guildId, interaction.user.id, type);
+			blacklistReason = special?.reason;
+		}
 
 		if (!gc.channels.appealReview) {
 			await interaction.editReply({

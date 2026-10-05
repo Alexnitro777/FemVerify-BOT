@@ -86,3 +86,19 @@ export const appConfig = mysqlTable('app_config', {
   value: text('value').notNull(),
 });
 
+export const specialBlacklists = mysqlTable(
+  'special_blacklists',
+  {
+    guildId: varchar('guildId', { length: 32 }).notNull(),
+    userId: varchar('userId', { length: 32 }).notNull(),
+    type: varchar('type', { length: 16 }).notNull(),
+    reason: text('reason'),
+    reviewerId: varchar('reviewerId', { length: 32 }),
+    createdAt: bigint('createdAt', { mode: 'number' }).notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.guildId, table.userId, table.type] }),
+    index('idx_special_blacklists_user').on(table.userId),
+  ],
+);
+

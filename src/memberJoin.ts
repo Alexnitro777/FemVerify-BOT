@@ -1,6 +1,6 @@
 import { Client, Events, GuildMember } from 'discord.js';
 import { getGuildConfig } from './guildConfig';
-import { getUserGlobalStatus, upsertBlacklistedApplication } from './storage';
+import { getUserGlobalStatus, upsertBlacklistedApplication, getSpecialBlacklistsForUser } from './storage';
 import { postDecisionMessage } from './ui';
 import { hasServerTag } from './roleTag';
 import { resolveJoinMethod } from './inviteTracker';
@@ -16,15 +16,20 @@ async function handleMemberJoin(member: GuildMember): Promise<void> {
   const guild = member.guild;
   const guildId = guild.id;
 
-  const [gc, status] = await Promise.all([
+  const [gc, status, specialBlacklists] = await Promise.all([
     getGuildConfig(guildId),
     getUserGlobalStatus(member.id),
+    getSpecialBlacklistsForUser(guildId, member.id),
   ]);
   if (!gc) return;
 
   const wanted: string[] = [];
   if (status.blacklisted) wanted.push(gc.roles.blacklist);
   else if (status.verified) wanted.push(gc.roles.verified);
+  for (const bl of specialBlacklists) {
+    if (bl.type === 'ЧСА' && gc.roles.blacklistA) wanted.push(gc.roles.blacklistA);
+    if (bl.type === 'ЧСЗ' && gc.roles.blacklistZ) wanted.push(gc.roles.blacklistZ);
+  }
   if (gc.roles.roleTag && hasServerTag(member.user, guildId)) wanted.push(gc.roles.roleTag);
 
   const toAdd = wanted.filter((roleId) => !member.roles.cache.has(roleId));

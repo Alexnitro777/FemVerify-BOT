@@ -17,6 +17,7 @@ import {
 	getApplication,
 	amnestyApplication,
 	getPendingAppeals,
+	removeSpecialBlacklist,
 } from '../storage';
 import {
 	buildDmEmbed,
@@ -295,6 +296,9 @@ async function handleDecision(
 		}
 		if (application) {
 			await amnestyApplication(guildId, userId);
+		}
+		if (type === 'ЧСА' || type === 'ЧСЗ') {
+			await removeSpecialBlacklist(guildId, userId, type);
 		}
 
 		dmEmbed = buildDmEmbed('✅ Амнистия принята', texts.accept, 0x57f287);

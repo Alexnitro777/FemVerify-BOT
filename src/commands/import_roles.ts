@@ -9,7 +9,9 @@ import { SlashCommand, GuildConfig } from '../types';
 import { isOwner } from '../permissions';
 import {
   getApplication,
+  getSpecialBlacklist,
   upsertBlacklistedApplication,
+  upsertSpecialBlacklist,
   upsertVerifiedApplication,
 } from '../storage';
 import { postDecisionMessage } from '../ui';
@@ -134,9 +136,7 @@ const command: SlashCommand = {
       const hasChsa = gc.roles.blacklistA ? member.roles.cache.has(gc.roles.blacklistA) : false;
 
       if ((category === 'all' || category === 'chsp') && hasChsp) {
-        if (existing?.status === 'blacklisted') {
-          totals.skipped += 1;
-        } else {
+        if (existing?.status !== 'blacklisted') {
           await upsertBlacklistedApplication({
             guildId: guild.id,
             userId: member.id,
@@ -159,9 +159,7 @@ const command: SlashCommand = {
       }
 
       if ((category === 'all' || category === 'verified') && hasVerified && !hasChsp) {
-        if (existing?.status === 'approved') {
-          totals.skipped += 1;
-        } else {
+        if (existing?.status !== 'approved') {
           await upsertVerifiedApplication({
             guildId: guild.id,
             userId: member.id,
@@ -184,34 +182,54 @@ const command: SlashCommand = {
       }
 
       if ((category === 'all' || category === 'chsz') && hasChsz) {
-        await postDecisionMessage(interaction.client, blacklistLogChannel, 'application', {
-          label: 'ЧСЗ',
-          color: 0x3498db,
-          reviewerId: interaction.user.id,
-          targetUserId: member.id,
-          reason: { title: 'Причина ЧСЗ', text: reason },
-          title: 'Выдача ЧСЗ',
-        });
-        totals.chsz += 1;
-        memberActionTaken = true;
-        await sleep(MESSAGE_DELAY_MS);
+        const existingChsz = await getSpecialBlacklist(guild.id, member.id, 'ЧСЗ').catch(() => null);
+        if (!existingChsz) {
+          await upsertSpecialBlacklist({
+            guildId: guild.id,
+            userId: member.id,
+            type: 'ЧСЗ',
+            reason,
+            reviewerId: interaction.user.id,
+          });
+          await postDecisionMessage(interaction.client, blacklistLogChannel, 'application', {
+            label: 'ЧСЗ',
+            color: 0x3498db,
+            reviewerId: interaction.user.id,
+            targetUserId: member.id,
+            reason: { title: 'Причина ЧСЗ', text: reason },
+            title: 'Выдача ЧСЗ',
+          });
+          totals.chsz += 1;
+          memberActionTaken = true;
+          await sleep(MESSAGE_DELAY_MS);
+        }
       }
 
       if ((category === 'all' || category === 'chsa') && hasChsa) {
-        await postDecisionMessage(interaction.client, blacklistLogChannel, 'application', {
-          label: 'ЧСА',
-          color: 0xe67e22,
-          reviewerId: interaction.user.id,
-          targetUserId: member.id,
-          reason: { title: 'Причина ЧСА', text: reason },
-          title: 'Выдача ЧСА',
-        });
-        totals.chsa += 1;
-        memberActionTaken = true;
-        await sleep(MESSAGE_DELAY_MS);
+        const existingChsa = await getSpecialBlacklist(guild.id, member.id, 'ЧСА').catch(() => null);
+        if (!existingChsa) {
+          await upsertSpecialBlacklist({
+            guildId: guild.id,
+            userId: member.id,
+            type: 'ЧСА',
+            reason,
+            reviewerId: interaction.user.id,
+          });
+          await postDecisionMessage(interaction.client, blacklistLogChannel, 'application', {
+            label: 'ЧСА',
+            color: 0xe67e22,
+            reviewerId: interaction.user.id,
+            targetUserId: member.id,
+            reason: { title: 'Причина ЧСА', text: reason },
+            title: 'Выдача ЧСА',
+          });
+          totals.chsa += 1;
+          memberActionTaken = true;
+          await sleep(MESSAGE_DELAY_MS);
+        }
       }
 
-      if (!memberActionTaken && !hasChsp && !hasVerified && !hasChsz && !hasChsa) {
+      if (!memberActionTaken) {
         totals.skipped += 1;
       }
 
