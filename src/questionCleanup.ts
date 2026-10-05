@@ -1,10 +1,11 @@
-import { Client, Events, Guild } from 'discord.js';
+import { Client, Events, Guild, GuildBasedChannel } from 'discord.js';
 import {
   listApplicationQuestionChannelIds,
   listAppealQuestionChannelIds,
 } from './storage';
 import { restoreReviewButton } from './questionRestore';
 import { mapWithConcurrency, logSettledFailures } from './concurrency';
+import { getGuildConfig } from './guildConfig';
 
 const QUESTION_TTL_MS = 2 * 24 * 60 * 60_000;
 
@@ -15,6 +16,12 @@ const SWEEP_INTERVAL_MS = Math.min(
 
 const SWEEP_CONCURRENCY = 5;
 
+function isChannelNotFoundError(err: unknown): boolean {
+  const status = (err as { status?: number })?.status;
+  const code = (err as { code?: number })?.code;
+  return status === 404 || code === 10003;
+}
+
 async function sweepQuestionChannel(
   client: Client,
   guild: Guild,
@@ -22,7 +29,17 @@ async function sweepQuestionChannel(
   channelId: string,
   ttlDelete: boolean,
 ): Promise<void> {
-  const channel = await guild.channels.fetch(channelId).catch(() => null);
+  let channel: GuildBasedChannel | null = null;
+  try {
+    channel = await guild.channels.fetch(channelId);
+  } catch (err: unknown) {
+    if (isChannelNotFoundError(err)) {
+      await restoreReviewButton(client, channelId);
+      return;
+    }
+    console.error('[questionCleanup] не удалось получить канал', channelId, err);
+    return;
+  }
 
   if (!channel) {
     await restoreReviewButton(client, channelId);
@@ -43,7 +60,40 @@ async function sweepQuestionChannel(
   await restoreReviewButton(client, channelId);
 }
 
+async function sweepCategoryOrphans(
+  client: Client,
+  guild: Guild,
+  now: number,
+  categoryId: string,
+  exemptChannelIds: Set<string>,
+  trackedChannelIds: Set<string>,
+): Promise<void> {
+  const fetchedChannels = await guild.channels.fetch().catch(() => guild.channels.cache);
+  const orphans = [...fetchedChannels.values()].filter((c) => {
+    if (!c || c.parentId !== categoryId || !c.isTextBased()) return false;
+    if (exemptChannelIds.has(c.id)) return false;
+    if (trackedChannelIds.has(c.id)) return false;
+    const createdAt = c.createdTimestamp;
+    if (createdAt === null) return false;
+    return now - createdAt >= QUESTION_TTL_MS;
+  });
+
+  if (orphans.length === 0) return;
+
+  logSettledFailures(
+    'questionCleanup',
+    await mapWithConcurrency(orphans, SWEEP_CONCURRENCY, async (channel) => {
+      await channel.delete('Автоудаление: вопрос не закрыли вовремя').catch((e) => {
+        console.error('[questionCleanup] не удалось удалить осиротевший канал', channel.id, e);
+        return null;
+      });
+      await restoreReviewButton(client, channel.id);
+    }),
+  );
+}
+
 async function sweepGuild(client: Client, guild: Guild, now: number): Promise<void> {
+  const gc = await getGuildConfig(guild.id);
   const [applicationChannelIds, appealChannelIds] = await Promise.all([
     listApplicationQuestionChannelIds(guild.id),
     listAppealQuestionChannelIds(guild.id),
@@ -53,14 +103,31 @@ async function sweepGuild(client: Client, guild: Guild, now: number): Promise<vo
     ...applicationChannelIds.map((channelId) => ({ channelId, ttlDelete: true })),
     ...appealChannelIds.map((channelId) => ({ channelId, ttlDelete: false })),
   ];
-  if (targets.length === 0) return;
 
-  logSettledFailures(
-    'questionCleanup',
-    await mapWithConcurrency(targets, SWEEP_CONCURRENCY, (target) =>
-      sweepQuestionChannel(client, guild, now, target.channelId, target.ttlDelete),
-    ),
-  );
+  if (targets.length > 0) {
+    logSettledFailures(
+      'questionCleanup',
+      await mapWithConcurrency(targets, SWEEP_CONCURRENCY, (target) =>
+        sweepQuestionChannel(client, guild, now, target.channelId, target.ttlDelete),
+      ),
+    );
+  }
+
+  if (gc?.questionCategoryId) {
+    const trackedChannelIds = new Set([
+      ...applicationChannelIds,
+      ...appealChannelIds,
+    ]);
+    const appealIds = new Set(appealChannelIds);
+    await sweepCategoryOrphans(
+      client,
+      guild,
+      now,
+      gc.questionCategoryId,
+      appealIds,
+      trackedChannelIds,
+    );
+  }
 }
 
 async function sweep(client: Client): Promise<void> {

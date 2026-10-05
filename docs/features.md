@@ -157,4 +157,4 @@
   - **Прочее:** `questionCategoryId`. Списки `roles.staff` и `roles.ststaff` — ID через запятую. Уровень **owner** в БД не хранится — это `OWNER_IDS` в `permissions.ts`.
 
 Бот требует привилегированный intent **Server Members Intent** (`GuildMembers`) и intent
-`GuildInvites` для трекинга способа вступления.
+`GuildInvites` для трекинга способа вступления. Подробный разбор всех интентов — в [`docs/gateway-intents.md`](gateway-intents.md).
