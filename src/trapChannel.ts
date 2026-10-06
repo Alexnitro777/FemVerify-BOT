@@ -32,11 +32,16 @@ function runExclusive(key: string, task: () => Promise<void>): Promise<void> {
 }
 
 async function handleTrapMessage(client: Client, message: Message): Promise<void> {
-  if (message.author.bot) return;
   if (!message.inGuild() || !message.guild) return;
 
   const gc = await getGuildConfig(message.guild.id);
   if (!gc || !gc.channels.trap || !gc.channels.trap.includes(message.channelId)) return;
+
+  if (message.author.id === client.user?.id) return;
+
+  await message.delete().catch(() => null);
+
+  if (message.author.bot) return;
 
   if (isOwner(message.author.id)) return;
 
@@ -44,8 +49,6 @@ async function handleTrapMessage(client: Client, message: Message): Promise<void
     message.member ?? (await message.guild.members.fetch(message.author.id).catch(() => null));
 
   if (member && hasStaffImmunity(member, gc)) return;
-
-  await message.delete().catch(() => null);
 
   await runExclusive(message.author.id, async () => {
     if (member && member.roles.cache.has(gc.roles.blacklist)) return;
