@@ -1079,8 +1079,8 @@ export async function getModeratorStats(guildId: string, moderatorId: string): P
      FROM applications
      WHERE guildId = ?
        AND reviewerId = ?
-       AND NOT (answers = '{}' AND status = 'approved')
-       AND NOT (reason LIKE 'Автовыдача%')
+       AND (answers != '{}' OR status != 'approved')
+       AND (reason IS NULL OR reason NOT LIKE 'Автовыдача%')
      GROUP BY status`,
     [guildId, moderatorId],
   );
@@ -1100,7 +1100,7 @@ export async function getModeratorStats(guildId: string, moderatorId: string): P
      FROM special_blacklists
      WHERE guildId = ?
        AND reviewerId = ?
-       AND NOT (reason LIKE 'Автовыдача%')`,
+       AND (reason IS NULL OR reason NOT LIKE 'Автовыдача%')`,
     [guildId, moderatorId],
   );
 
