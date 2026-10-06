@@ -117,6 +117,11 @@
 - **Возврат кнопки** — при закрытии/удалении канала кнопка «Задать вопрос» снова становится
   доступной на сообщении модерации.
 - При любом финальном решении канал-вопрос удаляется автоматически.
+- **Логирование сообщений** — при любом закрытии канала-вопроса (вручную кнопкой «Закрыть канал»,
+  при принятии/отклонении анкеты/апелляции или по истечении TTL) история сообщений выгружается,
+  формируется текстовый транскрипт (`.txt`) со всеми сообщениями, авторами и вложениями, который
+  вместе с карточкой embed отправляется в канал логов (`channels.questionLog`, либо `channels.decisions`,
+  если отдельный канал не настроен).
 
 ---
 
@@ -153,8 +158,8 @@
 - **Таблица `app_config`** — `token` и `clientId` бота (при первом запуске можно задать через env `BOT_TOKEN`/`CLIENT_ID`, бот сам запишет их в БД).
 - **Таблица `guild_settings`** — настройки каждого сервера (вносятся напрямую в БД, ключи с точками):
   - **Роли:** `roles.verified`, `roles.blacklist`, `roles.blacklistZ` (опц.), `roles.blacklistA` (опц.), `roles.staff`, `roles.ststaff`, `roles.roleTag` (опц.).
-  - **Каналы:** `channels.review`, `channels.appealReview`, `channels.welcome` (опц.), `channels.decisions` (опц.), `channels.appeal` (опц.), `channels.tagLog` (опц.), `channels.blacklistLog` (опц.).
+  - **Каналы:** `channels.review`, `channels.appealReview`, `channels.welcome` (опц.), `channels.decisions` (опц.), `channels.appeal` (опц.), `channels.tagLog` (опц.), `channels.blacklistLog` (опц.), `channels.questionLog` (опц.).
   - **Прочее:** `questionCategoryId`. Списки `roles.staff` и `roles.ststaff` — ID через запятую. Уровень **owner** в БД не хранится — это `OWNER_IDS` в `permissions.ts`.
 
-Бот требует привилегированный intent **Server Members Intent** (`GuildMembers`) и intent
+Бот требует привилегированные интенты **Server Members Intent** (`GuildMembers`) и **Message Content Intent** (`MessageContent`), а также стандартный intent
 `GuildInvites` для трекинга способа вступления. Подробный разбор всех интентов — в [`docs/gateway-intents.md`](gateway-intents.md).

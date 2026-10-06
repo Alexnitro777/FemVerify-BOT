@@ -27,6 +27,7 @@ export interface GuildConfig {
     appeal?: string;
     tagLog?: string;
     blacklistLog?: string;
+    questionLog?: string;
   };
   questionCategoryId: string;
 }

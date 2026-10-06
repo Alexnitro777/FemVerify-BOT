@@ -2,6 +2,7 @@ import { ButtonInteraction, MessageFlags } from 'discord.js';
 import { ButtonHandler, GuildConfig } from '../types';
 import { hasButtonAccess } from '../permissions';
 import { restoreReviewButton } from '../questionRestore';
+import { deleteQuestionChannel } from '../channels';
 
 const handler: ButtonHandler = {
   customId: /^question:close:\d+$/,
@@ -12,19 +13,16 @@ const handler: ButtonHandler = {
       return;
     }
 
+    const guild = interaction.guild;
+    if (!guild) return;
+
     const [, , channelId] = interaction.customId.split(':');
     await interaction.reply({ content: 'Удаляю канал...', flags: MessageFlags.Ephemeral });
 
-    const channel = await interaction.guild?.channels.fetch(channelId).catch(() => null);
-    const deleted = channel
-      ? await channel
-          .delete()
-          .then(() => true)
-          .catch((e) => {
-            console.error('[questionClose] failed to delete channel', e);
-            return false;
-          })
-      : true;
+    const deleted = await deleteQuestionChannel(guild, channelId, {
+      reason: 'Канал закрыт вручную',
+      closedByUserId: interaction.user.id,
+    });
 
     if (deleted) {
       await restoreReviewButton(interaction.client, channelId);

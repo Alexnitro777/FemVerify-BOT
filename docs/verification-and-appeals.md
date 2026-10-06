@@ -426,6 +426,7 @@
 | Приветствие | `channels.welcome` | нет |
 | Канал-подсказка апелляций (в ЛС о ЧС) | `channels.appeal` | нет |
 | Лог роли за тег сервера | `channels.tagLog` | нет |
+| Лог сообщений каналов-вопросов (при закрытии) | `channels.questionLog` | нет |
 | Категория для каналов-вопросов | `questionCategoryId` | да |
 | Роль verified | `roles.verified` | да |
 | Роль ЧС | `roles.blacklist` | да |

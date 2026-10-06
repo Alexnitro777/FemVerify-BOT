@@ -348,7 +348,14 @@ async function handleDecision(
 				number: claimed.number,
 			}),
 			guild
-				? deleteQuestionChannel(guild, claimed.questionChannelId, 'Апелляция обработана')
+				? deleteQuestionChannel(guild, claimed.questionChannelId, {
+						reason: label,
+						closedByUserId: interaction.user.id,
+						targetUserId: userId,
+						number: claimed.number,
+						reviewMessageUrl: reviewUrl,
+						kind: 'appeal',
+					})
 				: Promise.resolve(),
 		]),
 	);

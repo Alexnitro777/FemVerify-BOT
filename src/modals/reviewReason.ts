@@ -107,7 +107,14 @@ const handler: ModalHandler = {
           number: claimed.number,
         }),
         guild
-          ? deleteQuestionChannel(guild, claimed.questionChannelId, 'Заявка обработана')
+          ? deleteQuestionChannel(guild, claimed.questionChannelId, {
+              reason: isBlacklist ? 'Выдан ЧС' : 'Заявка отклонена',
+              closedByUserId: interaction.user.id,
+              targetUserId: userId,
+              number: claimed.number,
+              reviewMessageUrl: claimed.reviewMessageUrl,
+              kind: 'application',
+            })
           : Promise.resolve(),
       ]),
     );

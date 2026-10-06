@@ -8,6 +8,7 @@ import {
   updateAppeal,
 } from './storage';
 import { buildLeftServerButtonRow } from './ui';
+import { deleteQuestionChannel } from './channels';
 
 interface ParsedMessageUrl {
   guildId: string;
@@ -40,17 +41,6 @@ async function markReviewMessageLeft(
     .catch((e) => console.error('[leaveCleanup] failed to edit review message', e));
 }
 
-async function deleteQuestionChannel(
-  guild: Guild,
-  channelId: string | undefined,
-): Promise<void> {
-  if (!channelId) return;
-  const channel = await guild.channels.fetch(channelId).catch(() => null);
-  await channel
-    ?.delete('Участник покинул сервер с неразобранной заявкой')
-    .catch((e) => console.error('[leaveCleanup] failed to delete question channel', e));
-}
-
 async function handleMemberRemove(
   member: GuildMember | PartialGuildMember,
 ): Promise<void> {
@@ -64,7 +54,13 @@ async function handleMemberRemove(
 
     await markReviewMessageLeft(guild, app.reviewMessageUrl);
     if (app.questionChannelId) {
-      await deleteQuestionChannel(guild, app.questionChannelId);
+      await deleteQuestionChannel(guild, app.questionChannelId, {
+        reason: 'Участник покинул сервер с неразобранной заявкой',
+        targetUserId: userId,
+        number: app.number,
+        reviewMessageUrl: app.reviewMessageUrl,
+        kind: 'application',
+      });
       await updateApplication(guildId, userId, { questionChannelId: undefined });
     }
   }
@@ -74,7 +70,13 @@ async function handleMemberRemove(
 
     await markReviewMessageLeft(guild, appeal.reviewMessageUrl);
     if (appeal.questionChannelId) {
-      await deleteQuestionChannel(guild, appeal.questionChannelId);
+      await deleteQuestionChannel(guild, appeal.questionChannelId, {
+        reason: 'Участник покинул сервер с неразобранной апелляцией',
+        targetUserId: userId,
+        number: appeal.number,
+        reviewMessageUrl: appeal.reviewMessageUrl,
+        kind: 'appeal',
+      });
       await updateAppeal(guildId, userId, { questionChannelId: undefined });
     }
   }

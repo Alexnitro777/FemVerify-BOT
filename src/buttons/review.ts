@@ -109,7 +109,14 @@ async function handleApprove(
 			reviewMessageUrl: reviewUrl,
 			number: claimed.number,
 		}),
-		deleteQuestionChannel(guild, claimed.questionChannelId, 'Заявка одобрена'),
+		deleteQuestionChannel(guild, claimed.questionChannelId, {
+			reason: 'Заявка одобрена',
+			closedByUserId: interaction.user.id,
+			targetUserId: userId,
+			number: claimed.number,
+			reviewMessageUrl: reviewUrl,
+			kind: 'application',
+		}),
 		postWelcomeMessage(interaction.client, gc.channels.welcome, member),
 	]);
 

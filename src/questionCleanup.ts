@@ -6,6 +6,7 @@ import {
 import { restoreReviewButton } from './questionRestore';
 import { mapWithConcurrency, logSettledFailures } from './concurrency';
 import { getGuildConfig } from './guildConfig';
+import { deleteQuestionChannel } from './channels';
 
 const QUESTION_TTL_MS = 2 * 24 * 60 * 60_000;
 
@@ -52,10 +53,11 @@ async function sweepQuestionChannel(
   if (createdAt === null) return;
   if (now - createdAt < QUESTION_TTL_MS) return;
 
-  const deleted = await channel.delete('Автоудаление: вопрос не закрыли вовремя').then(() => true).catch((e) => {
-    console.error('[questionCleanup] не удалось удалить канал', e);
-    return false;
-  });
+  const deleted = await deleteQuestionChannel(
+    guild,
+    channel.id,
+    'Автоудаление: вопрос не закрыли вовремя',
+  );
   if (deleted) {
     console.log(`[questionCleanup] удалён канал вопроса ${channel.name} (${channel.id})`);
   }
@@ -87,10 +89,11 @@ async function sweepCategoryOrphans(
     'questionCleanup',
     await mapWithConcurrency(orphans, SWEEP_CONCURRENCY, async (channel) => {
       if (!channel) return;
-      const deleted = await channel.delete('Автоудаление: вопрос не закрыли вовремя').then(() => true).catch((e) => {
-        console.error('[questionCleanup] не удалось удалить осиротевший канал', channel.id, e);
-        return false;
-      });
+      const deleted = await deleteQuestionChannel(
+        guild,
+        channel.id,
+        'Автоудаление: вопрос не закрыли вовремя',
+      );
       if (deleted) {
         console.log(`[questionCleanup] удалён осиротевший канал-вопрос ${channel.name} (${channel.id})`);
       }

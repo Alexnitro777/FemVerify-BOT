@@ -47,11 +47,14 @@ async function closeExpiredApplication(
   logSettledFailures(
     'applicationCleanup',
     await Promise.allSettled([
-      deleteQuestionChannel(
-        guild,
-        claimed.questionChannelId,
-        'Автозакрытие анкеты: истёк срок рассмотрения',
-      ),
+      deleteQuestionChannel(guild, claimed.questionChannelId, {
+        reason: 'Автозакрытие анкеты: истёк срок рассмотрения',
+        closedByUserId: reviewerId,
+        targetUserId: app.userId,
+        number: claimed.number,
+        reviewMessageUrl: claimed.reviewMessageUrl,
+        kind: 'application',
+      }),
       markReviewMessageResolved(client, claimed.reviewMessageUrl, {
         kind: 'application',
         label: AUTO_CLOSE_LABEL,

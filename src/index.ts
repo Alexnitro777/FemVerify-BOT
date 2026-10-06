@@ -40,6 +40,8 @@ async function bootstrap(): Promise<void> {
       GatewayIntentBits.GuildMembers,
       GatewayIntentBits.GuildInvites,
       GatewayIntentBits.GuildVoiceStates,
+      GatewayIntentBits.GuildMessages,
+      GatewayIntentBits.MessageContent,
     ],
     partials: [Partials.GuildMember],
     makeCache: Options.cacheWithLimits({

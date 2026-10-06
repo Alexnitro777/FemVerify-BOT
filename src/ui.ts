@@ -8,6 +8,7 @@ import {
 	Client,
 	Message,
 	TextChannel,
+	AttachmentBuilder,
 } from 'discord.js';
 import { Application } from './types';
 import { verifyQuestions } from './questions';
@@ -480,3 +481,121 @@ export async function postDecisionMessage(
 		console.error('[decision] failed to post decision message', e);
 	}
 }
+
+export interface QuestionLogInfo {
+	channelName: string;
+	channelId: string;
+	targetUserId: string;
+	closedByUserId?: string;
+	closeReason?: string;
+	messageCount: number;
+	reviewMessageUrl?: string;
+	kind?: DecisionKind;
+	number?: number;
+}
+
+export function formatQuestionTranscript(
+	messages: Message[],
+	info: QuestionLogInfo,
+	guildName: string,
+): string {
+	const lines: string[] = [];
+	lines.push('======================================================================');
+	lines.push(`ЛОГ КАНАЛА ВОПРОСА: #${info.channelName}`);
+	lines.push(`Сервер: ${guildName}`);
+	lines.push(`Участник: ${info.targetUserId}`);
+	if (info.closedByUserId) {
+		lines.push(`Закрыл: ${info.closedByUserId}`);
+	}
+	if (info.closeReason) {
+		lines.push(`Причина/действие: ${info.closeReason}`);
+	}
+	lines.push(`Дата сохранения: ${new Date().toISOString()}`);
+	lines.push(`Всего сообщений: ${messages.length}`);
+	lines.push('======================================================================\n');
+
+	for (const msg of messages) {
+		const time = msg.createdAt.toISOString().replace('T', ' ').replace(/\..+/, ' UTC');
+		const author = `${msg.author.username} (${msg.author.id})`;
+		const content = msg.cleanContent || msg.content || '';
+		lines.push(`[${time}] ${author}:`);
+		if (content) {
+			lines.push(content);
+		}
+		if (msg.attachments.size > 0) {
+			for (const att of msg.attachments.values()) {
+				lines.push(`[Вложение: ${att.url}]`);
+			}
+		}
+		if (msg.embeds.length > 0) {
+			for (const emb of msg.embeds) {
+				const title = emb.title ? ` ${emb.title}` : '';
+				const desc = emb.description ? ` - ${emb.description}` : '';
+				lines.push(`[Embed${title}${desc}]`);
+			}
+		}
+		lines.push('');
+	}
+
+	return lines.join('\n');
+}
+
+export function buildQuestionLogEmbed(info: QuestionLogInfo): EmbedBuilder {
+	const title = info.number
+		? info.kind === 'appeal'
+			? `Лог вопроса • Апелляция №\`${info.number}\``
+			: `Лог вопроса • Заявка №\`${info.number}\``
+		: `Лог вопроса • #${info.channelName}`;
+
+	const embed = new EmbedBuilder()
+		.setTitle(title)
+		.setColor(0x5865f2)
+		.addFields(
+			{ name: 'Участник', value: `<@${info.targetUserId}>`, inline: true },
+			{
+				name: 'Закрыл',
+				value: info.closedByUserId ? `<@${info.closedByUserId}>` : 'Система / обработка',
+				inline: true,
+			},
+			{ name: 'Канал', value: `\`#${info.channelName}\` (\`${info.channelId}\`)`, inline: false },
+			{ name: 'Сообщений', value: String(info.messageCount), inline: true },
+		);
+
+	if (info.closeReason) {
+		embed.addFields({ name: 'Действие', value: info.closeReason, inline: true });
+	}
+
+	embed.setFooter({ text: `ID: ${info.targetUserId}` }).setTimestamp();
+	return embed;
+}
+
+export async function postQuestionLogMessage(
+	client: Client,
+	channelId: string | undefined,
+	info: QuestionLogInfo,
+	transcript: string,
+): Promise<void> {
+	if (!channelId) return;
+	try {
+		const channel = await client.channels.fetch(channelId).catch(() => null);
+		if (!channel || !channel.isTextBased()) {
+			console.error('[questionLog] log channel unavailable:', channelId);
+			return;
+		}
+		const embed = buildQuestionLogEmbed(info);
+		const linkRow = info.reviewMessageUrl && info.kind
+			? buildDecisionLinkRow(info.kind, info.reviewMessageUrl)
+			: undefined;
+		const attachment = new AttachmentBuilder(Buffer.from(transcript, 'utf-8'), {
+			name: `question-${info.channelName}-${Date.now()}.txt`,
+		});
+		await (channel as TextChannel).send({
+			embeds: [embed],
+			files: [attachment],
+			components: linkRow ? [linkRow] : [],
+		});
+	} catch (e) {
+		console.error('[questionLog] failed to post question log message', e);
+	}
+}
+

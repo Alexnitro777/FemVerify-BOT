@@ -27,10 +27,12 @@ intents: [
   GatewayIntentBits.GuildMembers,      // ПРИВИЛЕГИРОВАННЫЙ
   GatewayIntentBits.GuildInvites,
   GatewayIntentBits.GuildVoiceStates,
+  GatewayIntentBits.GuildMessages,
+  GatewayIntentBits.MessageContent,    // ПРИВИЛЕГИРОВАННЫЙ
 ]
 ```
 
-Из них **привилегированным является только один: `GatewayIntentBits.GuildMembers` (Server Members Intent)**.
+Из них **привилегированными являются два: `GatewayIntentBits.GuildMembers` (Server Members Intent) и `GatewayIntentBits.MessageContent` (Message Content Intent)**.
 
 ---
 
@@ -73,33 +75,34 @@ intents: [
 
 ---
 
-## 4. Почему другие привилегированные интенты НЕ нужны
+## 4. Другие привилегированные интенты
 
 | Привилегированный интент | Используется? | Причина |
 |---|:---:|---|
 | **Server Members Intent** (`GuildMembers`) | **ДА** | Необходим для регистрации входа/выхода, синхронизации ролей, тега сервера и управления участниками. |
-| **Message Content Intent** (`MessageContent`) | **НЕТ** | Бот работает исключительно на современных взаимодействиях Discord: слеш-командах (`/`), интерактивных кнопках (Buttons) и всплывающих модальных окнах (Modals). Бот не читает чужие сообщения в чатах и не использует префиксные команды (например, `!verify`). |
+| **Message Content Intent** (`MessageContent`) | **ДА** | Необходим для чтения текста сообщений участников в каналах-вопросах при их закрытии и архивации в логи (`channels.questionLog`/`channels.decisions`). |
 | **Presence Intent** (`GuildPresences`) | **НЕТ** | Бот не отслеживает активность участников (игры, музыку Spotify, сетевой статус онлайн/невидимка). Тег сервера проверяется напрямую из атрибутов профиля участника (`user.primaryGuild`), что относится к `GuildMembers`, а не к `Presences`. |
 
 ---
 
 ## 5. Обычные (непривилегированные) интенты бота
 
-В дополнение к `GuildMembers`, бот запрашивает три стандартных интента, не требующих специального одобрения Discord:
+В дополнение к привилегированным интентам, бот запрашивает четыре стандартных интента, не требующих специального одобрения Discord:
 
 1. **`GatewayIntentBits.Guilds`** — базовый интент для получения информации о серверах, текстовых каналах, категориях и ролях.
 2. **`GatewayIntentBits.GuildInvites`** — отслеживание метаданных приглашений (инвайтов). Используется модулем `src/inviteTracker.ts` для определения, по какой именно ссылке-приглашению пришёл новый участник. Для корректной работы этого интента боту также требуется право Discord «Управление сервером» (`Manage Guild`).
 3. **`GatewayIntentBits.GuildVoiceStates`** — отслеживание состояния голосовых каналов. Используется модулем `src/voiceKick.ts` для моментального отключения нарушителей из ЧСП при попытке зайти в войс.
+4. **`GatewayIntentBits.GuildMessages`** — базовый интент для работы с сообщениями в гильдиях.
 
 ---
 
-## 6. Как включить Server Members Intent в Discord Developer Portal
+## 6. Как включить Privileged Intents в Discord Developer Portal
 
 1. Перейдите на портал разработчиков: [Discord Developer Portal — Applications](https://discord.com/developers/applications).
 2. Выберите ваше приложение (бота).
 3. В левом меню перейдите во вкладку **Bot**.
 4. Прокрутите страницу вниз до блока **Privileged Gateway Intents**.
-5. Активируйте переключатель напротив **Server Members Intent**.
+5. Активируйте переключатели напротив **Server Members Intent** и **Message Content Intent**.
 6. Нажмите кнопку **Save Changes** внизу экрана.
 7. Перезапустите контейнер с ботом:
    ```bash
