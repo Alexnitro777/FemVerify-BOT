@@ -616,11 +616,10 @@ export async function postQuestionLogMessage(
 }
 
 function getModeratorRankLabel(
-	userId: string,
+	_userId: string,
 	member: GuildMember | null,
 	gc: GuildConfig,
 ): string {
-	if (isOwner(userId)) return `<@${userId}>`;
 	if (member && member.roles && member.roles.cache) {
 		const roleIds = Array.from(member.roles.cache.keys());
 		const ststaffRoles = gc.roles.ststaff.filter((id) => roleIds.includes(id));
@@ -630,6 +629,9 @@ function getModeratorRankLabel(
 		const staffRoles = gc.roles.staff.filter((id) => roleIds.includes(id));
 		if (staffRoles.length > 0) {
 			return staffRoles.map((id) => `<@&${id}>`).join(' ');
+		}
+		if (member.roles.highest && member.roles.highest.id !== member.guild.roles.everyone.id) {
+			return `<@&${member.roles.highest.id}>`;
 		}
 	}
 	return '—';
