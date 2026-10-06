@@ -17,13 +17,15 @@ FemVerify-BOT представляет собой мультисерверног
 
 Автоматическая выдача роли за тег сервера. Приложение автоматически выдаёт настроенную роль участнику, установившему тег данного сервера, и снимает её при удалении тега. Обработка выполняется при входе участника, при обновлении сведений об участнике или пользователе, а также при получении соответствующих служебных пакетов. При запуске приложение синхронизирует роли по всем участникам сервера.
 
-Приватные каналы для вопросов. Приложение создаёт приватные текстовые каналы для уточняющих вопросов между участником и модерацией. Каналы закрываются вручную либо удаляются автоматически по истечении двадцати четырёх часов.
+Приватные каналы для вопросов. Приложение создаёт приватные текстовые каналы для уточняющих вопросов между участником и модерацией. Каналы закрываются вручную либо удаляются автоматически по истечении сорока восьми часов.
+
+Защита серверов (каналы-ловушки). Приложение защищает серверы от спам-ботов и скомпрометированных учётных записей: при отправке сообщения в специальный настроенный канал-ловушку бот немедленно удаляет сообщение и автоматически выдаёт нарушителю блокировку (чёрный список проекта) с отключением от голосовых каналов.
 
 Определение способа вступления. При входе участника приложение определяет, по какому приглашению он присоединился к серверу, и отображает эти сведения в заявке.
 
-Команды приложения. Предусмотрены команды для размещения кнопок верификации и апелляции, вывода списков необработанных заявок и апелляций, отображения статистики по тегу сервера, а также для добавления и снятия роли чёрного списка вручную.
+Команды приложения. Предусмотрены команды для размещения кнопок верификации и апелляции, вывода списков необработанных заявок и апелляций, отображения статистики по тегу сервера, статистики работы модераторов, а также для добавления и снятия роли чёрного списка вручную.
 
-Фоновые задачи. Приложение автоматически переводит заявки старше сорока восьми часов в статус истёкших, удаляет приватные каналы вопросов старше двадцати четырёх часов и помечает необработанные заявки и апелляции как закрытые при выходе участника с сервера.
+Фоновые задачи. Приложение автоматически переводит заявки старше сорока восьми часов в статус истёкших, удаляет приватные каналы вопросов старше сорока восьми часов и помечает необработанные заявки и апелляции как закрытые при выходе участника с сервера.
 
 Данные хранятся во внешней базе данных MySQL или MariaDB. Приложение обрабатывает данные только тех участников серверов, на которые оно приглашено, и не собирает сведения сверх предоставленных пользователем в заявке.
 
@@ -41,13 +43,15 @@ Appeals. Blacklisted members may submit an appeal. The appeal is posted to a sep
 
 Automatic Server Tag role. The application automatically grants a configured role to members who display this server's Server Tag and removes it when the tag is dropped. Processing occurs on member join, on member or user updates, and on receipt of the corresponding gateway packets. On startup, the application synchronizes the role across all members of the server.
 
-Private question channels. The application creates private text channels for clarifying questions between the applicant and the moderators. These channels are closed manually or deleted automatically after twenty-four hours.
+Private question channels. The application creates private text channels for clarifying questions between the applicant and the moderators. These channels are closed manually or deleted automatically after forty-eight hours.
+
+Server security (honeypot trap channels). The application protects servers against spam bots and compromised user accounts: when a message is sent to a configured trap channel, the application immediately deletes the message and blacklists the offender globally, kicking them from voice channels.
 
 Join-method tracking. On member join, the application determines which invite the member used to join the server and displays this information in the application.
 
-Application commands. Commands are provided for posting verification and appeal buttons, listing pending applications and appeals, displaying Server Tag statistics, and manually adding or removing the blacklist role.
+Application commands. Commands are provided for posting verification and appeal buttons, listing pending applications and appeals, displaying Server Tag statistics, viewing moderator performance statistics, and manually adding or removing the blacklist role.
 
-Background tasks. The application automatically marks applications older than forty-eight hours as expired, deletes question channels older than twenty-four hours, and marks pending applications and appeals as closed when a member leaves the server.
+Background tasks. The application automatically marks applications older than forty-eight hours as expired, deletes question channels older than forty-eight hours, and marks pending applications and appeals as closed when a member leaves the server.
 
 Data is stored in an external MySQL or MariaDB database. The application processes only the members of servers to which it has been invited and does not collect member data beyond what a user submits in an application.
 

@@ -12,7 +12,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-FemVerify-BOT — a Discord verification bot (discord.js v14, TypeScript). Members submit application forms; moderators approve/reject/blacklist; rejected/blacklisted users can appeal ("amnesty"). It also auto-grants a role based on the Discord **Server Tag**. The UI is in Russian and slash-command names are Cyrillic (`/верификация`, `/апелляция`, `/анкеты`, `/амнистии`, `/тег`, `/выдатьчсп`, `/снятьчсп`, `/админстат`).
+FemVerify-BOT — a Discord verification bot (discord.js v14, TypeScript). Members submit application forms; moderators approve/reject/blacklist; rejected/blacklisted users can appeal ("amnesty"). It also auto-grants a role based on the Discord **Server Tag** and protects servers with honeypot trap channels. The UI is in Russian and slash-command names are Cyrillic (`/верификация`, `/апелляция`, `/анкеты`, `/амнистии`, `/тег`, `/выдатьчсп`, `/снятьчсп`, `/админстат`, `/внести`, `/синхронизировать`).
 
 The bot is **multi-guild**: one process serves every server it's in, and each guild's roles/channels/category are configured independently (rows in the `guild_settings` table, not a config file). There are **no config files on disk**: the database connection comes from `DB_*` environment variables, and global identity (`token`, `clientId`) lives in the `app_config` table.
 
