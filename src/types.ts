@@ -97,3 +97,25 @@ export interface Appeal {
   blacklistType?: string;
   number?: number;
 }
+
+export interface ModeratorStats {
+  moderatorId: string;
+  applications: {
+    total: number;
+    approved: number;
+    rejected: number;
+    blacklisted: number;
+  };
+  appeals: {
+    total: number;
+    amnestied: number;
+    denied: number;
+  };
+  questions: {
+    total: number;
+    applications: number;
+    appeals: number;
+  };
+  specialBlacklists: number;
+  totalActions: number;
+}

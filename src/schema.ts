@@ -102,3 +102,19 @@ export const specialBlacklists = mysqlTable(
   ],
 );
 
+export const questions = mysqlTable(
+  'questions',
+  {
+    id: int('id').autoincrement().primaryKey().notNull(),
+    guildId: varchar('guildId', { length: 32 }).notNull(),
+    channelId: varchar('channelId', { length: 32 }).notNull(),
+    userId: varchar('userId', { length: 32 }).notNull(),
+    moderatorId: varchar('moderatorId', { length: 32 }).notNull(),
+    kind: varchar('kind', { length: 16 }).notNull(),
+    createdAt: bigint('createdAt', { mode: 'number' }).notNull(),
+  },
+  (table) => [
+    index('idx_questions_guild_mod').on(table.guildId, table.moderatorId),
+  ],
+);
+

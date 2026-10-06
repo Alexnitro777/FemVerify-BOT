@@ -10,8 +10,9 @@ import {
 	TextChannel,
 	AttachmentBuilder,
 } from 'discord.js';
-import { Application } from './types';
+import { Application, GuildConfig, ModeratorStats } from './types';
 import { verifyQuestions } from './questions';
+import { isOwner } from './permissions';
 
 export function buildApplicationEmbed(
 	user: User,
@@ -612,5 +613,87 @@ export async function postQuestionLogMessage(
 	} catch (e) {
 		console.error('[questionLog] failed to post question log message', e);
 	}
+}
+
+function getModeratorRankLabel(
+	userId: string,
+	member: GuildMember | null,
+	gc: GuildConfig,
+): string {
+	if (isOwner(userId)) return '👑 Владелец / Разработчик';
+	if (member && member.roles && member.roles.cache) {
+		const roleIds = Array.from(member.roles.cache.keys());
+		if (gc.roles.ststaff.some((id) => roleIds.includes(id))) return '⭐ Старший модератор';
+		if (gc.roles.staff.some((id) => roleIds.includes(id))) return '🛡️ Модератор';
+	}
+	return '👤 Участник';
+}
+
+export function buildAdminStatEmbed(
+	user: User,
+	member: GuildMember | null,
+	gc: GuildConfig,
+	stats: ModeratorStats,
+	guildName: string,
+): EmbedBuilder {
+	const rankLabel = getModeratorRankLabel(user.id, member, gc);
+
+	const appTotal = stats.applications.total;
+	const appApprovePct = appTotal > 0 ? Math.round((stats.applications.approved / appTotal) * 100) : 0;
+	const appRejectPct = appTotal > 0 ? Math.round((stats.applications.rejected / appTotal) * 100) : 0;
+	const appBlacklistPct = appTotal > 0 ? Math.round((stats.applications.blacklisted / appTotal) * 100) : 0;
+
+	const embed = new EmbedBuilder()
+		.setTitle(`📊 Статистика модератора — ${user.displayName || user.username}`)
+		.setThumbnail(user.displayAvatarURL())
+		.setColor(0x5865f2)
+		.setDescription(`**Модератор:** <@${user.id}> (\`${user.id}\`)\n**Должность:** ${rankLabel}`)
+		.addFields(
+			{
+				name: '📝 Анкеты на верификацию',
+				value:
+					`• Всего рассмотрено: **${appTotal}**\n` +
+					`├ Принято: **${stats.applications.approved}** (${appApprovePct}%)\n` +
+					`├ Отклонено: **${stats.applications.rejected}** (${appRejectPct}%)\n` +
+					`└ В чёрный список: **${stats.applications.blacklisted}** (${appBlacklistPct}%)`,
+				inline: false,
+			},
+			{
+				name: '⚖️ Апелляции',
+				value:
+					`• Всего рассмотрено: **${stats.appeals.total}**\n` +
+					`├ Амнистировано: **${stats.appeals.amnestied}**\n` +
+					`└ Отклонено: **${stats.appeals.denied}**`,
+				inline: false,
+			},
+			{
+				name: '❓ Каналы с вопросами',
+				value:
+					`• Всего создано: **${stats.questions.total}**\n` +
+					`├ По анкетам: **${stats.questions.applications}**\n` +
+					`└ По апелляциям: **${stats.questions.appeals}**`,
+				inline: false,
+			},
+		);
+
+	if (stats.specialBlacklists > 0) {
+		embed.addFields({
+			name: '🚫 Чёрные списки',
+			value: `• Выдано спец. списков: **${stats.specialBlacklists}**`,
+			inline: false,
+		});
+	}
+
+	embed.addFields({
+		name: '📈 Общая активность',
+		value: `Всего действий модерации: **${stats.totalActions}**`,
+		inline: false,
+	});
+
+	embed
+		.setFooter({ text: `FemVerify • Статистика на сервере ${guildName}` })
+		.setTimestamp();
+
+	return embed;
 }
 

@@ -18,6 +18,7 @@ import {
 	claimApplication,
 	updateApplication,
 	claimApplicationQuestionChannel,
+	recordQuestionCreated,
 } from '../storage';
 import {
 	buildDmEmbed,
@@ -233,6 +234,8 @@ async function handleQuestion(
 		});
 		return;
 	}
+
+	await recordQuestionCreated(guild.id, channel.id, userId, interaction.user.id, 'application');
 
 	const embed = new EmbedBuilder()
 		.setTitle('Уточнение по заявке')

@@ -1,7 +1,7 @@
 import { eq, and, desc, isNotNull, inArray, lt } from 'drizzle-orm';
 import { db, pool } from './db';
 import * as schema from './schema';
-import { Application, ApplicationStatus, Appeal, AppealStatus } from './types';
+import { Application, ApplicationStatus, Appeal, AppealStatus, ModeratorStats } from './types';
 
 async function addColumnIfMissing(table: string, definition: string): Promise<void> {
   try {
@@ -115,12 +115,22 @@ export async function initStorage(): Promise<void> {
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   `);
 
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS questions (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      guildId VARCHAR(32) NOT NULL,
+      channelId VARCHAR(32) NOT NULL,
+      userId VARCHAR(32) NOT NULL,
+      moderatorId VARCHAR(32) NOT NULL,
+      kind VARCHAR(16) NOT NULL,
+      createdAt BIGINT NOT NULL
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
 
   await addColumnIfMissing('applications', 'questionChannelId VARCHAR(32) NULL');
   await addColumnIfMissing('applications', 'number INT NULL');
   await addColumnIfMissing('applications', 'joinMethod TEXT NULL');
   await addColumnIfMissing('applications', 'removedRoles TEXT NULL');
-
 
   await addColumnIfMissing('appeals', 'reviewMessageUrl TEXT NULL');
   await addColumnIfMissing('appeals', 'resolvedAt BIGINT NULL');
@@ -141,10 +151,13 @@ export async function initStorage(): Promise<void> {
   await addIndexIfMissing('applications', 'idx_applications_user_status', 'userId, status');
   await addIndexIfMissing('applications', 'idx_applications_status_submitted', 'status, submittedAt');
   await addIndexIfMissing('applications', 'idx_applications_question_channel', 'questionChannelId');
+  await addIndexIfMissing('applications', 'idx_applications_guild_reviewer', 'guildId, reviewerId');
   await addIndexIfMissing('appeals', 'idx_appeals_guild_status', 'guildId, status');
   await addIndexIfMissing('appeals', 'idx_appeals_question_channel', 'questionChannelId');
+  await addIndexIfMissing('appeals', 'idx_appeals_guild_reviewer', 'guildId, reviewerId');
   await addIndexIfMissing('join_methods', 'idx_join_methods_user', 'userId');
   await addIndexIfMissing('special_blacklists', 'idx_special_blacklists_user', 'userId');
+  await addIndexIfMissing('questions', 'idx_questions_guild_mod', 'guildId, moderatorId');
 
   initialized = true;
 }
@@ -1022,4 +1035,92 @@ export async function isUserGloballyVerified(userId: string): Promise<boolean> {
     .where(and(eq(schema.applications.userId, userId), eq(schema.applications.status, 'approved')))
     .limit(1);
   return !!row;
+}
+
+export async function recordQuestionCreated(
+  guildId: string,
+  channelId: string,
+  userId: string,
+  moderatorId: string,
+  kind: 'application' | 'appeal',
+): Promise<void> {
+  await pool.execute(
+    'INSERT INTO questions (guildId, channelId, userId, moderatorId, kind, createdAt) VALUES (?, ?, ?, ?, ?, ?)',
+    [guildId, channelId, userId, moderatorId, kind, Date.now()],
+  );
+}
+
+export async function getModeratorStats(guildId: string, moderatorId: string): Promise<ModeratorStats> {
+  const [appRows] = await pool.execute<any[]>(
+    'SELECT status, COUNT(*) AS cnt FROM applications WHERE guildId = ? AND reviewerId = ? GROUP BY status',
+    [guildId, moderatorId],
+  );
+
+  const [appealRows] = await pool.execute<any[]>(
+    'SELECT status, COUNT(*) AS cnt FROM appeals WHERE guildId = ? AND reviewerId = ? GROUP BY status',
+    [guildId, moderatorId],
+  );
+
+  const [questionRows] = await pool.execute<any[]>(
+    'SELECT kind, COUNT(*) AS cnt FROM questions WHERE guildId = ? AND moderatorId = ? GROUP BY kind',
+    [guildId, moderatorId],
+  );
+
+  const [specialRows] = await pool.execute<any[]>(
+    'SELECT COUNT(*) AS cnt FROM special_blacklists WHERE guildId = ? AND reviewerId = ?',
+    [guildId, moderatorId],
+  );
+
+  const appMap = new Map<string, number>();
+  for (const row of appRows) {
+    appMap.set(row.status, Number(row.cnt) || 0);
+  }
+
+  const approvedApps = appMap.get('approved') ?? 0;
+  const rejectedApps = appMap.get('rejected') ?? 0;
+  const blacklistedApps = (appMap.get('blacklisted') ?? 0) + (appMap.get('amnestied') ?? 0);
+  const totalApps = approvedApps + rejectedApps + blacklistedApps;
+
+  const appealMap = new Map<string, number>();
+  for (const row of appealRows) {
+    appealMap.set(row.status, Number(row.cnt) || 0);
+  }
+
+  const amnestiedAppeals = appealMap.get('amnestied') ?? 0;
+  const deniedAppeals = appealMap.get('denied') ?? 0;
+  const totalAppeals = amnestiedAppeals + deniedAppeals;
+
+  const questionMap = new Map<string, number>();
+  for (const row of questionRows) {
+    questionMap.set(row.kind, Number(row.cnt) || 0);
+  }
+
+  const appQuestions = questionMap.get('application') ?? 0;
+  const appealQuestions = questionMap.get('appeal') ?? 0;
+  const totalQuestions = appQuestions + appealQuestions;
+
+  const specialBlacklists = Number(specialRows[0]?.cnt) || 0;
+  const totalActions = totalApps + totalAppeals + totalQuestions + specialBlacklists;
+
+  return {
+    moderatorId,
+    applications: {
+      total: totalApps,
+      approved: approvedApps,
+      rejected: rejectedApps,
+      blacklisted: blacklistedApps,
+    },
+    appeals: {
+      total: totalAppeals,
+      amnestied: amnestiedAppeals,
+      denied: deniedAppeals,
+    },
+    questions: {
+      total: totalQuestions,
+      applications: appQuestions,
+      appeals: appealQuestions,
+    },
+    specialBlacklists,
+    totalActions,
+  };
 }
