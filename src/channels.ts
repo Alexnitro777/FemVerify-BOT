@@ -34,7 +34,8 @@ async function logQuestionChannel(
   const logChannelId = gc?.channels.questionLog ?? gc?.channels.decisions;
   if (!logChannelId) return;
 
-  const messages = await fetchAllMessages(channel);
+  const allMessages = await fetchAllMessages(channel);
+  const userMessages = allMessages.filter((m) => !m.author.bot);
 
   const [app, appeal] = await Promise.all([
     opts?.targetUserId ? Promise.resolve(undefined) : getApplicationByQuestionChannel(channel.id).catch(() => undefined),
@@ -52,13 +53,13 @@ async function logQuestionChannel(
     targetUserId,
     closedByUserId: opts?.closedByUserId,
     closeReason: opts?.reason,
-    messageCount: messages.length,
+    messageCount: userMessages.length,
     reviewMessageUrl,
     kind,
     number,
   };
 
-  const transcript = formatQuestionTranscript(messages, info, guild.name);
+  const transcript = formatQuestionTranscript(userMessages);
   await postQuestionLogMessage(guild.client, logChannelId, info, transcript);
 }
 

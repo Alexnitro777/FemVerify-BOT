@@ -524,27 +524,11 @@ function formatMskFileTimestamp(date: Date): string {
 	return `${get('year')}-${get('month')}-${get('day')}_${get('hour')}-${get('minute')}-${get('second')}`;
 }
 
-export function formatQuestionTranscript(
-	messages: Message[],
-	info: QuestionLogInfo,
-	guildName: string,
-): string {
+export function formatQuestionTranscript(messages: Message[]): string {
+	const userMessages = messages.filter((m) => !m.author.bot);
 	const lines: string[] = [];
-	lines.push('======================================================================');
-	lines.push(`ЛОГ КАНАЛА ВОПРОСА: #${info.channelName}`);
-	lines.push(`Сервер: ${guildName}`);
-	lines.push(`Участник: ${info.targetUserId}`);
-	if (info.closedByUserId) {
-		lines.push(`Закрыл: ${info.closedByUserId}`);
-	}
-	if (info.closeReason) {
-		lines.push(`Причина/действие: ${info.closeReason}`);
-	}
-	lines.push(`Дата сохранения: ${formatMskDateTime(new Date())}`);
-	lines.push(`Всего сообщений: ${messages.length}`);
-	lines.push('======================================================================\n');
 
-	for (const msg of messages) {
+	for (const msg of userMessages) {
 		const time = formatMskDateTime(msg.createdAt);
 		const author = `${msg.author.username} (${msg.author.id})`;
 		const content = msg.cleanContent || msg.content || '';
@@ -567,7 +551,7 @@ export function formatQuestionTranscript(
 		lines.push('');
 	}
 
-	return lines.join('\n');
+	return lines.join('\n').trim();
 }
 
 export function buildQuestionLogEmbed(info: QuestionLogInfo): EmbedBuilder {
@@ -587,7 +571,6 @@ export function buildQuestionLogEmbed(info: QuestionLogInfo): EmbedBuilder {
 				value: info.closedByUserId ? `<@${info.closedByUserId}>` : 'Система / обработка',
 				inline: true,
 			},
-			{ name: 'Канал', value: `\`#${info.channelName}\` (\`${info.channelId}\`)`, inline: false },
 			{ name: 'Сообщений', value: String(info.messageCount), inline: true },
 		);
 
