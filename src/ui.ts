@@ -620,13 +620,19 @@ function getModeratorRankLabel(
 	member: GuildMember | null,
 	gc: GuildConfig,
 ): string {
-	if (isOwner(userId)) return '👑 Владелец / Разработчик';
+	if (isOwner(userId)) return `<@${userId}>`;
 	if (member && member.roles && member.roles.cache) {
 		const roleIds = Array.from(member.roles.cache.keys());
-		if (gc.roles.ststaff.some((id) => roleIds.includes(id))) return '⭐ Старший модератор';
-		if (gc.roles.staff.some((id) => roleIds.includes(id))) return '🛡️ Модератор';
+		const ststaffRoles = gc.roles.ststaff.filter((id) => roleIds.includes(id));
+		if (ststaffRoles.length > 0) {
+			return ststaffRoles.map((id) => `<@&${id}>`).join(' ');
+		}
+		const staffRoles = gc.roles.staff.filter((id) => roleIds.includes(id));
+		if (staffRoles.length > 0) {
+			return staffRoles.map((id) => `<@&${id}>`).join(' ');
+		}
 	}
-	return '👤 Участник';
+	return '—';
 }
 
 export function buildAdminStatEmbed(
@@ -635,6 +641,7 @@ export function buildAdminStatEmbed(
 	gc: GuildConfig,
 	stats: ModeratorStats,
 	guildName: string,
+	guildIconUrl?: string | null,
 ): EmbedBuilder {
 	const rankLabel = getModeratorRankLabel(user.id, member, gc);
 
@@ -691,7 +698,7 @@ export function buildAdminStatEmbed(
 	});
 
 	embed
-		.setFooter({ text: `FemVerify • Статистика на сервере ${guildName}` })
+		.setFooter({ text: guildName, ...(guildIconUrl ? { iconURL: guildIconUrl } : {}) })
 		.setTimestamp();
 
 	return embed;

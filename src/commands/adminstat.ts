@@ -39,7 +39,14 @@ const command: SlashCommand = {
       (await interaction.guild.members.fetch(targetUser.id).catch(() => null));
 
     const stats = await getModeratorStats(interaction.guildId!, targetUser.id);
-    const embed = buildAdminStatEmbed(targetUser, targetMember, gc, stats, interaction.guild.name);
+    const embed = buildAdminStatEmbed(
+      targetUser,
+      targetMember,
+      gc,
+      stats,
+      interaction.guild.name,
+      interaction.guild.iconURL() ?? undefined,
+    );
 
     await interaction.editReply({ embeds: [embed] });
   },
