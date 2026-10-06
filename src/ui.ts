@@ -616,10 +616,9 @@ export async function postQuestionLogMessage(
 }
 
 function getModeratorRankLabel(
-	_userId: string,
 	member: GuildMember | null,
 	gc: GuildConfig,
-): string {
+): string | null {
 	if (member && member.roles && member.roles.cache) {
 		const roleIds = Array.from(member.roles.cache.keys());
 		const ststaffRoles = gc.roles.ststaff.filter((id) => roleIds.includes(id));
@@ -630,11 +629,8 @@ function getModeratorRankLabel(
 		if (staffRoles.length > 0) {
 			return staffRoles.map((id) => `<@&${id}>`).join(' ');
 		}
-		if (member.roles.highest && member.roles.highest.id !== member.guild.roles.everyone.id) {
-			return `<@&${member.roles.highest.id}>`;
-		}
 	}
-	return '—';
+	return null;
 }
 
 export function buildAdminStatEmbed(
@@ -645,7 +641,10 @@ export function buildAdminStatEmbed(
 	guildName: string,
 	guildIconUrl?: string | null,
 ): EmbedBuilder {
-	const rankLabel = getModeratorRankLabel(user.id, member, gc);
+	const rankLabel = getModeratorRankLabel(member, gc);
+	const description = rankLabel
+		? `**Модератор:** <@${user.id}> (\`${user.id}\`)\n**Должность:** ${rankLabel}`
+		: `**Модератор:** <@${user.id}> (\`${user.id}\`)`;
 
 	const appTotal = stats.applications.total;
 	const appApprovePct = appTotal > 0 ? Math.round((stats.applications.approved / appTotal) * 100) : 0;
@@ -656,7 +655,7 @@ export function buildAdminStatEmbed(
 		.setTitle(`📊 Статистика модератора — ${user.displayName || user.username}`)
 		.setThumbnail(user.displayAvatarURL())
 		.setColor(0x5865f2)
-		.setDescription(`**Модератор:** <@${user.id}> (\`${user.id}\`)\n**Должность:** ${rankLabel}`)
+		.setDescription(description)
 		.addFields(
 			{
 				name: '📝 Анкеты на верификацию',
