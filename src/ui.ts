@@ -494,6 +494,36 @@ export interface QuestionLogInfo {
 	number?: number;
 }
 
+function formatMskDateTime(date: Date): string {
+	const parts = new Intl.DateTimeFormat('ru-RU', {
+		timeZone: 'Europe/Moscow',
+		year: 'numeric',
+		month: '2-digit',
+		day: '2-digit',
+		hour: '2-digit',
+		minute: '2-digit',
+		second: '2-digit',
+		hour12: false,
+	}).formatToParts(date);
+	const get = (type: string) => parts.find((p) => p.type === type)?.value ?? '00';
+	return `${get('year')}-${get('month')}-${get('day')} ${get('hour')}:${get('minute')}:${get('second')} MSK`;
+}
+
+function formatMskFileTimestamp(date: Date): string {
+	const parts = new Intl.DateTimeFormat('en-US', {
+		timeZone: 'Europe/Moscow',
+		year: 'numeric',
+		month: '2-digit',
+		day: '2-digit',
+		hour: '2-digit',
+		minute: '2-digit',
+		second: '2-digit',
+		hour12: false,
+	}).formatToParts(date);
+	const get = (type: string) => parts.find((p) => p.type === type)?.value ?? '00';
+	return `${get('year')}-${get('month')}-${get('day')}_${get('hour')}-${get('minute')}-${get('second')}`;
+}
+
 export function formatQuestionTranscript(
 	messages: Message[],
 	info: QuestionLogInfo,
@@ -510,12 +540,12 @@ export function formatQuestionTranscript(
 	if (info.closeReason) {
 		lines.push(`Причина/действие: ${info.closeReason}`);
 	}
-	lines.push(`Дата сохранения: ${new Date().toISOString()}`);
+	lines.push(`Дата сохранения: ${formatMskDateTime(new Date())}`);
 	lines.push(`Всего сообщений: ${messages.length}`);
 	lines.push('======================================================================\n');
 
 	for (const msg of messages) {
-		const time = msg.createdAt.toISOString().replace('T', ' ').replace(/\..+/, ' UTC');
+		const time = formatMskDateTime(msg.createdAt);
 		const author = `${msg.author.username} (${msg.author.id})`;
 		const content = msg.cleanContent || msg.content || '';
 		lines.push(`[${time}] ${author}:`);
@@ -586,8 +616,10 @@ export async function postQuestionLogMessage(
 		const linkRow = info.reviewMessageUrl && info.kind
 			? buildDecisionLinkRow(info.kind, info.reviewMessageUrl)
 			: undefined;
-		const attachment = new AttachmentBuilder(Buffer.from(transcript, 'utf-8'), {
-			name: `question-${info.channelName}-${Date.now()}.txt`,
+		const cleanName = info.channelName.replace(/^вопрос-?/i, '').replace(/[^a-zA-Z0-9_-]/g, '') || info.targetUserId;
+		const timeStr = formatMskFileTimestamp(new Date());
+		const attachment = new AttachmentBuilder(Buffer.from(`\uFEFF${transcript}`, 'utf-8'), {
+			name: `question-${cleanName}-${timeStr}.txt`,
 		});
 		await (channel as TextChannel).send({
 			embeds: [embed],
