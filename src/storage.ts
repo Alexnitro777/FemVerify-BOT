@@ -159,6 +159,29 @@ export async function initStorage(): Promise<void> {
   await addIndexIfMissing('special_blacklists', 'idx_special_blacklists_user', 'userId');
   await addIndexIfMissing('questions', 'idx_questions_guild_mod', 'guildId, moderatorId');
 
+  try {
+    const [configRows] = await pool.query("SELECT value FROM app_config WHERE `key` = 'clientId' LIMIT 1");
+    const botClientId = (configRows as any[])?.[0]?.value;
+    if (botClientId) {
+      await pool.execute(
+        `UPDATE applications
+         SET reviewerId = ?
+         WHERE ((answers = '{}' AND status = 'approved') OR reason LIKE 'Автовыдача%')
+           AND reviewerId != ?`,
+        [botClientId, botClientId],
+      );
+      await pool.execute(
+        `UPDATE special_blacklists
+         SET reviewerId = ?
+         WHERE reason LIKE 'Автовыдача%'
+           AND reviewerId != ?`,
+        [botClientId, botClientId],
+      );
+    }
+  } catch (err) {
+    console.error('Migration error for import_roles fix:', err);
+  }
+
   initialized = true;
 }
 
@@ -1052,7 +1075,13 @@ export async function recordQuestionCreated(
 
 export async function getModeratorStats(guildId: string, moderatorId: string): Promise<ModeratorStats> {
   const [appRows] = await pool.execute<any[]>(
-    'SELECT status, COUNT(*) AS cnt FROM applications WHERE guildId = ? AND reviewerId = ? GROUP BY status',
+    `SELECT status, COUNT(*) AS cnt
+     FROM applications
+     WHERE guildId = ?
+       AND reviewerId = ?
+       AND NOT (answers = '{}' AND status = 'approved')
+       AND NOT (reason LIKE 'Автовыдача%')
+     GROUP BY status`,
     [guildId, moderatorId],
   );
 
@@ -1067,7 +1096,11 @@ export async function getModeratorStats(guildId: string, moderatorId: string): P
   );
 
   const [specialRows] = await pool.execute<any[]>(
-    'SELECT COUNT(*) AS cnt FROM special_blacklists WHERE guildId = ? AND reviewerId = ?',
+    `SELECT COUNT(*) AS cnt
+     FROM special_blacklists
+     WHERE guildId = ?
+       AND reviewerId = ?
+       AND NOT (reason LIKE 'Автовыдача%')`,
     [guildId, moderatorId],
   );
 

@@ -142,12 +142,12 @@ const command: SlashCommand = {
             userId: member.id,
             username: member.user.tag,
             reason,
-            reviewerId: interaction.user.id,
+            reviewerId: interaction.client.user.id,
           });
           await postDecisionMessage(interaction.client, blacklistLogChannel, 'application', {
             label: 'ЧСП',
             color: 0x992d22,
-            reviewerId: interaction.user.id,
+            reviewerId: interaction.client.user.id,
             targetUserId: member.id,
             reason: { title: 'Причина ЧС', text: reason },
             title: 'Выдача ЧСП',
@@ -165,12 +165,12 @@ const command: SlashCommand = {
             userId: member.id,
             username: member.user.tag,
             reason,
-            reviewerId: interaction.user.id,
+            reviewerId: interaction.client.user.id,
           });
           await postDecisionMessage(interaction.client, decisionsChannel, 'application', {
             label: 'Принято',
             color: 0x57f287,
-            reviewerId: interaction.user.id,
+            reviewerId: interaction.client.user.id,
             targetUserId: member.id,
             reason: { title: 'Причина', text: reason },
             title: 'Внесение в базу данных',
@@ -189,12 +189,12 @@ const command: SlashCommand = {
             userId: member.id,
             type: 'ЧСЗ',
             reason,
-            reviewerId: interaction.user.id,
+            reviewerId: interaction.client.user.id,
           });
           await postDecisionMessage(interaction.client, blacklistLogChannel, 'application', {
             label: 'ЧСЗ',
             color: 0x3498db,
-            reviewerId: interaction.user.id,
+            reviewerId: interaction.client.user.id,
             targetUserId: member.id,
             reason: { title: 'Причина ЧСЗ', text: reason },
             title: 'Выдача ЧСЗ',
@@ -213,12 +213,12 @@ const command: SlashCommand = {
             userId: member.id,
             type: 'ЧСА',
             reason,
-            reviewerId: interaction.user.id,
+            reviewerId: interaction.client.user.id,
           });
           await postDecisionMessage(interaction.client, blacklistLogChannel, 'application', {
             label: 'ЧСА',
             color: 0xe67e22,
-            reviewerId: interaction.user.id,
+            reviewerId: interaction.client.user.id,
             targetUserId: member.id,
             reason: { title: 'Причина ЧСА', text: reason },
             title: 'Выдача ЧСА',
