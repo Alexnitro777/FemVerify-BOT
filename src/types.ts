@@ -28,6 +28,7 @@ export interface GuildConfig {
     tagLog?: string;
     blacklistLog?: string;
     questionLog?: string;
+    trap?: string[];
   };
   questionCategoryId: string;
 }

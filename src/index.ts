@@ -13,6 +13,7 @@ import { registerQuestionCleanup } from './questionCleanup';
 import { registerApplicationCleanup } from './applicationCleanup';
 import { registerInviteTracker } from './inviteTracker';
 import { registerVoiceKick } from './voiceKick';
+import { registerTrapChannel } from './trapChannel';
 import { registerCommandsForGuild, buildCommandBodies } from './commandRegistration';
 import { invalidateGuildConfig, warmGuildConfigs } from './guildConfig';
 import { mapWithConcurrency, logSettledFailures } from './concurrency';
@@ -82,6 +83,7 @@ async function bootstrap(): Promise<void> {
   registerApplicationCleanup(client);
   registerInviteTracker(client);
   registerVoiceKick(client);
+  registerTrapChannel(client);
 
   client.once(Events.ClientReady, (c) => {
     console.log(`Logged in as ${c.user.tag}`);

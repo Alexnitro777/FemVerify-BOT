@@ -132,6 +132,7 @@
 | Авто-закрытие анкет | `applicationCleanup.ts` | Заявки старше **48 ч** → статус `expired`, ЛС участнику, пометка в канале |
 | Очистка каналов-вопросов | `questionCleanup.ts` | Удаляет каналы-вопросы **по анкете** старше **2 дней (48 ч)** (апелляционные по TTL не трогает), возвращает кнопку «Задать вопрос» |
 | Обработка выхода | `leaveCleanup.ts` | При выходе участника помечает его `pending`-заявку/апелляцию как `left`, чистит каналы |
+| Канал-ловушка (Honeypot) | `trapChannel.ts` | Удаляет сообщение в `channels.trap` и выдает глобальный ЧСП (`Автовыдача: Взлом/Реклама`) |
 
 Период проверок (sweep) — каждые **5 минут** (или TTL/4, что меньше).
 
@@ -158,7 +159,7 @@
 - **Таблица `app_config`** — `token` и `clientId` бота (при первом запуске можно задать через env `BOT_TOKEN`/`CLIENT_ID`, бот сам запишет их в БД).
 - **Таблица `guild_settings`** — настройки каждого сервера (вносятся напрямую в БД, ключи с точками):
   - **Роли:** `roles.verified`, `roles.blacklist`, `roles.blacklistZ` (опц.), `roles.blacklistA` (опц.), `roles.staff`, `roles.ststaff`, `roles.roleTag` (опц.).
-  - **Каналы:** `channels.review`, `channels.appealReview`, `channels.welcome` (опц.), `channels.decisions` (опц.), `channels.appeal` (опц.), `channels.tagLog` (опц.), `channels.blacklistLog` (опц.), `channels.questionLog` (опц.).
+  - **Каналы:** `channels.review`, `channels.appealReview`, `channels.welcome` (опц.), `channels.decisions` (опц.), `channels.appeal` (опц.), `channels.tagLog` (опц.), `channels.blacklistLog` (опц.), `channels.questionLog` (опц.), `channels.trap` (опц., ID каналов-ловушек через запятую).
   - **Прочее:** `questionCategoryId`. Списки `roles.staff` и `roles.ststaff` — ID через запятую. Уровень **owner** в БД не хранится — это `OWNER_IDS` в `permissions.ts`.
 
 Бот требует привилегированные интенты **Server Members Intent** (`GuildMembers`) и **Message Content Intent** (`MessageContent`), а также стандартный intent

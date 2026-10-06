@@ -55,6 +55,7 @@ function build(guildId: string, raw: Record<string, string>): GuildConfig {
       tagLog: optional(raw['channels.tagLog']),
       blacklistLog: optional(raw['channels.blacklistLog']),
       questionLog: optional(raw['channels.questionLog']),
+      trap: optionalList(raw['channels.trap']),
     },
     questionCategoryId: required(raw['questionCategoryId'], 'questionCategoryId'),
   };
