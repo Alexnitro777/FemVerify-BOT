@@ -75,7 +75,8 @@ export async function ensureTrapChannelMessage(
     if (!channel || !channel.isTextBased() || !('messages' in channel)) return;
 
     const count = knownCount ?? (await getTrapKicksCount(guildId));
-    const payload = buildTrapMessagePayload(count);
+    const avatarUrl = client.user?.displayAvatarURL({ extension: 'png', size: 256 });
+    const payload = buildTrapMessagePayload(count, avatarUrl);
 
     const trackedId = activeTrapMessages.get(channelId);
     if (trackedId) {
