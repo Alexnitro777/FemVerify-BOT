@@ -4,7 +4,7 @@ import {
   GuildMember,
   Message,
   PartialMessage,
-  Collection,
+  ReadonlyCollection,
   Routes,
 } from 'discord.js';
 import { GuildConfig } from './types';
@@ -272,7 +272,7 @@ async function handleMessageDelete(
 
 async function handleMessageBulkDelete(
   client: Client,
-  messages: Collection<string, Message | PartialMessage>,
+  messages: ReadonlyCollection<string, Message<true> | PartialMessage<true>>,
   channel: unknown,
 ): Promise<void> {
   const ch = channel as { id?: string; guildId?: string };
