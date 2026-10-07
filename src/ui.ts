@@ -705,3 +705,41 @@ export function buildAdminStatEmbed(
 	return embed;
 }
 
+export function buildTrapMessagePayload(kicksCount: number) {
+	return {
+		flags: 32768,
+		components: [
+			{
+				type: 17,
+				accent_color: 0xed4245,
+				components: [
+					{
+						type: 9,
+						components: [
+							{
+								type: 10,
+								content: '## ⚠️ НЕ ОТПРАВЛЯЙТЕ НИЧЕГО В ЭТОТ КАНАЛ!',
+							},
+							{
+								type: 10,
+								content: 'Данный канал создан для ликвидации участников, чьи аккаунты было взломаны и с них публикуется спам-реклама.',
+							},
+						],
+					},
+					{
+						type: 1,
+						components: [
+							{
+								type: 2,
+								style: 2,
+								label: `Kicks: ${kicksCount}`,
+								custom_id: 'trap:kicks',
+							},
+						],
+					},
+				],
+			},
+		],
+	};
+}
+

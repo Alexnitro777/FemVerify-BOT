@@ -300,6 +300,36 @@ export function nextAppealNumber(guildId: string): Promise<number> {
   return nextNumber(guildId, 'appeal');
 }
 
+export async function getTrapKicksCount(guildId: string): Promise<number> {
+  const [rows] = await pool.execute<any[]>(
+    'SELECT value FROM counters WHERE guildId = ? AND name = ?',
+    [guildId, 'trap_kicks'],
+  );
+  if (rows[0]) return Number(rows[0].value);
+
+  const [appRows] = await pool.execute<any[]>(
+    'SELECT COUNT(*) as count FROM applications WHERE guildId = ? AND reason = ?',
+    [guildId, 'Автовыдача: Взлом/Реклама'],
+  );
+  const initial = Number(appRows[0]?.count ?? 0);
+  await pool.execute(
+    `INSERT INTO counters (guildId, name, value) VALUES (?, ?, ?)
+     ON DUPLICATE KEY UPDATE value = value`,
+    [guildId, 'trap_kicks', initial],
+  );
+  return initial;
+}
+
+export async function incrementTrapKicksCount(guildId: string): Promise<number> {
+  await getTrapKicksCount(guildId);
+  const [result] = await pool.execute<any>(
+    `INSERT INTO counters (guildId, name, value) VALUES (?, ?, LAST_INSERT_ID(1))
+     ON DUPLICATE KEY UPDATE value = LAST_INSERT_ID(value + 1)`,
+    [guildId, 'trap_kicks'],
+  );
+  return Number(result.insertId);
+}
+
 function rowToApp(row: typeof schema.applications.$inferSelect): Application {
   return {
     userId: row.userId,
