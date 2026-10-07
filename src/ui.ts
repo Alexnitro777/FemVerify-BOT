@@ -709,7 +709,7 @@ export function buildTrapMessagePayload(kicksCount: number, avatarUrl?: string) 
 	const textComponents = [
 		{
 			type: 10,
-			content: '## ⚠️ НЕ ОТПРАВЛЯЙТЕ НИЧЕГО В ЭТОТ КАНАЛ!',
+			content: '## <:warning:1542243942949453905> НЕ ОТПРАВЛЯЙТЕ НИЧЕГО В ЭТОТ КАНАЛ!',
 		},
 		{
 			type: 10,
@@ -743,6 +743,9 @@ export function buildTrapMessagePayload(kicksCount: number, avatarUrl?: string) 
 				style: 2,
 				label: `ЧСП: ${kicksCount}`,
 				custom_id: 'trap:kicks',
+				emoji: {
+					id: '1557402323905548359',
+				},
 			},
 		],
 	});
