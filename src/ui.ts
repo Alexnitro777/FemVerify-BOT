@@ -750,7 +750,6 @@ export function buildTrapMessagePayload(kicksCount: number, avatarUrl?: string) 
 		components: [
 			{
 				type: 17,
-				accent_color: 0xed4245,
 				components: containerChildren,
 			},
 		],
