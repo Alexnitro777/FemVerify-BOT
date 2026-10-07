@@ -718,22 +718,20 @@ export function buildTrapMessagePayload(kicksCount: number, avatarUrl?: string) 
 		},
 	];
 
-	const contentComponent = avatarUrl
-		? {
-				type: 9,
-				components: textComponents,
-				accessory: {
-					type: 11,
-					media: {
-						url: avatarUrl,
+	const containerChildren: Record<string, unknown>[] = avatarUrl
+		? [
+				{
+					type: 9,
+					components: textComponents,
+					accessory: {
+						type: 11,
+						media: {
+							url: avatarUrl,
+						},
 					},
 				},
-		  }
-		: textComponents;
-
-	const containerChildren = Array.isArray(contentComponent)
-		? [...contentComponent]
-		: [contentComponent];
+		  ]
+		: [...textComponents];
 
 	containerChildren.push({
 		type: 1,
