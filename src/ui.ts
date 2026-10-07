@@ -709,11 +709,12 @@ export function buildTrapMessagePayload(kicksCount: number, avatarUrl?: string) 
 	const textComponents = [
 		{
 			type: 10,
-			content: '## <:warning:1542243942949453905> НЕ ОТПРАВЛЯЙТЕ НИЧЕГО В ЭТОТ КАНАЛ!',
+			content: '## НЕ ОТПРАВЛЯЙТЕ НИЧЕГО В ЭТОТ КАНАЛ!',
 		},
 		{
 			type: 10,
 			content:
+				'',
 				'Данный канал создан для ликвидации участников, чьи аккаунты было взломаны и с них публикуется спам-реклама.',
 		},
 	];
