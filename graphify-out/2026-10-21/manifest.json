@@ -322,5 +322,95 @@
     "seen": 1792601964.1284864,
     "ast_hash": "f184a75861ec388411868f546e48182c",
     "semantic_hash": "f184a75861ec388411868f546e48182c"
+  },
+  "src/commands/chsa.ts": {
+    "mtime": 1792606210.7017822,
+    "seen": 1792606230.6749475,
+    "ast_hash": "588f742d44ac33f9a49ff60f17d45471",
+    "semantic_hash": ""
+  },
+  "src/commands/chsz.ts": {
+    "mtime": 1792606203.9081388,
+    "seen": 1792606230.6749475,
+    "ast_hash": "e3bb93c61ea330997c4387cf99346658",
+    "semantic_hash": ""
+  },
+  "src/commands/specialBlacklistHelper.ts": {
+    "mtime": 1792606200.790585,
+    "seen": 1792606230.6749475,
+    "ast_hash": "f6f04c217edeb091f6a632d258f05f41",
+    "semantic_hash": ""
+  },
+  "src/commands/unchsa.ts": {
+    "mtime": 1792606213.0930924,
+    "seen": 1792606230.6749475,
+    "ast_hash": "c5f8b8701f356ba8cdf2ba12895aa011",
+    "semantic_hash": ""
+  },
+  "src/commands/unchsz.ts": {
+    "mtime": 1792606206.8759437,
+    "seen": 1792606230.6749475,
+    "ast_hash": "281dd1bcf26e31fda3fcee79dfeec208",
+    "semantic_hash": ""
+  },
+  "src/modals/specialBlacklistReason.ts": {
+    "mtime": 1792606224.8692408,
+    "seen": 1792606230.6749475,
+    "ast_hash": "5a1d998c24e779d9d65e4b008e96dd8c",
+    "semantic_hash": ""
+  },
+  "AGENTS.md": {
+    "mtime": 1792602957.857772,
+    "seen": 1792606230.6749475,
+    "ast_hash": "140b538a668b590953b1bd4a1ab5aec4",
+    "semantic_hash": ""
+  },
+  "CLAUDE.md": {
+    "mtime": 1792592264.38844,
+    "seen": 1792606230.6749475,
+    "ast_hash": "e36511074f391dea65e545ec3b3af470",
+    "semantic_hash": ""
+  },
+  "README.md": {
+    "mtime": 1792592264.38844,
+    "seen": 1792606230.6749475,
+    "ast_hash": "405d9b090a9a987b0b118f431c162f1a",
+    "semantic_hash": ""
+  },
+  "docker-compose.example.yml": {
+    "mtime": 1792592264.38844,
+    "seen": 1792606230.6749475,
+    "ast_hash": "d1d84de8373955bf285901a3d72a2226",
+    "semantic_hash": ""
+  },
+  "docs/discord-intent-request.md": {
+    "mtime": 1792592264.38844,
+    "seen": 1792606230.6749475,
+    "ast_hash": "ad722f3ca753b8387fd799a96c7280c6",
+    "semantic_hash": ""
+  },
+  "docs/features.md": {
+    "mtime": 1792592264.38844,
+    "seen": 1792606230.6749475,
+    "ast_hash": "4a33ce9fc1195777b0614d5b3f6ca17b",
+    "semantic_hash": ""
+  },
+  "docs/gateway-intents.md": {
+    "mtime": 1792592264.3899443,
+    "seen": 1792606230.6749475,
+    "ast_hash": "242979b7171be1974a08572a862b6ea5",
+    "semantic_hash": ""
+  },
+  "docs/permissions.md": {
+    "mtime": 1792592264.3899443,
+    "seen": 1792606230.6749475,
+    "ast_hash": "e6c1096b9ef9e0afb546617c6c05f271",
+    "semantic_hash": ""
+  },
+  "docs/verification-and-appeals.md": {
+    "mtime": 1792592264.3899443,
+    "seen": 1792606230.6749475,
+    "ast_hash": "07a8e7e3a6e8eb682bb85ed304863a48",
+    "semantic_hash": ""
   }
 }

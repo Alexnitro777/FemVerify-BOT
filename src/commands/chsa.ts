@@ -1,3 +1,3 @@
-import { buildSpecialBlacklistCommand } from './specialBlacklistHelper';
+import { buildSpecialBlacklistCommand } from '../specialBlacklistHelper';
 
 export default buildSpecialBlacklistCommand('ЧСА', 'add');

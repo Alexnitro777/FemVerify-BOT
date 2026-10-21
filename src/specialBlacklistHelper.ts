@@ -9,8 +9,8 @@ import {
   TextInputStyle,
   ActionRowBuilder,
 } from 'discord.js';
-import { SlashCommand, GuildConfig } from '../types';
-import { canManageByHierarchy } from '../permissions';
+import { SlashCommand, GuildConfig } from './types';
+import { canManageByHierarchy } from './permissions';
 
 function getRoleAndName(gc: GuildConfig, type: 'ЧСЗ' | 'ЧСА') {
   if (type === 'ЧСЗ') {
