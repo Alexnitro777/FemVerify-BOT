@@ -271,6 +271,10 @@ async function handleDecision(
 	let dmEmbed: EmbedBuilder;
 
 	if (amnesty) {
+		if (type === 'ЧСА' || type === 'ЧСЗ') {
+			await removeSpecialBlacklist(guildId, userId, type);
+		}
+
 		const roleToRemove = blacklistRoleFor(gc, type);
 		const [roleRemoved, application] = await Promise.all([
 			member
@@ -299,9 +303,6 @@ async function handleDecision(
 		}
 		if (application) {
 			await amnestyApplication(guildId, userId);
-		}
-		if (type === 'ЧСА' || type === 'ЧСЗ') {
-			await removeSpecialBlacklist(guildId, userId, type);
 		}
 
 		dmEmbed = buildDmEmbed('✅ Амнистия принята', texts.accept, 0x57f287);

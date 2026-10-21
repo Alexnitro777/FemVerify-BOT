@@ -414,9 +414,9 @@
     "semantic_hash": ""
   },
   "src/chsaProtection.ts": {
-    "mtime": 1792608201.225634,
-    "seen": 1792608247.6967177,
-    "ast_hash": "2a52eade66484be0771e4830b40dd9ca",
+    "mtime": 1792608855.7556748,
+    "seen": 1792608889.6908333,
+    "ast_hash": "09d5cfec2cdb550f945f582284f2f566",
     "semantic_hash": ""
   }
 }

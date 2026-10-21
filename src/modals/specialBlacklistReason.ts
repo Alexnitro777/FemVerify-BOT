@@ -157,6 +157,8 @@ const handler: ModalHandler = {
         return;
       }
 
+      await removeSpecialBlacklist(guildId, userId, type);
+
       let roleOk = true;
       if (member && hasRole) {
         roleOk = await member.roles
@@ -167,8 +169,6 @@ const handler: ModalHandler = {
             return false;
           });
       }
-
-      await removeSpecialBlacklist(guildId, userId, type);
 
       const baseReply = `Участник <@${userId}> снят с ${name} (${type}).`;
       await interaction.editReply({
