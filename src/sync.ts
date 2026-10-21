@@ -170,7 +170,7 @@ export async function removeGlobalBlacklist(
     const tail: Promise<unknown>[] = [];
 
     if (existing) {
-      tail.push(amnestyApplication(guild.id, userId));
+      await amnestyApplication(guild.id, userId);
     }
 
     if (appeal && appeal.status === 'pending') {

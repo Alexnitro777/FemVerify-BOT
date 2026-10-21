@@ -71,6 +71,11 @@ const handler: ModalHandler = {
       }
     }
 
+    const [claimedAppeal] = await Promise.all([
+      claimAppeal(guildId, userId, 'amnestied', interaction.user.id, reason),
+      existing ? amnestyApplication(guildId, userId) : Promise.resolve(),
+    ]);
+
     const warnings: string[] = [];
 
     if (member) {
@@ -92,11 +97,6 @@ const handler: ModalHandler = {
         }
       }
     }
-
-    const [claimedAppeal] = await Promise.all([
-      claimAppeal(guildId, userId, 'amnestied', interaction.user.id, reason),
-      existing ? amnestyApplication(guildId, userId) : Promise.resolve(),
-    ]);
 
     const baseReply = `Участник <@${userId}> снят с ЧС.`;
     await interaction.editReply({

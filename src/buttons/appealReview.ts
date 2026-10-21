@@ -271,6 +271,10 @@ async function handleDecision(
 	let dmEmbed: EmbedBuilder;
 
 	if (amnesty) {
+		if (application) {
+			await amnestyApplication(guildId, userId);
+		}
+
 		if (type === 'ЧСА' || type === 'ЧСЗ') {
 			await removeSpecialBlacklist(guildId, userId, type);
 		}
@@ -300,9 +304,6 @@ async function handleDecision(
 			if (!restored) {
 				warnings.push('⚠️ Не удалось вернуть часть ролей — проверьте иерархию ролей бота.');
 			}
-		}
-		if (application) {
-			await amnestyApplication(guildId, userId);
 		}
 
 		dmEmbed = buildDmEmbed('✅ Амнистия принята', texts.accept, 0x57f287);

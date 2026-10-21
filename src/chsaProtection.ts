@@ -1,6 +1,6 @@
 import { Client, Events, GuildMember, PartialGuildMember } from 'discord.js';
 import { getGuildConfig } from './guildConfig';
-import { getSpecialBlacklist } from './storage';
+import { getSpecialBlacklist, getApplication } from './storage';
 
 export async function enforceChsaProtection(
   member: GuildMember | PartialGuildMember,
@@ -64,6 +64,22 @@ export async function enforceChsaProtection(
         console.log(`[chsaProtection] Восстановлена роль ЧСЗ для ${full.user.tag} (${full.id})`);
       } catch (e) {
         console.error(`[chsaProtection] Не удалось восстановить роль ЧСЗ для ${full.id}:`, e);
+      }
+    }
+  }
+
+  // 3. Защита ЧСП
+  if (gc.roles.blacklist) {
+    const chspRole = gc.roles.blacklist;
+    const app = await getApplication(full.guild.id, full.id).catch(() => null);
+    const isChspInDb = app?.status === 'blacklisted';
+
+    if (isChspInDb && !full.roles.cache.has(chspRole)) {
+      try {
+        await full.roles.add(chspRole, 'ЧСП: автоматический возврат роли чёрного списка');
+        console.log(`[chsaProtection] Восстановлена роль ЧСП для ${full.user.tag} (${full.id})`);
+      } catch (e) {
+        console.error(`[chsaProtection] Не удалось восстановить роль ЧСП для ${full.id}:`, e);
       }
     }
   }
