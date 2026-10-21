@@ -180,10 +180,10 @@
     "semantic_hash": "6d04049184fd34bb45db841da9018f26"
   },
   "src/index.ts": {
-    "mtime": 1792592264.3974638,
-    "seen": 1792601964.1284864,
-    "ast_hash": "a38594a4b59aa0d8b10af9a1b88b443e",
-    "semantic_hash": "a38594a4b59aa0d8b10af9a1b88b443e"
+    "mtime": 1792608234.9170272,
+    "seen": 1792608247.6967177,
+    "ast_hash": "5527552ad88bba20d87511866acf18a2",
+    "semantic_hash": ""
   },
   "src/inviteTracker.ts": {
     "mtime": 1792592264.3974638,
@@ -348,9 +348,9 @@
     "semantic_hash": ""
   },
   "src/modals/specialBlacklistReason.ts": {
-    "mtime": 1792606224.8692408,
-    "seen": 1792606230.6749475,
-    "ast_hash": "5a1d998c24e779d9d65e4b008e96dd8c",
+    "mtime": 1792608205.2454774,
+    "seen": 1792608247.6967177,
+    "ast_hash": "4cec09c6a987f520598b7f4e7dd411c5",
     "semantic_hash": ""
   },
   "AGENTS.md": {
@@ -411,6 +411,12 @@
     "mtime": 1792607080.3203597,
     "seen": 1792607110.888027,
     "ast_hash": "8a3a2320d0597f14d21fdb63e78dee0a",
+    "semantic_hash": ""
+  },
+  "src/chsaProtection.ts": {
+    "mtime": 1792608201.225634,
+    "seen": 1792608247.6967177,
+    "ast_hash": "2a52eade66484be0771e4830b40dd9ca",
     "semantic_hash": ""
   }
 }

@@ -1,17 +1,17 @@
 # Graph Report - FemVerify-BOT  (2026-10-21)
 
 ## Corpus Check
-- 68 files · ~38,484 words
+- 69 files · ~38,755 words
 - Verdict: corpus is large enough that graph structure adds value.
 - Unclassified: 4 file(s) not represented in the graph (top: (none) 4)
 
 ## Summary
-- 513 nodes · 1436 edges · 20 communities (19 shown, 1 thin omitted)
+- 516 nodes · 1449 edges · 22 communities (21 shown, 1 thin omitted)
 - Extraction: 95% EXTRACTED · 5% INFERRED · 0% AMBIGUOUS · INFERRED: 68 edges (avg confidence: 0.94)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `1b9d08f6`
+- Built from commit: `a40a4bd0`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -20,15 +20,15 @@
 - Application Review Logic
 - Project Dependencies
 - App Configuration and Registration
-- Question Channel Management
+- ui.ts
 - Member Join Synchronization
-- Data Storage and Import
+- schema.ts
 - II-A. Со стороны УЧАСТНИКА
 - Invite Tracking System
 - Guild Role Tagging
 - TypeScript Configuration
 - I-B. Со стороны МОДЕРАТОРА
-- Функции бота — краткий обзор
+- permissions.ts
 - Privileged Gateway Intents в FemVerify-BOT
 - README.md
 - Права доступа — кто что видит и может
@@ -36,13 +36,15 @@
 - I-A. Со стороны УЧАСТНИКА
 - FemVerify-BOT
 - Ponytail, lazy senior dev mode
+- Architecture
+- 3. Детали по каждому решению
 
 ## God Nodes (most connected - your core abstractions)
-1. `discord.js` - 47 edges
+1. `discord.js` - 48 edges
 2. `GuildConfig` - 39 edges
 3. `logSettledFailures()` - 34 edges
-4. `getGuildConfig()` - 28 edges
-5. `bootstrap()` - 25 edges
+4. `getGuildConfig()` - 30 edges
+5. `bootstrap()` - 26 edges
 6. `getApplication()` - 25 edges
 7. `postDecisionMessage()` - 24 edges
 8. `deleteQuestionChannel()` - 21 edges
@@ -64,59 +66,59 @@
 ## Import Cycles
 - None detected.
 
-## Communities (20 total, 1 thin omitted)
+## Communities (22 total, 1 thin omitted)
 
 ### Community 0 - "Discord Bot UI Components"
-Cohesion: 0.06
-Nodes (57): Handler autoloading + routing, Permissions, discord.js, handler, handler, handler, handler, handler (+49 more)
+Cohesion: 0.05
+Nodes (66): Handler autoloading + routing, Schema migrations, Two domains, one row per user, 0. Глоссарий статусов, discord.js, drizzle-orm, mysql2, handler (+58 more)
 
 ### Community 1 - "Application Review Logic"
-Cohesion: 0.09
-Nodes (61): 8. Хранилище данных (MySQL/MariaDB), 3.4. Получение списка участников и синхронизация (`guild.members.fetch()`), 4. Конкурентность, 7. Команда `/выдатьчсп` — занесение в ЧС напрямую (`commands/chsp.ts`), 9. Автовыдача ЧСП через канал-ловушку (`trapChannel.ts`), closeExpiredApplication(), registerApplicationCleanup(), sweep() (+53 more)
+Cohesion: 0.12
+Nodes (47): 3.4. Получение списка участников и синхронизация (`guild.members.fetch()`), 7. Команда `/выдатьчсп` — занесение в ЧС напрямую (`commands/chsp.ts`), 9. Автовыдача ЧСП через канал-ловушку (`trapChannel.ts`), closeExpiredApplication(), registerApplicationCleanup(), sweep(), SWEEP_INTERVAL_MS, sweepGuild() (+39 more)
 
 ### Community 2 - "Project Dependencies"
 Cohesion: 0.07
-Nodes (28): dependencies, bufferutil, discord.js, drizzle-orm, mysql2, zlib-sync, description, devDependencies (+20 more)
+Nodes (27): dependencies, bufferutil, discord.js, drizzle-orm, mysql2, zlib-sync, description, devDependencies (+19 more)
 
 ### Community 3 - "App Configuration and Registration"
-Cohesion: 0.13
-Nodes (22): Configuration, buildCommandBodies(), getRest(), registerCommandsForGuild(), AppConfig, getAppConfig(), initAppConfig(), resolve() (+14 more)
+Cohesion: 0.09
+Nodes (36): Configuration, enforceChsaProtection(), registerChsaProtection(), buildCommandBodies(), getRest(), registerCommandsForGuild(), getAppConfig(), initAppConfig() (+28 more)
 
-### Community 4 - "Question Channel Management"
-Cohesion: 0.12
-Nodes (28): Rendering layer, handler, DeleteQuestionChannelOptions, fetchAllMessages(), logQuestionChannel(), mapWithConcurrency(), isChannelNotFoundError(), registerQuestionCleanup() (+20 more)
+### Community 4 - "ui.ts"
+Cohesion: 0.08
+Nodes (42): Rendering layer, handler, DeleteQuestionChannelOptions, fetchAllMessages(), logQuestionChannel(), handleMemberRemove(), markReviewMessageLeft(), ParsedMessageUrl (+34 more)
 
 ### Community 5 - "Member Join Synchronization"
-Cohesion: 0.11
-Nodes (30): build(), buildAndCache(), cache, getGuildConfig(), inflight, load(), optional(), optionalList() (+22 more)
+Cohesion: 0.15
+Nodes (26): getGuildConfig(), ComponentHandler, ComponentInteraction, dispatch(), handleInteraction(), interactionLabel(), reportError(), runChatInputCommand() (+18 more)
 
-### Community 6 - "Data Storage and Import"
-Cohesion: 0.06
-Nodes (53): Schema migrations, Two domains, one row per user, 0. Глоссарий статусов, drizzle-orm, handler, db, pool, handleMemberRemove() (+45 more)
+### Community 6 - "schema.ts"
+Cohesion: 0.22
+Nodes (8): appConfig, appeals, applications, counters, guildSettings, joinMethods, questions, specialBlacklists
 
 ### Community 7 - "II-A. Со стороны УЧАСТНИКА"
-Cohesion: 0.09
-Nodes (23): 1. Где появляются апелляции, 1. Точка входа, 2. Проверки ДО открытия формы (`appealStart.ts`), 2. Три действия по апелляции (`appealReview.ts`), 3.1. ✅ Принять амнистию, 3.2. ❌ Отказать в амнистии, 3.3. ❓ Задать вопрос, 3. Детали (+15 more)
+Cohesion: 0.06
+Nodes (36): 1. Слеш-команды, 2. Верификация участников, 3. Апелляции (для участников в ЧС), 4. Способ вступления (трекинг инвайтов), 5. Автовыдача роли за тег сервера (Server Tag), 6. Каналы-вопросы, 7. Фоновые задачи и автоматика, 8. Хранилище данных (MySQL/MariaDB) (+28 more)
 
 ### Community 8 - "Invite Tracking System"
-Cohesion: 0.14
-Nodes (24): CachedInvite, cacheGuildInvites(), DeletedInvite, detectJoinMethod(), detectJoinMethodLocked(), detectJoinMethodWithRetry(), formatInviter(), GuildInviteState (+16 more)
+Cohesion: 0.13
+Nodes (28): mapWithConcurrency(), CachedInvite, cacheGuildInvites(), DeletedInvite, detectJoinMethod(), detectJoinMethodLocked(), detectJoinMethodWithRetry(), formatInviter() (+20 more)
 
 ### Community 9 - "Guild Role Tagging"
-Cohesion: 0.11
-Nodes (23): Architecture, Background workers (all registered in `index.ts`), Commands, Constraints to respect, customId convention, Docs convention, Hard rule: no comments, Role stripping & restore (the `removedRoles` round-trip) (+15 more)
+Cohesion: 0.12
+Nodes (24): command, syncMember(), SyncTotals, command, lastFullFetch, handleMemberJoin(), registerMemberJoin(), applyTagRole() (+16 more)
 
 ### Community 10 - "TypeScript Configuration"
 Cohesion: 0.12
 Nodes (15): compilerOptions, declaration, esModuleInterop, forceConsistentCasingInFileNames, lib, module, outDir, resolveJsonModule (+7 more)
 
 ### Community 11 - "I-B. Со стороны МОДЕРАТОРА"
-Cohesion: 0.17
-Nodes (12): 1. Где появляются заявки, 2. Четыре решения по заявке (`review.ts`), 3.1. ✅ Принять, 3.2. ❌ Отклонить (`reviewReason.ts`), 3.3. ❓ Задать вопрос, 3.4. 🚫 ЧС (`reviewReason.ts`), 3. Детали по каждому решению, 4. Конкурентность и идемпотентность (+4 more)
+Cohesion: 0.29
+Nodes (7): 1. Где появляются заявки, 2. Четыре решения по заявке (`review.ts`), 4. Конкурентность и идемпотентность, 5. Обзор очереди, 6. Что модератор видит при авто-событиях, 8. Команда `/снятьчсп` — снятие с ЧС напрямую (`commands/unchsp.ts`), I-B. Со стороны МОДЕРАТОРА
 
-### Community 12 - "Функции бота — краткий обзор"
-Cohesion: 0.20
-Nodes (10): 1. Слеш-команды, 2. Верификация участников, 3. Апелляции (для участников в ЧС), 4. Способ вступления (трекинг инвайтов), 5. Автовыдача роли за тег сервера (Server Tag), 6. Каналы-вопросы, 7. Фоновые задачи и автоматика, 9. Конфигурация (+2 more)
+### Community 12 - "permissions.ts"
+Cohesion: 0.18
+Nodes (11): AccessLevel, buttonAccessLevel(), canManageByHierarchy(), canManageRoles(), commandAccessLevel(), hasCommandAccess(), memberRoleIds(), OWNER_IDS (+3 more)
 
 ### Community 13 - "Privileged Gateway Intents в FemVerify-BOT"
 Cohesion: 0.20
@@ -142,6 +144,14 @@ Nodes (6): 1. Структура проекта, 2.1. Предварительн
 Cohesion: 0.50
 Nodes (3): Before you write, Ponytail, lazy senior dev mode, The smallest complete change
 
+### Community 20 - "Architecture"
+Cohesion: 0.17
+Nodes (10): Architecture, Background workers (all registered in `index.ts`), Commands, Constraints to respect, customId convention, Docs convention, Hard rule: no comments, Permissions (+2 more)
+
+### Community 21 - "3. Детали по каждому решению"
+Cohesion: 0.40
+Nodes (5): 3.1. ✅ Принять, 3.2. ❌ Отклонить (`reviewReason.ts`), 3.3. ❓ Задать вопрос, 3.4. 🚫 ЧС (`reviewReason.ts`), 3. Детали по каждому решению
+
 ## Knowledge Gaps
 - **6 isolated node(s):** `bufferutil`, `zlib-sync`, `@types/node`, `drizzle-kit`, `tsx` (+1 more)
   These have ≤1 connection - possible missing edges or undocumented components. (Counts symbols only; 183 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
@@ -150,17 +160,17 @@ Nodes (3): Before you write, Ponytail, lazy senior dev mode, The smallest comple
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `discord.js` connect `Discord Bot UI Components` to `Application Review Logic`, `Project Dependencies`, `App Configuration and Registration`, `Question Channel Management`, `Member Join Synchronization`, `Data Storage and Import`, `Invite Tracking System`, `Guild Role Tagging`?**
+- **Why does `discord.js` connect `Discord Bot UI Components` to `Application Review Logic`, `Project Dependencies`, `App Configuration and Registration`, `ui.ts`, `Member Join Synchronization`, `Invite Tracking System`, `Guild Role Tagging`, `permissions.ts`?**
   _High betweenness centrality (0.140) - this node is a cross-community bridge._
 - **Are the 4 inferred relationships involving `GuildConfig` (e.g. with `Background workers (all registered in `index.ts`)` and `Configuration`) actually correct?**
   _`GuildConfig` has 4 INFERRED edges - model-reasoned connections that need verification._
 - **What connects `bufferutil`, `zlib-sync`, `@types/node` to the rest of the system?**
   _6 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `Discord Bot UI Components` be split into smaller, more focused modules?**
-  _Cohesion score 0.05737234652897304 - nodes in this community are weakly interconnected._
-- **Why does `claimAppeal()` connect `Application Review Logic` to `Data Storage and Import`?**
-  _High betweenness centrality (0.102) - this node is a cross-community bridge._
+  _Cohesion score 0.05375139977603583 - nodes in this community are weakly interconnected._
+- **Why does `claimAppeal()` connect `II-A. Со стороны УЧАСТНИКА` to `Discord Bot UI Components`, `Application Review Logic`?**
+  _High betweenness centrality (0.101) - this node is a cross-community bridge._
 - **Should `Application Review Logic` be split into smaller, more focused modules?**
-  _Cohesion score 0.09398782343987823 - nodes in this community are weakly interconnected._
-- **Why does `I-B. Со стороны МОДЕРАТОРА` connect `I-B. Со стороны МОДЕРАТОРА` to `Application Review Logic`, `README.md`?**
-  _High betweenness centrality (0.080) - this node is a cross-community bridge._
+  _Cohesion score 0.12218045112781954 - nodes in this community are weakly interconnected._
+- **Why does `I-B. Со стороны МОДЕРАТОРА` connect `I-B. Со стороны МОДЕРАТОРА` to `Application Review Logic`, `3. Детали по каждому решению`, `README.md`?**
+  _High betweenness centrality (0.079) - this node is a cross-community bridge._
