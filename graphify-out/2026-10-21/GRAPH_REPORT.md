@@ -11,7 +11,7 @@
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `c6417d3a`
+- Built from commit: `1b9d08f6`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -50,6 +50,8 @@
 10. `applyGlobalBlacklist()` - 17 edges
 
 ## Surprising Connections (you probably didn't know these)
+- `Docs convention` --references--> `build()`  [INFERRED]
+  CLAUDE.md → src/guildConfig.ts
 - `8. Команда `/снятьчсп` — снятие с ЧС напрямую (`commands/unchsp.ts`)` --references--> `restoreMemberRoles()`  [INFERRED]
   docs/verification-and-appeals.md → src/roles.ts
 - `3.1. Вход новых участников (`Events.GuildMemberAdd` / `src/memberJoin.ts`)` --references--> `getUserGlobalStatus()`  [INFERRED]
@@ -58,8 +60,6 @@
   docs/verification-and-appeals.md → src/storage.ts
 - `Защита от спама и взломов (Канал-ловушка)` --references--> `applyGlobalBlacklist()`  [INFERRED]
   docs/features.md → src/sync.ts
-- `Constraints to respect` --references--> `closeDb()`  [INFERRED]
-  CLAUDE.md → src/db.ts
 
 ## Import Cycles
 - None detected.
@@ -68,31 +68,31 @@
 
 ### Community 0 - "Discord Bot UI Components"
 Cohesion: 0.06
-Nodes (49): Handler autoloading + routing, Permissions, discord.js, drizzle-orm, handler, handler, handler, handler (+41 more)
+Nodes (57): Handler autoloading + routing, Permissions, discord.js, handler, handler, handler, handler, handler (+49 more)
 
 ### Community 1 - "Application Review Logic"
-Cohesion: 0.11
-Nodes (52): 8. Хранилище данных (MySQL/MariaDB), 3.4. Получение списка участников и синхронизация (`guild.members.fetch()`), 4. Конкурентность, 7. Команда `/выдатьчсп` — занесение в ЧС напрямую (`commands/chsp.ts`), 9. Автовыдача ЧСП через канал-ловушку (`trapChannel.ts`), closeExpiredApplication(), sweep(), SWEEP_INTERVAL_MS (+44 more)
+Cohesion: 0.09
+Nodes (61): 8. Хранилище данных (MySQL/MariaDB), 3.4. Получение списка участников и синхронизация (`guild.members.fetch()`), 4. Конкурентность, 7. Команда `/выдатьчсп` — занесение в ЧС напрямую (`commands/chsp.ts`), 9. Автовыдача ЧСП через канал-ловушку (`trapChannel.ts`), closeExpiredApplication(), registerApplicationCleanup(), sweep() (+53 more)
 
 ### Community 2 - "Project Dependencies"
-Cohesion: 0.05
-Nodes (37): dependencies, bufferutil, discord.js, drizzle-orm, mysql2, zlib-sync, description, devDependencies (+29 more)
+Cohesion: 0.07
+Nodes (28): dependencies, bufferutil, discord.js, drizzle-orm, mysql2, zlib-sync, description, devDependencies (+20 more)
 
 ### Community 3 - "App Configuration and Registration"
-Cohesion: 0.08
-Nodes (38): Commands, Configuration, Docs convention, Hard rule: no comments, What this is, registerApplicationCleanup(), buildCommandBodies(), getRest() (+30 more)
+Cohesion: 0.13
+Nodes (22): Configuration, buildCommandBodies(), getRest(), registerCommandsForGuild(), AppConfig, getAppConfig(), initAppConfig(), resolve() (+14 more)
 
 ### Community 4 - "Question Channel Management"
-Cohesion: 0.08
-Nodes (41): Rendering layer, DeleteQuestionChannelOptions, fetchAllMessages(), logQuestionChannel(), isChannelNotFoundError(), registerQuestionCleanup(), sweep(), SWEEP_INTERVAL_MS (+33 more)
+Cohesion: 0.12
+Nodes (28): Rendering layer, handler, DeleteQuestionChannelOptions, fetchAllMessages(), logQuestionChannel(), mapWithConcurrency(), isChannelNotFoundError(), registerQuestionCleanup() (+20 more)
 
 ### Community 5 - "Member Join Synchronization"
-Cohesion: 0.14
-Nodes (27): getGuildConfig(), ComponentHandler, ComponentInteraction, dispatch(), handleInteraction(), interactionLabel(), reportError(), runChatInputCommand() (+19 more)
+Cohesion: 0.11
+Nodes (30): build(), buildAndCache(), cache, getGuildConfig(), inflight, load(), optional(), optionalList() (+22 more)
 
 ### Community 6 - "Data Storage and Import"
-Cohesion: 0.07
-Nodes (44): Architecture, Background workers (all registered in `index.ts`), Constraints to respect, customId convention, Role stripping & restore (the `removedRoles` round-trip), Schema migrations, Two domains, one row per user, 0. Глоссарий статусов (+36 more)
+Cohesion: 0.06
+Nodes (53): Schema migrations, Two domains, one row per user, 0. Глоссарий статусов, drizzle-orm, handler, db, pool, handleMemberRemove() (+45 more)
 
 ### Community 7 - "II-A. Со стороны УЧАСТНИКА"
 Cohesion: 0.09
@@ -103,8 +103,8 @@ Cohesion: 0.14
 Nodes (24): CachedInvite, cacheGuildInvites(), DeletedInvite, detectJoinMethod(), detectJoinMethodLocked(), detectJoinMethodWithRetry(), formatInviter(), GuildInviteState (+16 more)
 
 ### Community 9 - "Guild Role Tagging"
-Cohesion: 0.21
-Nodes (14): command, lastFullFetch, applyTagRole(), getPrimaryGuild(), hasServerTag(), infoIsOurTag(), normalizePrimaryGuild(), PrimaryGuildInfo (+6 more)
+Cohesion: 0.11
+Nodes (23): Architecture, Background workers (all registered in `index.ts`), Commands, Constraints to respect, customId convention, Docs convention, Hard rule: no comments, Role stripping & restore (the `removedRoles` round-trip) (+15 more)
 
 ### Community 10 - "TypeScript Configuration"
 Cohesion: 0.12
@@ -157,10 +157,10 @@ _Questions this graph is uniquely positioned to answer:_
 - **What connects `bufferutil`, `zlib-sync`, `@types/node` to the rest of the system?**
   _6 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `Discord Bot UI Components` be split into smaller, more focused modules?**
-  _Cohesion score 0.06329113924050633 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.05737234652897304 - nodes in this community are weakly interconnected._
 - **Why does `claimAppeal()` connect `Application Review Logic` to `Data Storage and Import`?**
   _High betweenness centrality (0.102) - this node is a cross-community bridge._
 - **Should `Application Review Logic` be split into smaller, more focused modules?**
-  _Cohesion score 0.10957501280081926 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.09398782343987823 - nodes in this community are weakly interconnected._
 - **Why does `I-B. Со стороны МОДЕРАТОРА` connect `I-B. Со стороны МОДЕРАТОРА` to `Application Review Logic`, `README.md`?**
   _High betweenness centrality (0.080) - this node is a cross-community bridge._

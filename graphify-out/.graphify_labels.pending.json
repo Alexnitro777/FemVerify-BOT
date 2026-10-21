@@ -1,12 +1,16 @@
 {
+  "4": "ui.ts",
+  "6": "schema.ts",
   "7": "II-A. Со стороны УЧАСТНИКА",
   "11": "I-B. Со стороны МОДЕРАТОРА",
-  "12": "Функции бота — краткий обзор",
+  "12": "permissions.ts",
   "13": "Privileged Gateway Intents в FemVerify-BOT",
   "14": "README.md",
   "15": "Права доступа — кто что видит и может",
   "16": "5. Возможные исходы для участника после отправки",
   "17": "I-A. Со стороны УЧАСТНИКА",
   "18": "FemVerify-BOT",
-  "19": "Ponytail, lazy senior dev mode"
+  "19": "Ponytail, lazy senior dev mode",
+  "20": "Architecture",
+  "21": "3. Детали по каждому решению"
 }

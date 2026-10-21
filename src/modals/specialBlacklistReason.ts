@@ -90,13 +90,27 @@ const handler: ModalHandler = {
 
       let roleOk = true;
       if (member) {
-        roleOk = await member.roles
-          .add(roleId)
-          .then(() => true)
-          .catch((e) => {
-            console.error(`[specialBlacklistReason] roles.add failed for ${type}`, e);
-            return false;
-          });
+        const toAdd = [roleId];
+        const toRemove: string[] = [];
+
+        if (type === 'ЧСА') {
+          const adminRoles = new Set([...gc.roles.staff, ...gc.roles.ststaff]);
+          for (const role of member.roles.cache.values()) {
+            if (adminRoles.has(role.id)) {
+              toRemove.push(role.id);
+            }
+          }
+        }
+
+        try {
+          if (toRemove.length > 0) {
+            await member.roles.remove(toRemove, 'ЧСА: снятие ролей администрации');
+          }
+          await member.roles.add(toAdd);
+        } catch (e) {
+          console.error(`[specialBlacklistReason] roles update failed for ${type}`, e);
+          roleOk = false;
+        }
       }
 
       await upsertSpecialBlacklist({
