@@ -271,6 +271,7 @@ async function handleDecision(
 	let dmEmbed: EmbedBuilder;
 
 	if (amnesty) {
+		const application = await getApplication(guildId, userId);
 		if (application) {
 			await amnestyApplication(guildId, userId);
 		}
@@ -280,18 +281,15 @@ async function handleDecision(
 		}
 
 		const roleToRemove = blacklistRoleFor(gc, type);
-		const [roleRemoved, application] = await Promise.all([
-			member
-				? member.roles
-						.remove(roleToRemove)
-						.then(() => true)
-						.catch((e) => {
-							console.error('[appealReview] roles.remove failed', e);
-							return false;
-						})
-				: Promise.resolve(true),
-			getApplication(guildId, userId),
-		]);
+		const roleRemoved = member
+			? await member.roles
+					.remove(roleToRemove)
+					.then(() => true)
+					.catch((e) => {
+						console.error('[appealReview] roles.remove failed', e);
+						return false;
+					})
+			: true;
 
 		if (member && !roleRemoved) {
 			warnings.push(
