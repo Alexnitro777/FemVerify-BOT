@@ -149,6 +149,8 @@ async function handleQuestion(
 						PermissionFlagsBits.ViewChannel,
 						PermissionFlagsBits.SendMessages,
 						PermissionFlagsBits.ReadMessageHistory,
+						PermissionFlagsBits.AttachFiles,
+						PermissionFlagsBits.EmbedLinks,
 					],
 				},
 				...gc.roles.ststaff.map((roleId) => ({
@@ -157,6 +159,8 @@ async function handleQuestion(
 						PermissionFlagsBits.ViewChannel,
 						PermissionFlagsBits.SendMessages,
 						PermissionFlagsBits.ReadMessageHistory,
+						PermissionFlagsBits.AttachFiles,
+						PermissionFlagsBits.EmbedLinks,
 					],
 				})),
 			],

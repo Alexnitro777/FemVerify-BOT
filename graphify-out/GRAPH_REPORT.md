@@ -1,7 +1,7 @@
-# Graph Report - FemVerify-BOT  (2026-10-21)
+# Graph Report - FemVerify-BOT  (2026-10-23)
 
 ## Corpus Check
-- 69 files · ~38,884 words
+- 69 files · ~38,892 words
 - Verdict: corpus is large enough that graph structure adds value.
 - Unclassified: 4 file(s) not represented in the graph (top: (none) 4)
 
@@ -11,7 +11,7 @@
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `bd9ff910`
+- Built from commit: `89e68102`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 

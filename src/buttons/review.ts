@@ -196,6 +196,8 @@ async function handleQuestion(
 						PermissionFlagsBits.ViewChannel,
 						PermissionFlagsBits.SendMessages,
 						PermissionFlagsBits.ReadMessageHistory,
+						PermissionFlagsBits.AttachFiles,
+						PermissionFlagsBits.EmbedLinks,
 					],
 				},
 				...staffRoles.map((roleId) => ({
@@ -204,6 +206,8 @@ async function handleQuestion(
 						PermissionFlagsBits.ViewChannel,
 						PermissionFlagsBits.SendMessages,
 						PermissionFlagsBits.ReadMessageHistory,
+						PermissionFlagsBits.AttachFiles,
+						PermissionFlagsBits.EmbedLinks,
 					],
 				})),
 			],
