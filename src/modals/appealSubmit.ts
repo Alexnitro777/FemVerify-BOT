@@ -118,7 +118,12 @@ const handler: ModalHandler = {
 		const row = buildAppealReviewButtons(interaction.user.id, undefined, type);
 
 		const msg = await (channel as TextChannel)
-			.send({ embeds: [embed], components: [row] })
+			.send({
+				content: `<@${interaction.user.id}>`,
+				embeds: [embed],
+				components: [row],
+				allowedMentions: { users: [interaction.user.id] },
+			})
 			.catch((e) => {
 				console.error('[appealSubmit] failed to post appeal message:', e);
 				return null;

@@ -137,7 +137,12 @@ const handler: ModalHandler = {
     const buttons = buildReviewButtons(interaction.user.id);
 
     const msg = await (channel as TextChannel)
-      .send({ embeds: [embed], components: [buttons] })
+      .send({
+        content: `<@${interaction.user.id}>`,
+        embeds: [embed],
+        components: [buttons],
+        allowedMentions: { users: [interaction.user.id] },
+      })
       .catch((e) => {
         console.error('[verifySubmit] failed to post review message:', e);
         return null;
