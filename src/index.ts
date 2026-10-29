@@ -21,6 +21,7 @@ import { mapWithConcurrency, logSettledFailures } from './concurrency';
 
 const SHUTDOWN_TIMEOUT_MS = 8_000;
 const COMMAND_REGISTRATION_CONCURRENCY = 5;
+const ALLOWED_GUILD_IDS = new Set(['1386381286754746439', '1478765997640122368']);
 
 async function bootstrap(): Promise<void> {
   console.log('[boot] starting...');
@@ -89,11 +90,22 @@ async function bootstrap(): Promise<void> {
 
   client.once(Events.ClientReady, (c) => {
     console.log(`Logged in as ${c.user.tag}`);
-    const guildList = [...c.guilds.cache.values()].map((g) => `  • ${g.name} (${g.id})`).join('\n');
-    console.log(`[boot] серверов в кэше: ${c.guilds.cache.size}\n${guildList}`);
 
     void (async () => {
-      const guildIds = [...c.guilds.cache.keys()];
+      for (const guild of c.guilds.cache.values()) {
+        if (!ALLOWED_GUILD_IDS.has(guild.id)) {
+          console.log(`[boot] покидаю неразрешённый сервер ${guild.name} (${guild.id})`);
+          await guild.leave().catch((e) =>
+            console.error('[boot] не удалось покинуть сервер', guild.id, e),
+          );
+        }
+      }
+
+      const allowedGuilds = [...c.guilds.cache.values()].filter((g) => ALLOWED_GUILD_IDS.has(g.id));
+      const guildList = allowedGuilds.map((g) => `  • ${g.name} (${g.id})`).join('\n');
+      console.log(`[boot] серверов в кэше: ${allowedGuilds.length}\n${guildList}`);
+
+      const guildIds = allowedGuilds.map((g) => g.id);
       await warmGuildConfigs(guildIds).catch((e) =>
         console.error('[boot] не удалось прогреть конфигурации гильдий', e),
       );
@@ -108,6 +120,13 @@ async function bootstrap(): Promise<void> {
   });
 
   client.on(Events.GuildCreate, (guild) => {
+    if (!ALLOWED_GUILD_IDS.has(guild.id)) {
+      console.log(`[guild] покидаю неразрешённый сервер ${guild.name} (${guild.id})`);
+      void guild.leave().catch((e) =>
+        console.error('[guild] не удалось покинуть сервер', guild.id, e),
+      );
+      return;
+    }
     invalidateGuildConfig(guild.id);
     void registerCommandsForGuild(guild.id, true).catch((e) =>
       console.error('[commands] не удалось зарегистрировать команды для новой гильдии', guild.id, e),

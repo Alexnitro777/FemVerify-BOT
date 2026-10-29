@@ -1,23 +1,19 @@
 {
-  "0": "storage.ts",
+  "0": "types.ts",
   "4": "ui.ts",
   "6": "environment",
   "7": "II-A. Со стороны УЧАСТНИКА",
+  "9": "logSettledFailures",
   "11": "I-B. Со стороны МОДЕРАТОРА",
   "12": "permissions.ts",
   "13": "Privileged Gateway Intents в FemVerify-BOT",
   "14": "README.md",
   "15": "Права доступа — кто что видит и может",
   "16": "5. Возможные исходы для участника после отправки",
-  "17": "discord.js",
+  "17": "storage.ts",
   "18": "FemVerify-BOT",
   "19": "Ponytail + Graphify, lazy senior dev mode",
   "20": "Architecture",
   "21": "Функции бота — краткий обзор",
-  "22": "types.ts",
-  "23": "GuildConfig",
-  "24": "questionCleanup.ts",
-  "25": "specialBlacklistHelper.ts",
-  "26": "3. Детали по каждому решению",
-  "27": "import_roles.ts"
+  "26": "3. Детали по каждому решению"
 }
