@@ -1,6 +1,6 @@
 # FemVerify-BOT
 
-Discord-бот для верификации участников через анкеты, с модерацией заявок и апелляциями. Дополнительно автоматически выдаёт роль за тег сервера (Server Tag) и защищает сервер с помощью каналов-ловушек (honeypot). Команды — слеш-команды (`/верификация`, `/апелляция`, `/внести` — owner; `/анкеты`, `/тег`, `/админстат`, `/синхронизировать` — staff/developer; `/амнистии`, `/выдатьчсп`, `/снятьчсп` — ststaff), данные хранятся во внешней **MySQL/MariaDB** (через `mysql2`). Бот **мультисерверный**: один процесс обслуживает все серверы, на которых он есть, а роли и каналы настраиваются для каждого сервера отдельно.
+Discord-бот для верификации участников через анкеты, с модерацией заявок и апелляциями. Дополнительно автоматически выдаёт роль за тег сервера (Server Tag) и защищает сервер с помощью каналов-ловушек (honeypot). Команды — слеш-команды (`/верификация`, `/апелляция`, `/внести` — owner; `/анкеты`, `/тег`, `/админстат` — staff; `/синхронизировать` — owner-id; `/амнистии`, `/выдатьчсп`, `/снятьчсп`, `/выдатьчсз`, `/снятьчсз`, `/выдатьчса`, `/снятьчса` — ststaff), данные хранятся во внешней **MySQL/MariaDB** (через `mysql2` + `drizzle-orm`). Бот **мультисерверный**: один процесс обслуживает все серверы, на которых он есть, а роли и каналы настраиваются для каждого сервера отдельно.
 
 > Краткий обзор всех возможностей — в [`docs/features.md`](docs/features.md). Подробный разбор всех сценариев верификации и апелляций — в [`docs/verification-and-appeals.md`](docs/verification-and-appeals.md). Справочник по правам доступа — в [`docs/permissions.md`](docs/permissions.md). Описание Gateway Intents — в [`docs/gateway-intents.md`](docs/gateway-intents.md). Текст заявки на intent — в [`docs/discord-intent-request.md`](docs/discord-intent-request.md).
 
@@ -16,9 +16,13 @@ FemVerify-BOT/
 │   │   ├── amnesties.ts       /амнистии (ststaff) — список непринятых апелляций
 │   │   ├── tag.ts             /тег (staff) — статистика по тегу сервера
 │   │   ├── adminstat.ts       /админстат (staff) — статистика модератора
-│   │   ├── chsp.ts            /выдатьчсп (ststaff) — занести участника в ЧС (снять все роли + роль ЧС)
-│   │   ├── unchsp.ts          /снятьчсп (ststaff) — снять участника с ЧС (убрать роль ЧС + вернуть роли)
-│   │   ├── import_roles.ts    /внести (owner) — внести роли в БД с отправкой логов
+│   │   ├── chsp.ts            /выдатьчсп (ststaff) — занести участника в ЧС проекта (снять все роли + роль ЧСП)
+│   │   ├── unchsp.ts          /снятьчсп (ststaff) — снять участника с ЧС проекта (убрать роль ЧСП + вернуть роли)
+│   │   ├── chsz.ts            /выдатьчсз (ststaff) — занести участника в ЧС знакомств (выдать роль ЧСЗ)
+│   │   ├── unchsz.ts          /снятьчсз (ststaff) — снять участника с ЧС знакомств (убрать роль ЧСЗ)
+│   │   ├── chsa.ts            /выдатьчса (ststaff) — занести участника в ЧС администрации (выдать роль ЧСА + снять стафф-роли)
+│   │   ├── unchsa.ts          /снятьчса (ststaff) — снять участника с ЧС администрации (убрать роль ЧСА)
+│   │   ├── import_roles.ts    /внести (owner) — внести участников с ролями верификации/ЧСП/ЧСЗ/ЧСА в БД с отправкой логов
 │   │   └── sync_all.ts        /синхронизировать (owner-id) — применить глобальный статус на все серверы
 │   ├── buttons/               Кнопки
 │   │   ├── verifyStart.ts     Старт анкеты (verify:start)
@@ -28,18 +32,21 @@ FemVerify-BOT/
 │   │   ├── appealReview.ts    3 действия по апелляции (amnesty/confirm_amnesty/deny/confirm_deny/cancel/question)
 │   │   ├── questionClose.ts   Закрытие канала-вопроса (question:close)
 │   │   ├── formsPage.ts       Пагинация очереди анкет (forms:page)
-│   │   └── amnestiesPage.ts   Пагинация очереди апелляций (amnesties:page)
+│   │   ├── amnestiesPage.ts   Пагинация очереди апелляций (amnesties:page)
+│   │   └── trapKicks.ts       Статистика автовыдач ЧСП через ловушку (trap:kicks)
 │   ├── modals/                Модалки
 │   │   ├── verifySubmit.ts    Отправка анкеты (verify:submit)
 │   │   ├── appealSubmit.ts    Отправка апелляции (appeal:submit)
 │   │   ├── reviewReason.ts    Причина отклонения / ЧС (review:reason)
-│   │   ├── chspReason.ts      Причина выдачи ЧС (chsp:reason)
-│   │   └── unchspReason.ts    Причина снятия ЧС (unchsp:reason)
+│   │   ├── chspReason.ts      Причина выдачи ЧСП (chsp:reason)
+│   │   ├── unchspReason.ts    Причина снятия ЧСП (unchsp:reason)
+│   │   └── specialBlacklistReason.ts  Причина выдачи/снятия ЧСЗ/ЧСА (special_bl:*)
 │   ├── handlers/
 │   │   ├── loader.ts          Автозагрузка команд / кнопок / модалок
 │   │   ├── registry.ts        Реестр обработчиков customId (точные + RegExp)
 │   │   └── interactionCreate.ts  Роутер интеракций + проверка доступа к командам
 │   ├── trapChannel.ts         Канал-ловушка (honeypot): удаление сообщения + автовыдача ЧСП
+│   ├── chsaProtection.ts     Защита ЧС-ролей от обхода: автовозврат при ручном снятии в Discord
 │   ├── roleTag.ts             Детект тега сервера + автовыдача/снятие роли
 │   ├── inviteTracker.ts       Трекинг инвайтов — определяет способ вступления
 │   ├── leaveCleanup.ts        Обработка выхода участника (статус left)
@@ -55,9 +62,11 @@ FemVerify-BOT/
 │   ├── permissions.ts         Проверка прав (admin / mod) по ролям из конфига сервера
 │   ├── roles.ts               Снятие ролей + выдача роли ЧС и возврат ролей при амнистии (общий помощник)
 │   ├── channels.ts            Удаление канала-вопроса (общий помощник)
+│   ├── specialBlacklistHelper.ts  Фабрика команд ЧСЗ/ЧСА (buildSpecialBlacklistCommand)
 │   ├── concurrency.ts         Ограничение параллелизма для фоновых проходов
 │   ├── questions.ts           Вопросы анкеты (5 полей) и апелляции (1 поле) — лимит Discord 5
-│   ├── storage.ts             MySQL (mysql2): applications, appeals, counters, join_methods, guild_settings, app_config, user_history
+│   ├── storage.ts             MySQL (mysql2 + drizzle-orm): applications, appeals, counters, join_methods, guild_settings, app_config, special_blacklists, questions
+│   ├── schema.ts              Drizzle ORM: декларации таблиц
 │   ├── sync.ts                Глобальная синхронизация статуса пользователей между серверами (ЧСП/Верификация)
 │   ├── ui.ts                  Построение embed и кнопок
 │   ├── types.ts               Общие типы
