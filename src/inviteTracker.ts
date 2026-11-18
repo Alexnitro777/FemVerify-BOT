@@ -124,6 +124,22 @@ async function cacheGuildInvites(guild: Guild): Promise<void> {
       : null;
 }
 
+async function detectVanityJoin(guild: Guild, state: GuildInviteState): Promise<string | undefined> {
+  if (!guild.features.includes('VANITY_URL')) return undefined;
+  try {
+    const vanity = await withTimeout(guild.fetchVanityData(), 2_000, 'fetchVanityData');
+    const uses = typeof vanity.uses === 'number' ? vanity.uses : null;
+    const previousUses = state.vanityUses;
+    state.vanityUses = uses;
+    if (previousUses !== null && uses !== null && uses > previousUses) {
+      return vanity.code ? `https://discord.gg/${vanity.code}` : VANITY;
+    }
+  } catch (error: unknown) {
+    console.log(`[inviteTracker] ${guild.name}: vanity-данные недоступны (${(error as Error)?.message})`);
+  }
+  return undefined;
+}
+
 async function detectJoinMethod(guild: Guild): Promise<string> {
   const state = stateFor(guild.id);
   const now = Date.now();
@@ -148,6 +164,8 @@ async function detectJoinMethod(guild: Guild): Promise<string> {
 
   if (snapshotSize === 0) {
     snapshotInvites(guild.id, fresh);
+    const vanityMethod = await detectVanityJoin(guild, state);
+    if (vanityMethod) return vanityMethod;
     console.warn(
       `[inviteTracker] ${guild.name}: снапшот был пустым — не можем определить способ входа. Снапшот обновлён.`,
     );
@@ -223,19 +241,8 @@ async function detectJoinMethod(guild: Guild): Promise<string> {
     return formatInviter(code, credit.inviterId);
   }
 
-  if (guild.features.includes('VANITY_URL')) {
-    try {
-      const vanity = await withTimeout(guild.fetchVanityData(), 2_000, 'fetchVanityData');
-      const uses = typeof vanity.uses === 'number' ? vanity.uses : null;
-      const prevVanity = state.vanityUses;
-      state.vanityUses = uses;
-      if (prevVanity !== null && uses !== null && uses > prevVanity) {
-        return vanity.code ? `https://discord.gg/${vanity.code}` : VANITY;
-      }
-    } catch (err: any) {
-      console.log(`[inviteTracker] ${guild.name}: vanity-данные недоступны (${err?.message})`);
-    }
-  }
+  const vanityMethod = await detectVanityJoin(guild, state);
+  if (vanityMethod) return vanityMethod;
 
   if (weak.size === 1) {
     const code = weak.keys().next().value as string;

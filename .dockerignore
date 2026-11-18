@@ -11,6 +11,7 @@ Dockerfile
 README.md
 CLAUDE.md
 BUGS.md
+FIX_REPORT.md
 docs/
 *.log
 npm-debug.log*

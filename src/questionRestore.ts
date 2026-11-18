@@ -3,9 +3,10 @@ import {
   getApplicationByQuestionChannel,
   getAppealByQuestionChannel,
   updateApplication,
-  updateAppeal,
+  updateAppealById,
 } from './storage';
 import { buildReviewButtons, buildAppealReviewButtons } from './ui';
+import { runUserExclusive } from './concurrency';
 
 async function editReviewMessage(
   client: Client,
@@ -34,22 +35,30 @@ async function editReviewMessage(
 export async function restoreReviewButton(client: Client, channelId: string): Promise<void> {
   const app = await getApplicationByQuestionChannel(channelId);
   if (app) {
-    await updateApplication(app.guildId, app.userId, { questionChannelId: undefined });
-    if (app.status === 'pending') {
-      await editReviewMessage(client, app.reviewMessageUrl, buildReviewButtons(app.userId));
-    }
+    await runUserExclusive(app.userId, async () => {
+      const current = await getApplicationByQuestionChannel(channelId);
+      if (!current) return;
+      const updated = await updateApplication(current.guildId, current.userId, { questionChannelId: undefined });
+      if (updated?.status === 'pending') {
+        await editReviewMessage(client, current.reviewMessageUrl, buildReviewButtons(current.userId, undefined, current.number));
+      }
+    });
     return;
   }
 
   const appeal = await getAppealByQuestionChannel(channelId);
   if (appeal) {
-    await updateAppeal(appeal.guildId, appeal.userId, { questionChannelId: undefined });
-    if (appeal.status === 'pending') {
-      await editReviewMessage(
-        client,
-        appeal.reviewMessageUrl,
-        buildAppealReviewButtons(appeal.userId),
-      );
-    }
+    await runUserExclusive(appeal.userId, async () => {
+      const current = await getAppealByQuestionChannel(channelId);
+      if (!current) return;
+      const updated = await updateAppealById(current.guildId, current.id, { questionChannelId: undefined });
+      if (updated?.status === 'pending') {
+        await editReviewMessage(
+          client,
+          current.reviewMessageUrl,
+          buildAppealReviewButtons(current.userId, undefined, current.blacklistType, current.id),
+        );
+      }
+    });
   }
 }

@@ -9,9 +9,11 @@ import {
 	Message,
 	TextChannel,
 	AttachmentBuilder,
+	ModalBuilder,
+	TextInputBuilder,
 } from 'discord.js';
 import { Application, GuildConfig, ModeratorStats } from './types';
-import { verifyQuestions } from './questions';
+import { verifyQuestions, appealQuestions } from './questions';
 import { isOwner } from './permissions';
 
 export function buildApplicationEmbed(
@@ -93,13 +95,29 @@ export function buildAppealEmbed(
 	}
 
 	const rawValue = text.trim() || '—';
-	if (rawValue === '—') {
-		embed.addFields({ name: 'Текст апелляции', value: '—' });
-	} else {
-		const truncated = rawValue.length > 1000 ? rawValue.slice(0, 1000) + '...' : rawValue;
-		embed.addFields({ name: 'Текст апелляции', value: `\`${truncated}\`` });
+	for (let offset = 0; offset < rawValue.length;) {
+		let end = Math.min(offset + 1000, rawValue.length);
+		if (end < rawValue.length && /[\uD800-\uDBFF]/.test(rawValue[end - 1]) && /[\uDC00-\uDFFF]/.test(rawValue[end])) end -= 1;
+		embed.addFields({
+			name: offset === 0 ? 'Текст апелляции' : 'Текст апелляции — продолжение',
+			value: rawValue.slice(offset, end),
+		});
+		offset = end;
 	}
 	return embed;
+}
+
+export function buildAppealModal(type: string): ModalBuilder {
+	const modal = new ModalBuilder().setCustomId(`appeal:submit:${type}`).setTitle(`Апелляция: ${type}`);
+	modal.addComponents(...appealQuestions.slice(0, 5).map((q) => {
+		const input = new TextInputBuilder()
+			.setCustomId(q.id).setLabel(q.label).setStyle(q.style).setRequired(q.required);
+		if (q.minLength) input.setMinLength(q.minLength);
+		if (q.maxLength) input.setMaxLength(q.maxLength);
+		if (q.placeholder) input.setPlaceholder(q.placeholder);
+		return new ActionRowBuilder<TextInputBuilder>().addComponents(input);
+	}));
+	return modal;
 }
 
 const PAGE_SIZE = 10;
@@ -168,7 +186,9 @@ export function buildPendingListView(
 export function buildReviewButtons(
 	userId: string,
 	questionChannelUrl?: string,
+	number?: number,
 ): ActionRowBuilder<ButtonBuilder> {
+	const suffix = number === undefined ? userId : `${userId}:${number}`;
 	const questionButton = questionChannelUrl
 		? new ButtonBuilder()
 				.setLabel('Перейти к вопросу')
@@ -176,25 +196,25 @@ export function buildReviewButtons(
 				.setURL(questionChannelUrl)
 				.setEmoji('❓')
 		: new ButtonBuilder()
-				.setCustomId(`review:question:${userId}`)
+				.setCustomId(`review:question:${suffix}`)
 				.setLabel('Задать вопрос')
 				.setStyle(ButtonStyle.Primary)
 				.setEmoji('❓');
 
 	return new ActionRowBuilder<ButtonBuilder>().addComponents(
 		new ButtonBuilder()
-			.setCustomId(`review:approve:${userId}`)
+			.setCustomId(`review:approve:${suffix}`)
 			.setLabel('Принять')
 			.setStyle(ButtonStyle.Success)
 			.setEmoji('✅'),
 		new ButtonBuilder()
-			.setCustomId(`review:reject:${userId}`)
+			.setCustomId(`review:reject:${suffix}`)
 			.setLabel('Отклонить')
 			.setStyle(ButtonStyle.Danger)
 			.setEmoji('❌'),
 		questionButton,
 		new ButtonBuilder()
-			.setCustomId(`review:blacklist:${userId}`)
+			.setCustomId(`review:blacklist:${suffix}`)
 			.setLabel('ЧС')
 			.setStyle(ButtonStyle.Secondary)
 			.setEmoji('🚫'),
@@ -205,8 +225,10 @@ export function buildAppealReviewButtons(
 	userId: string,
 	questionChannelUrl?: string,
 	blacklistType?: string,
+	appealId?: number,
 ): ActionRowBuilder<ButtonBuilder> {
-	const idSuffix = blacklistType ? `${userId}_${blacklistType}` : userId;
+	const typedSuffix = blacklistType ? `${userId}_${blacklistType}` : userId;
+	const idSuffix = appealId === undefined ? typedSuffix : `${typedSuffix}:${appealId}`;
 
 	const questionButton = questionChannelUrl
 		? new ButtonBuilder()
@@ -588,13 +610,13 @@ export async function postQuestionLogMessage(
 	channelId: string | undefined,
 	info: QuestionLogInfo,
 	transcript: string,
-): Promise<void> {
-	if (!channelId) return;
+): Promise<boolean> {
+	if (!channelId) return false;
 	try {
 		const channel = await client.channels.fetch(channelId).catch(() => null);
 		if (!channel || !channel.isTextBased()) {
 			console.error('[questionLog] log channel unavailable:', channelId);
-			return;
+			return false;
 		}
 		const embed = buildQuestionLogEmbed(info);
 		const linkRow = info.reviewMessageUrl && info.kind
@@ -610,8 +632,10 @@ export async function postQuestionLogMessage(
 			files: [attachment],
 			components: linkRow ? [linkRow] : [],
 		});
+		return true;
 	} catch (e) {
 		console.error('[questionLog] failed to post question log message', e);
+		return false;
 	}
 }
 

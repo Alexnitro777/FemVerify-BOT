@@ -7,7 +7,8 @@ COPY package.json package-lock.json ./
 RUN npm ci
 COPY tsconfig.json ./
 COPY src ./src
-RUN npm run build && npm prune --omit=dev && npm cache clean --force
+COPY tests ./tests
+RUN npm test && npm prune --omit=dev && npm cache clean --force
 
 FROM node:24.18.0-slim AS runtime
 WORKDIR /app

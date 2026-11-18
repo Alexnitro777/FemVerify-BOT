@@ -2,10 +2,12 @@ import { Client, Events, Guild, GuildBasedChannel } from 'discord.js';
 import {
   listApplicationQuestionChannelIds,
   listAppealQuestionChannelIds,
+  listRecordedQuestions,
+  getApplicationByQuestionChannel,
+  getAppealByQuestionChannel,
 } from './storage';
 import { restoreReviewButton } from './questionRestore';
-import { mapWithConcurrency, logSettledFailures } from './concurrency';
-import { getGuildConfig } from './guildConfig';
+import { mapWithConcurrency, logSettledFailures, runUserExclusive } from './concurrency';
 import { deleteQuestionChannel } from './channels';
 
 const QUESTION_TTL_MS = 2 * 24 * 60 * 60_000;
@@ -17,6 +19,12 @@ const SWEEP_INTERVAL_MS = Math.min(
 
 const SWEEP_CONCURRENCY = 5;
 
+interface QuestionTarget {
+  channelId: string;
+  kind: 'application' | 'appeal';
+  userId?: string;
+}
+
 function isChannelNotFoundError(err: unknown): boolean {
   const status = (err as { status?: number })?.status;
   const code = (err as { code?: number })?.code;
@@ -27,115 +35,97 @@ async function sweepQuestionChannel(
   client: Client,
   guild: Guild,
   now: number,
-  channelId: string,
-  ttlDelete: boolean,
+  target: QuestionTarget,
 ): Promise<void> {
-  let channel: GuildBasedChannel | null = null;
-  try {
-    channel = await guild.channels.fetch(channelId);
-  } catch (err: unknown) {
-    if (isChannelNotFoundError(err)) {
+  const { channelId, kind } = target;
+  const reference = kind === 'appeal'
+    ? await getAppealByQuestionChannel(channelId)
+    : await getApplicationByQuestionChannel(channelId);
+  const userId = target.userId ?? reference?.userId;
+  if (!userId) return;
+
+  await runUserExclusive(userId, async () => {
+    const current = kind === 'appeal'
+      ? await getAppealByQuestionChannel(channelId)
+      : await getApplicationByQuestionChannel(channelId);
+    let channel: GuildBasedChannel | null = null;
+    try {
+      channel = await guild.channels.fetch(channelId);
+    } catch (err: unknown) {
+      if (isChannelNotFoundError(err)) {
+        await restoreReviewButton(client, channelId);
+        return;
+      }
+      console.error('[questionCleanup] не удалось получить канал', channelId, err);
+      return;
+    }
+
+    if (!channel) {
       await restoreReviewButton(client, channelId);
       return;
     }
-    console.error('[questionCleanup] не удалось получить канал', channelId, err);
-    return;
-  }
 
-  if (!channel) {
-    await restoreReviewButton(client, channelId);
-    return;
-  }
+    if (current?.status === 'pending') {
+      if (kind === 'appeal') return;
+      const createdAt = channel.createdTimestamp;
+      if (createdAt === null || now - createdAt < QUESTION_TTL_MS) return;
+    }
 
-  if (!ttlDelete) return;
-
-  const createdAt = channel.createdTimestamp;
-  if (createdAt === null) return;
-  if (now - createdAt < QUESTION_TTL_MS) return;
-
-  const deleted = await deleteQuestionChannel(
-    guild,
-    channel.id,
-    'Автоудаление: вопрос не закрыли вовремя',
-  );
-  if (deleted) {
-    console.log(`[questionCleanup] удалён канал вопроса ${channel.name} (${channel.id})`);
-  }
-
-  await restoreReviewButton(client, channelId);
-}
-
-async function sweepCategoryOrphans(
-  client: Client,
-  guild: Guild,
-  now: number,
-  categoryId: string,
-  exemptChannelIds: Set<string>,
-  trackedChannelIds: Set<string>,
-): Promise<void> {
-  const fetchedChannels = await guild.channels.fetch().catch(() => guild.channels.cache);
-  const orphans = [...fetchedChannels.values()].filter((c): c is GuildBasedChannel => {
-    if (!c || c.parentId !== categoryId || !c.isTextBased()) return false;
-    if (exemptChannelIds.has(c.id)) return false;
-    if (trackedChannelIds.has(c.id)) return false;
-    const createdAt = c.createdTimestamp;
-    if (createdAt === null) return false;
-    return now - createdAt >= QUESTION_TTL_MS;
+    const deleted = await deleteQuestionChannel(
+      guild,
+      channel.id,
+      {
+        reason: current?.status === 'pending'
+          ? 'Автоудаление: вопрос не закрыли вовремя'
+          : 'Завершённый канал-вопрос',
+        targetUserId: userId,
+        number: current?.number,
+        reviewMessageUrl: current?.reviewMessageUrl,
+        kind,
+      },
+    );
+    if (deleted) {
+      console.log(`[questionCleanup] удалён канал вопроса ${channel.name} (${channel.id})`);
+      await restoreReviewButton(client, channelId);
+    }
   });
-
-  if (orphans.length === 0) return;
-
-  logSettledFailures(
-    'questionCleanup',
-    await mapWithConcurrency(orphans, SWEEP_CONCURRENCY, async (channel) => {
-      if (!channel) return;
-      const deleted = await deleteQuestionChannel(
-        guild,
-        channel.id,
-        'Автоудаление: вопрос не закрыли вовремя',
-      );
-      if (deleted) {
-        console.log(`[questionCleanup] удалён осиротевший канал-вопрос ${channel.name} (${channel.id})`);
-      }
-      await restoreReviewButton(client, channel.id);
-    }),
-  );
 }
 
 async function sweepGuild(client: Client, guild: Guild, now: number): Promise<void> {
-  const gc = await getGuildConfig(guild.id);
-  const [applicationChannelIds, appealChannelIds] = await Promise.all([
+  const [applicationChannelIds, appealChannelIds, recorded, channels] = await Promise.all([
     listApplicationQuestionChannelIds(guild.id),
     listAppealQuestionChannelIds(guild.id),
+    listRecordedQuestions(guild.id),
+    guild.channels.fetch().catch(() => null),
   ]);
-
-  const targets = [
-    ...applicationChannelIds.map((channelId) => ({ channelId, ttlDelete: true })),
-    ...appealChannelIds.map((channelId) => ({ channelId, ttlDelete: false })),
-  ];
-
-  if (targets.length > 0) {
-    logSettledFailures(
-      'questionCleanup',
-      await mapWithConcurrency(targets, SWEEP_CONCURRENCY, (target) =>
-        sweepQuestionChannel(client, guild, now, target.channelId, target.ttlDelete),
-      ),
-    );
+  const targets = new Map<string, QuestionTarget>();
+  for (const channel of channels?.values() ?? []) {
+    if (!channel || !('topic' in channel) || typeof channel.topic !== 'string') continue;
+    const marker = /^femverify:question:(application|appeal):(\d+):(?:\d+|undefined)$/.exec(channel.topic);
+    if (marker) {
+      targets.set(channel.id, {
+        channelId: channel.id,
+        kind: marker[1] as 'application' | 'appeal',
+        userId: marker[2],
+      });
+    }
+  }
+  for (const entry of recorded) {
+    if (channels?.has(entry.channelId)) targets.set(entry.channelId, entry);
+  }
+  for (const channelId of applicationChannelIds) {
+    targets.set(channelId, { ...targets.get(channelId), channelId, kind: 'application' });
+  }
+  for (const channelId of appealChannelIds) {
+    targets.set(channelId, { ...targets.get(channelId), channelId, kind: 'appeal' });
   }
 
-  if (gc?.questionCategoryId) {
-    const trackedChannelIds = new Set([
-      ...applicationChannelIds,
-      ...appealChannelIds,
-    ]);
-    const appealIds = new Set(appealChannelIds);
-    await sweepCategoryOrphans(
-      client,
-      guild,
-      now,
-      gc.questionCategoryId,
-      appealIds,
-      trackedChannelIds,
+  if (targets.size > 0) {
+    logSettledFailures(
+      'questionCleanup',
+      await mapWithConcurrency([...targets.values()], SWEEP_CONCURRENCY, (target) =>
+        sweepQuestionChannel(client, guild, now, target),
+      ),
     );
   }
 }

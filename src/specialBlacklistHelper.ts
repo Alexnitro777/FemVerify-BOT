@@ -11,6 +11,7 @@ import {
 } from 'discord.js';
 import { SlashCommand, GuildConfig } from './types';
 import { canManageByHierarchy } from './permissions';
+import { getSpecialBlacklist } from './storage';
 
 function getRoleAndName(gc: GuildConfig, type: 'ЧСЗ' | 'ЧСА') {
   if (type === 'ЧСЗ') {
@@ -62,11 +63,12 @@ export function buildSpecialBlacklistCommand(type: 'ЧСЗ' | 'ЧСА', action: 
         return;
       }
 
-      const [target, moderator] = await Promise.all([
+      const [target, moderator, existing] = await Promise.all([
         interaction.guild.members.cache.get(user.id) ??
           interaction.guild.members.fetch(user.id).catch(() => null),
         interaction.guild.members.cache.get(interaction.user.id) ??
           interaction.guild.members.fetch(interaction.user.id).catch(() => null),
+        getSpecialBlacklist(interaction.guild.id, user.id, type),
       ]);
 
       const hasRole = target?.roles.cache.has(roleId);
@@ -78,7 +80,7 @@ export function buildSpecialBlacklistCommand(type: 'ЧСЗ' | 'ЧСА', action: 
         return;
       }
 
-      if (!isAdd && target && !hasRole) {
+      if (!isAdd && !hasRole && !existing) {
         await interaction.reply({
           content: `Участник не имеет роли ${name}.`,
           flags: MessageFlags.Ephemeral,

@@ -83,6 +83,7 @@ export interface Application {
 }
 
 export interface Appeal {
+  id: number;
   userId: string;
   guildId: string;
   username: string;
@@ -98,6 +99,8 @@ export interface Appeal {
   blacklistType?: string;
   number?: number;
 }
+
+export type AppealSubmission = Omit<Appeal, 'id'>;
 
 export interface ModeratorStats {
   moderatorId: string;

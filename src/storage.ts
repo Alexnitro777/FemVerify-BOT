@@ -1,7 +1,9 @@
-import { eq, and, desc, isNotNull, inArray, lt } from 'drizzle-orm';
+import { eq, and, desc, isNotNull, inArray, lt, isNull } from 'drizzle-orm';
 import { db, pool } from './db';
 import * as schema from './schema';
-import { Application, ApplicationStatus, Appeal, AppealStatus, ModeratorStats } from './types';
+import { Application, ApplicationStatus, Appeal, AppealSubmission, AppealStatus, ModeratorStats } from './types';
+import { APPEAL_DENY_COOLDOWN_MS, APPEAL_LIMIT_PER_TYPE } from './appealPolicy';
+export { APPEAL_DENY_COOLDOWN_MS, APPEAL_LIMIT_PER_TYPE } from './appealPolicy';
 
 async function addColumnIfMissing(table: string, definition: string): Promise<void> {
   try {
@@ -49,6 +51,7 @@ export async function initStorage(): Promise<void> {
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS appeals (
+      id INT AUTO_INCREMENT PRIMARY KEY,
       guildId VARCHAR(32) NOT NULL,
       userId VARCHAR(32) NOT NULL,
       username VARCHAR(255) NOT NULL,
@@ -63,7 +66,7 @@ export async function initStorage(): Promise<void> {
       blacklistReason TEXT NULL,
       blacklistType VARCHAR(16) NULL,
       number INT NULL,
-      PRIMARY KEY (guildId, userId)
+      INDEX idx_guild_user (guildId, userId)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   `);
 
@@ -139,13 +142,9 @@ export async function initStorage(): Promise<void> {
   await addColumnIfMissing('appeals', 'blacklistType VARCHAR(16) NULL');
   await addColumnIfMissing('appeals', 'number INT NULL');
 
-  try {
-    const [cols] = await pool.query("SHOW COLUMNS FROM appeals LIKE 'id'");
-    if ((cols as any[]).length === 0) {
-      await pool.query("ALTER TABLE appeals DROP PRIMARY KEY, ADD COLUMN id INT AUTO_INCREMENT PRIMARY KEY FIRST, ADD INDEX idx_guild_user (guildId, userId)");
-    }
-  } catch (err) {
-    console.error("Migration error for appeals:", err);
+  const [appealIdColumns] = await pool.query("SHOW COLUMNS FROM appeals LIKE 'id'");
+  if ((appealIdColumns as unknown[]).length === 0) {
+    await pool.query('ALTER TABLE appeals DROP PRIMARY KEY, ADD COLUMN id INT AUTO_INCREMENT PRIMARY KEY FIRST, ADD INDEX idx_guild_user (guildId, userId)');
   }
 
   await addIndexIfMissing('applications', 'idx_applications_user_status', 'userId, status');
@@ -390,10 +389,14 @@ export async function reserveApplication(app: Application): Promise<boolean> {
   try {
     await conn.beginTransaction();
     const [rows] = await conn.execute<any[]>(
-      'SELECT status FROM applications WHERE guildId = ? AND userId = ? FOR UPDATE',
-      [app.guildId, app.userId],
+      'SELECT guildId, status, removedRoles FROM applications WHERE userId = ? FOR UPDATE',
+      [app.userId],
     );
-    if (rows.length && rows[0].status === 'pending') {
+    if (
+      rows.some((row) => row.status === 'blacklisted') ||
+      rows.some((row) => row.guildId === app.guildId && row.removedRoles && JSON.parse(row.removedRoles).length > 0) ||
+      rows.some((row) => row.guildId === app.guildId && ['pending', 'approved'].includes(row.status))
+    ) {
       await conn.rollback();
       return false;
     }
@@ -448,10 +451,13 @@ export async function claimApplicationQuestionChannel(
   userId: string,
   newId: string | null,
   oldId: string | null,
+  expectedNumber?: number,
 ): Promise<boolean> {
   const [result] = await pool.execute<any>(
-    'UPDATE applications SET questionChannelId = ? WHERE guildId = ? AND userId = ? AND questionChannelId <=> ?',
-    [newId, guildId, userId, oldId],
+    `UPDATE applications SET questionChannelId = ?
+     WHERE guildId = ? AND userId = ? AND status = 'pending' AND questionChannelId <=> ?
+       ${expectedNumber !== undefined ? 'AND number = ?' : ''}`,
+    [newId, guildId, userId, oldId, ...(expectedNumber !== undefined ? [expectedNumber] : [])],
   );
   return result.affectedRows === 1;
 }
@@ -533,30 +539,38 @@ export async function upsertBlacklistedApplication(entry: {
   removedRoles?: string[];
   keepExistingReason?: boolean;
 }): Promise<void> {
-  const removedRoles = entry.removedRoles?.length ? JSON.stringify(entry.removedRoles) : null;
-  const reasonAssignment = entry.keepExistingReason
-    ? 'reason = COALESCE(reason, VALUES(reason)), reviewerId = COALESCE(reviewerId, VALUES(reviewerId))'
-    : 'reason = VALUES(reason), reviewerId = VALUES(reviewerId)';
-
-  await pool.execute(
-    `INSERT INTO applications (
-       guildId, userId, username, answers, submittedAt, status, reason, reviewerId, removedRoles
-     ) VALUES (?, ?, ?, '{}', ?, 'blacklisted', ?, ?, ?)
-     ON DUPLICATE KEY UPDATE
-       status = 'blacklisted',
-       ${reasonAssignment},
-       questionChannelId = NULL,
-       removedRoles = COALESCE(VALUES(removedRoles), removedRoles)`,
-    [
-      entry.guildId,
-      entry.userId,
-      entry.username,
-      Date.now(),
-      entry.reason,
-      entry.reviewerId,
-      removedRoles,
-    ],
-  );
+  const conn = await pool.getConnection();
+  try {
+    await conn.beginTransaction();
+    const [rows] = await conn.execute<any[]>(
+      'SELECT status, reason, reviewerId, removedRoles FROM applications WHERE guildId = ? AND userId = ? FOR UPDATE',
+      [entry.guildId, entry.userId],
+    );
+    const existing = rows[0];
+    const previousRoles: string[] = existing?.removedRoles ? JSON.parse(existing.removedRoles) : [];
+    const mergedRoles = [...new Set([...previousRoles, ...(entry.removedRoles ?? [])])];
+    const preserveReason = entry.keepExistingReason && existing?.status === 'blacklisted';
+    await conn.execute(
+      `INSERT INTO applications (
+         guildId, userId, username, answers, submittedAt, status, reason, reviewerId, removedRoles
+       ) VALUES (?, ?, ?, '{}', ?, 'blacklisted', ?, ?, ?)
+       ON DUPLICATE KEY UPDATE
+         username = VALUES(username), status = 'blacklisted', reason = VALUES(reason),
+         reviewerId = VALUES(reviewerId), questionChannelId = NULL, removedRoles = VALUES(removedRoles)`,
+      [
+        entry.guildId, entry.userId, entry.username, Date.now(),
+        preserveReason ? existing.reason ?? entry.reason : entry.reason,
+        preserveReason ? existing.reviewerId ?? entry.reviewerId : entry.reviewerId,
+        mergedRoles.length ? JSON.stringify(mergedRoles) : null,
+      ],
+    );
+    await conn.commit();
+  } catch (error) {
+    await conn.rollback().catch(() => undefined);
+    throw error;
+  } finally {
+    conn.release();
+  }
 }
 
 export async function upsertVerifiedApplication(entry: {
@@ -670,11 +684,26 @@ export async function removeSpecialBlacklist(
   );
 }
 
-export async function amnestyApplication(guildId: string, userId: string): Promise<void> {
-  await pool.execute(
-    "UPDATE applications SET status = 'amnestied', removedRoles = NULL WHERE guildId = ? AND userId = ?",
+export async function amnestyApplication(guildId: string, userId: string): Promise<boolean> {
+  const [result] = await pool.execute<any>(
+    "UPDATE applications SET status = 'amnestied' WHERE guildId = ? AND userId = ? AND status = 'blacklisted'",
     [guildId, userId],
   );
+  return result.affectedRows === 1;
+}
+
+export async function clearApplicationRemovedRoles(
+  guildId: string,
+  userId: string,
+  expectedRoles?: string[],
+): Promise<boolean> {
+  const [result] = await pool.execute<any>(
+    `UPDATE applications SET removedRoles = NULL
+     WHERE guildId = ? AND userId = ? AND status = 'amnestied'
+       ${expectedRoles !== undefined ? 'AND removedRoles <=> ?' : ''}`,
+    [guildId, userId, ...(expectedRoles !== undefined ? [expectedRoles.length ? JSON.stringify(expectedRoles) : null] : [])],
+  );
+  return result.affectedRows === 1;
 }
 
 export async function setApplicationRemovedRoles(
@@ -693,11 +722,47 @@ export async function updateApplication(
   userId: string,
   patch: Partial<Application>,
 ): Promise<Application | undefined> {
-  const current = await getApplication(guildId, userId);
-  if (!current) return undefined;
-  const updated = { ...current, ...patch };
-  await saveApplication(updated);
-  return updated;
+  const values = applicationPatchValues(patch);
+  if (Object.keys(values).length > 0) {
+    await db
+      .update(schema.applications)
+      .set(values)
+      .where(and(eq(schema.applications.guildId, guildId), eq(schema.applications.userId, userId)));
+  }
+  return getApplication(guildId, userId);
+}
+
+function applicationPatchValues(patch: Partial<Application>): Partial<typeof schema.applications.$inferInsert> {
+  const values: Record<string, unknown> = {};
+  for (const key of Object.keys(patch) as Array<keyof Application>) {
+    if (key === 'guildId' || key === 'userId') continue;
+    const value = patch[key];
+    values[key] = key === 'answers' || key === 'removedRoles'
+      ? value === undefined ? null : JSON.stringify(value)
+      : value ?? null;
+  }
+  return values as Partial<typeof schema.applications.$inferInsert>;
+}
+
+export async function rollbackApplicationClaim(
+  guildId: string,
+  userId: string,
+  fromStatus: ApplicationStatus,
+  expectedNumber: number | undefined,
+  patch: Partial<Application>,
+): Promise<boolean> {
+  const values = applicationPatchValues(patch);
+  if (Object.keys(values).length === 0) return false;
+  const result = await db
+    .update(schema.applications)
+    .set(values)
+    .where(and(
+      eq(schema.applications.guildId, guildId),
+      eq(schema.applications.userId, userId),
+      eq(schema.applications.status, fromStatus),
+      expectedNumber !== undefined ? eq(schema.applications.number, expectedNumber) : isNull(schema.applications.number),
+    ));
+  return result[0].affectedRows === 1;
 }
 
 export interface ClaimedApplication {
@@ -714,16 +779,28 @@ export async function claimApplication(
   to: ApplicationStatus,
   reviewerId: string,
   reason?: string,
+  expectedNumber?: number,
 ): Promise<ClaimedApplication | null> {
   const conn = await pool.getConnection();
   try {
     await conn.beginTransaction();
+    if (to === 'approved') {
+      const [statuses] = await conn.execute<any[]>(
+        'SELECT status FROM applications WHERE userId = ? FOR UPDATE',
+        [userId],
+      );
+      if (statuses.some((row) => row.status === 'blacklisted')) {
+        await conn.rollback();
+        return null;
+      }
+    }
     const [rows] = await conn.execute<any[]>(
       `SELECT username, number, reviewMessageUrl, questionChannelId, removedRoles
        FROM applications
        WHERE guildId = ? AND userId = ? AND status = 'pending'
+         ${expectedNumber !== undefined ? 'AND number = ?' : ''}
        FOR UPDATE`,
-      [guildId, userId],
+      [guildId, userId, ...(expectedNumber !== undefined ? [expectedNumber] : [])],
     );
     if (rows.length === 0) {
       await conn.rollback();
@@ -777,6 +854,7 @@ export async function markApplicationLeft(
 
 function rowToAppeal(row: typeof schema.appeals.$inferSelect): Appeal {
   return {
+    id: row.id,
     userId: row.userId,
     guildId: row.guildId,
     username: row.username,
@@ -794,7 +872,7 @@ function rowToAppeal(row: typeof schema.appeals.$inferSelect): Appeal {
   };
 }
 
-export async function saveAppeal(appeal: Appeal): Promise<void> {
+export async function saveAppeal(appeal: AppealSubmission): Promise<void> {
   const values = {
     guildId: appeal.guildId,
     userId: appeal.userId,
@@ -833,19 +911,31 @@ export async function saveAppeal(appeal: Appeal): Promise<void> {
     });
 }
 
-export async function reserveAppeal(appeal: Appeal): Promise<boolean> {
+export async function reserveAppeal(appeal: AppealSubmission): Promise<boolean> {
+  return (await reserveAppealSubmission(appeal)) !== false;
+}
+
+export async function reserveAppealSubmission(appeal: AppealSubmission): Promise<number | false> {
   const conn = await pool.getConnection();
   try {
     await conn.beginTransaction();
     const [rows] = await conn.execute<any[]>(
-      'SELECT status FROM appeals WHERE guildId = ? AND userId = ? AND (blacklistType = ? OR blacklistType IS NULL) FOR UPDATE',
-      [appeal.guildId, appeal.userId, appeal.blacklistType ?? null],
+      `SELECT id, status, resolvedAt FROM appeals
+       WHERE guildId = ? AND userId = ?
+         AND (blacklistType = ? ${!appeal.blacklistType || appeal.blacklistType === 'ЧСП' ? 'OR blacklistType IS NULL' : ''})
+       ORDER BY submittedAt DESC, id DESC FOR UPDATE`,
+      [appeal.guildId, appeal.userId, appeal.blacklistType ?? 'ЧСП'],
     );
-    if (rows.length && rows.some(r => r.status === 'pending')) {
+    if (
+      rows.length >= APPEAL_LIMIT_PER_TYPE ||
+      rows.some((row) => row.status === 'pending') ||
+      (rows[0]?.status === 'denied' && rows[0].resolvedAt !== null &&
+        Date.now() < Number(rows[0].resolvedAt) + APPEAL_DENY_COOLDOWN_MS)
+    ) {
       await conn.rollback();
       return false;
     }
-    await conn.execute(
+    const [result] = await conn.execute<any>(
       `INSERT INTO appeals (
         guildId, userId, username, text, submittedAt, status,
         reviewMessageUrl, reviewerId, reason, resolvedAt, questionChannelId, blacklistReason, blacklistType, number
@@ -868,7 +958,7 @@ export async function reserveAppeal(appeal: Appeal): Promise<boolean> {
       ],
     );
     await conn.commit();
-    return true;
+    return Number(result.insertId);
   } catch (err) {
     try {
       await conn.rollback();
@@ -885,10 +975,48 @@ export async function claimAppealQuestionChannel(
   userId: string,
   newId: string | null,
   oldId: string | null,
+  appealId?: number,
 ): Promise<boolean> {
+  const conn = await pool.getConnection();
+  try {
+    await conn.beginTransaction();
+    const [rows] = await conn.execute<any[]>(
+      `SELECT id FROM appeals WHERE guildId = ? AND userId = ?
+       AND status = 'pending' AND questionChannelId <=> ?
+       ${appealId !== undefined ? 'AND id = ?' : ''}
+       LIMIT 2 FOR UPDATE`,
+      [guildId, userId, oldId, ...(appealId !== undefined ? [appealId] : [])],
+    );
+    if (rows.length !== 1) {
+      await conn.rollback();
+      return false;
+    }
+    const [result] = await conn.execute<any>(
+      "UPDATE appeals SET questionChannelId = ? WHERE guildId = ? AND id = ? AND status = 'pending' AND questionChannelId <=> ?",
+      [newId, guildId, rows[0].id, oldId],
+    );
+    await conn.commit();
+    return result.affectedRows === 1;
+  } catch (err) {
+    await conn.rollback().catch(() => undefined);
+    throw err;
+  } finally {
+    conn.release();
+  }
+}
+
+export async function getAppealById(guildId: string, appealId: number): Promise<Appeal | undefined> {
+  const [row] = await db
+    .select()
+    .from(schema.appeals)
+    .where(and(eq(schema.appeals.guildId, guildId), eq(schema.appeals.id, appealId)));
+  return row ? rowToAppeal(row) : undefined;
+}
+
+export async function deletePendingAppealSubmission(guildId: string, appealId: number): Promise<boolean> {
   const [result] = await pool.execute<any>(
-    'UPDATE appeals SET questionChannelId = ? WHERE guildId = ? AND userId = ? AND questionChannelId <=> ?',
-    [newId, guildId, userId, oldId],
+    "DELETE FROM appeals WHERE guildId = ? AND id = ? AND status = 'pending' AND reviewMessageUrl IS NULL",
+    [guildId, appealId],
   );
   return result.affectedRows === 1;
 }
@@ -905,6 +1033,13 @@ export async function getAppeal(
     .limit(1);
 
   return row ? rowToAppeal(row) : undefined;
+}
+
+export async function getAppealsForUser(guildId: string, userId: string): Promise<Appeal[]> {
+  const rows = await db.select().from(schema.appeals)
+    .where(and(eq(schema.appeals.guildId, guildId), eq(schema.appeals.userId, userId)))
+    .orderBy(desc(schema.appeals.submittedAt), desc(schema.appeals.id));
+  return rows.map(rowToAppeal);
 }
 
 export async function getPendingAppeals(
@@ -956,45 +1091,70 @@ export async function updateAppeal(
   userId: string,
   patch: Partial<Appeal>,
   blacklistType?: string,
+  appealId?: number,
 ): Promise<Appeal | undefined> {
-  // Try to find the specific appeal to update
-  const rows = await db
-    .select()
+  const [row] = await db
+    .select({ id: schema.appeals.id })
     .from(schema.appeals)
     .where(and(
       eq(schema.appeals.guildId, guildId),
       eq(schema.appeals.userId, userId),
-      blacklistType ? eq(schema.appeals.blacklistType, blacklistType) : undefined
+      blacklistType ? eq(schema.appeals.blacklistType, blacklistType) : undefined,
+      appealId !== undefined ? eq(schema.appeals.id, appealId) : undefined,
     ))
-    .orderBy(desc(schema.appeals.submittedAt))
+    .orderBy(desc(schema.appeals.submittedAt), desc(schema.appeals.id))
     .limit(1);
+  if (!row) return undefined;
+  return updateAppealById(guildId, row.id, patch);
+}
 
-  if (!rows.length) return undefined;
-  
-  const current = rowToAppeal(rows[0]);
-  const updated = { ...current, ...patch };
+function appealPatchValues(patch: Partial<Appeal>): Partial<typeof schema.appeals.$inferInsert> {
+  const values: Record<string, unknown> = {};
+  for (const key of Object.keys(patch) as Array<keyof Appeal>) {
+    if (key === 'id' || key === 'guildId' || key === 'userId') continue;
+    values[key] = patch[key] ?? null;
+  }
+  return values as Partial<typeof schema.appeals.$inferInsert>;
+}
 
-  const values = {
-    username: updated.username,
-    text: updated.text,
-    submittedAt: updated.submittedAt,
-    status: updated.status,
-    reviewMessageUrl: updated.reviewMessageUrl ?? null,
-    reviewerId: updated.reviewerId ?? null,
-    reason: updated.reason ?? null,
-    resolvedAt: updated.resolvedAt ?? null,
-    questionChannelId: updated.questionChannelId ?? null,
-    blacklistReason: updated.blacklistReason ?? null,
-    blacklistType: updated.blacklistType ?? null,
-    number: updated.number ?? null,
-  };
+export async function setAppealReviewMessage(guildId: string, appealId: number, url: string): Promise<boolean> {
+  const result = await db.update(schema.appeals).set({ reviewMessageUrl: url })
+    .where(and(eq(schema.appeals.guildId, guildId), eq(schema.appeals.id, appealId), eq(schema.appeals.status, 'pending')));
+  return result[0].affectedRows === 1;
+}
 
-  await db
+export async function updateAppealById(
+  guildId: string,
+  appealId: number,
+  patch: Partial<Appeal>,
+): Promise<Appeal | undefined> {
+  const values = appealPatchValues(patch);
+  if (Object.keys(values).length > 0) {
+    await db
+      .update(schema.appeals)
+      .set(values)
+      .where(and(eq(schema.appeals.guildId, guildId), eq(schema.appeals.id, appealId)));
+  }
+  return getAppealById(guildId, appealId);
+}
+
+export async function rollbackAppealClaim(
+  guildId: string,
+  appealId: number,
+  fromStatus: AppealStatus,
+  patch: Partial<Appeal>,
+): Promise<boolean> {
+  const values = appealPatchValues(patch);
+  if (Object.keys(values).length === 0) return false;
+  const result = await db
     .update(schema.appeals)
     .set(values)
-    .where(eq(schema.appeals.id, rows[0].id));
-
-  return updated;
+    .where(and(
+      eq(schema.appeals.guildId, guildId),
+      eq(schema.appeals.id, appealId),
+      eq(schema.appeals.status, fromStatus),
+    ));
+  return result[0].affectedRows === 1;
 }
 
 export interface ClaimedAppeal {
@@ -1015,6 +1175,7 @@ export async function claimAppeal(
   reason?: string,
   resolvedAt: number = Date.now(),
   blacklistType?: string,
+  appealId?: number,
 ): Promise<ClaimedAppeal | null> {
   const conn = await pool.getConnection();
   try {
@@ -1023,13 +1184,14 @@ export async function claimAppeal(
       `SELECT id, username, number, reviewMessageUrl, questionChannelId, blacklistType, blacklistReason
        FROM appeals
        WHERE guildId = ? AND userId = ? AND status = 'pending'
-         ${blacklistType ? 'AND blacklistType = ?' : ''}
-       ORDER BY submittedAt DESC
-       LIMIT 1
+         ${blacklistType ? `AND (blacklistType = ? ${blacklistType === 'ЧСП' ? 'OR blacklistType IS NULL' : ''})` : ''}
+         ${appealId !== undefined ? 'AND id = ?' : ''}
+       ORDER BY submittedAt DESC, id DESC
+       LIMIT 2
        FOR UPDATE`,
-      blacklistType ? [guildId, userId, blacklistType] : [guildId, userId],
+      [guildId, userId, ...(blacklistType ? [blacklistType] : []), ...(appealId !== undefined ? [appealId] : [])],
     );
-    if (rows.length === 0) {
+    if (rows.length !== 1) {
       await conn.rollback();
       return null;
     }
@@ -1037,8 +1199,8 @@ export async function claimAppeal(
     await conn.execute(
       `UPDATE appeals
        SET status = ?, reviewerId = ?, reason = ?, resolvedAt = ?, questionChannelId = NULL
-       WHERE id = ?`,
-      [to, reviewerId, reason ?? null, resolvedAt, row.id],
+       WHERE guildId = ? AND id = ? AND status = 'pending'`,
+      [to, reviewerId, reason ?? null, resolvedAt, guildId, row.id],
     );
     await conn.commit();
 
@@ -1078,7 +1240,7 @@ export async function markAppealLeft(
     );
 
   const affectedRows = (result as any)?.[0]?.affectedRows ?? (result as any)?.affectedRows ?? 0;
-  return affectedRows === 1;
+  return affectedRows > 0;
 }
 
 export async function isUserGloballyVerified(userId: string): Promise<boolean> {
@@ -1101,6 +1263,26 @@ export async function recordQuestionCreated(
     'INSERT INTO questions (guildId, channelId, userId, moderatorId, kind, createdAt) VALUES (?, ?, ?, ?, ?, ?)',
     [guildId, channelId, userId, moderatorId, kind, Date.now()],
   );
+}
+
+export interface RecordedQuestion {
+  channelId: string;
+  userId: string;
+  kind: 'application' | 'appeal';
+  createdAt: number;
+}
+
+export async function listRecordedQuestions(guildId: string): Promise<RecordedQuestion[]> {
+  const rows = await db
+    .select({
+      channelId: schema.questions.channelId,
+      userId: schema.questions.userId,
+      kind: schema.questions.kind,
+      createdAt: schema.questions.createdAt,
+    })
+    .from(schema.questions)
+    .where(eq(schema.questions.guildId, guildId));
+  return rows.map((row) => ({ ...row, kind: row.kind as 'application' | 'appeal' }));
 }
 
 export async function getModeratorStats(guildId: string, moderatorId: string): Promise<ModeratorStats> {

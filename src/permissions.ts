@@ -3,6 +3,7 @@ import {
   ChatInputCommandInteraction,
   GuildMember,
   Guild,
+  ModalSubmitInteraction,
 } from 'discord.js';
 import { GuildConfig } from './types';
 
@@ -97,5 +98,15 @@ export function hasButtonAccess(
   required: AccessLevel,
 ): boolean {
   const level = buttonAccessLevel(interaction, gc);
+  return level !== null && RANK[level] >= RANK[required];
+}
+
+export function hasModalAccess(
+  interaction: ModalSubmitInteraction,
+  gc: GuildConfig,
+  required: AccessLevel,
+): boolean {
+  if (!interaction.inGuild()) return false;
+  const level = resolveAccessLevel(interaction.member, interaction.user.id, gc);
   return level !== null && RANK[level] >= RANK[required];
 }

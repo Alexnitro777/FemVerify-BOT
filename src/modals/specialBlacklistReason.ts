@@ -6,8 +6,8 @@ import {
   removeSpecialBlacklist,
 } from '../storage';
 import { buildDmEmbed, postDecisionMessage } from '../ui';
-import { canManageByHierarchy } from '../permissions';
-import { logSettledFailures } from '../concurrency';
+import { canManageByHierarchy, hasModalAccess } from '../permissions';
+import { logSettledFailures, runUserExclusive } from '../concurrency';
 
 function getRoleAndName(gc: GuildConfig, type: 'ЧСЗ' | 'ЧСА') {
   if (type === 'ЧСЗ') {
@@ -20,6 +20,10 @@ const handler: ModalHandler = {
   customId: /^special_bl:(add|remove):(ЧСЗ|ЧСА):\d+$/,
 
   async execute(interaction: ModalSubmitInteraction, gc: GuildConfig): Promise<void> {
+    if (!hasModalAccess(interaction, gc, 'ststaff')) {
+      await interaction.reply({ content: 'Недостаточно прав.', flags: MessageFlags.Ephemeral });
+      return;
+    }
     const [, action, rawType, userId] = interaction.customId.split(':');
     const type = rawType as 'ЧСЗ' | 'ЧСА';
     const isAdd = action === 'add';
@@ -42,165 +46,169 @@ const handler: ModalHandler = {
     }
 
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+    await runUserExclusive(userId, async () => {
 
-    const guild = interaction.guild;
-    const guildId = guild.id;
-    const { roleId, name } = getRoleAndName(gc, type);
+      const guild = interaction.guild!;
+      const guildId = guild.id;
+      const { roleId, name } = getRoleAndName(gc, type);
 
-    if (!roleId) {
-      await interaction.editReply({
-        content: `Роль для ${name} (${type}) не настроена на этом сервере.`,
-      });
-      return;
-    }
-
-    const [user, member, moderator, existing] = await Promise.all([
-      interaction.client.users.fetch(userId).catch(() => null),
-      guild.members.cache.get(userId) ?? guild.members.fetch(userId).catch(() => null),
-      guild.members.cache.get(interaction.user.id) ??
-        guild.members.fetch(interaction.user.id).catch(() => null),
-      getSpecialBlacklist(guildId, userId, type),
-    ]);
-
-    if (!user) {
-      await interaction.editReply({ content: 'Пользователь не найден в Discord.' });
-      return;
-    }
-
-    const hasRole = member?.roles.cache.has(roleId);
-
-    if (member && (!moderator || !canManageByHierarchy(moderator as GuildMember, member))) {
-      await interaction.editReply({
-        content: `Нельзя изменить роль ${name} участнику, чья роль выше вашей или равна ей.`,
-      });
-      return;
-    }
-
-    const logChannel = gc.channels.blacklistLog ?? gc.channels.decisions;
-
-    if (isAdd) {
-      if (hasRole) {
-        await interaction.editReply({ content: `Участник уже имеет роль ${name}.` });
-        return;
-      }
-      if (existing) {
-        await interaction.editReply({ content: `Участник уже находится в базе данных (${type}).` });
+      if (!roleId) {
+        await interaction.editReply({
+          content: `Роль для ${name} (${type}) не настроена на этом сервере.`,
+        });
         return;
       }
 
-      let roleOk = true;
-      if (member) {
-        const toAdd = [roleId];
-        const toRemove: string[] = [];
+      const [user, member, moderator, existing] = await Promise.all([
+        interaction.client.users.fetch(userId).catch(() => null),
+        guild.members.cache.get(userId) ?? guild.members.fetch(userId).catch(() => null),
+        guild.members.cache.get(interaction.user.id) ??
+          guild.members.fetch(interaction.user.id).catch(() => null),
+        getSpecialBlacklist(guildId, userId, type),
+      ]);
 
-        if (type === 'ЧСА') {
-          const adminRoles = new Set([...gc.roles.staff, ...gc.roles.ststaff]);
-          for (const role of member.roles.cache.values()) {
-            if (adminRoles.has(role.id)) {
-              toRemove.push(role.id);
+      if (!user) {
+        await interaction.editReply({ content: 'Пользователь не найден в Discord.' });
+        return;
+      }
+
+      const hasRole = member?.roles.cache.has(roleId);
+
+      if (member && (!moderator || !canManageByHierarchy(moderator as GuildMember, member))) {
+        await interaction.editReply({
+          content: `Нельзя изменить роль ${name} участнику, чья роль выше вашей или равна ей.`,
+        });
+        return;
+      }
+
+      const logChannel = gc.channels.blacklistLog ?? gc.channels.decisions;
+
+      if (isAdd) {
+        if (hasRole) {
+          await interaction.editReply({ content: `Участник уже имеет роль ${name}.` });
+          return;
+        }
+        if (existing) {
+          await interaction.editReply({ content: `Участник уже находится в базе данных (${type}).` });
+          return;
+        }
+
+        let roleOk = true;
+        if (member) {
+          const toAdd = [roleId];
+          const toRemove: string[] = [];
+
+          if (type === 'ЧСА') {
+            const adminRoles = new Set([...gc.roles.staff, ...gc.roles.ststaff]);
+            for (const role of member.roles.cache.values()) {
+              if (adminRoles.has(role.id)) {
+                toRemove.push(role.id);
+              }
             }
           }
-        }
 
-        try {
-          if (toRemove.length > 0) {
-            await member.roles.remove(toRemove, 'ЧСА: снятие ролей администрации');
+          try {
+            if (toRemove.length > 0) {
+              const updated = await member.roles.remove(toRemove, 'ЧСА: снятие ролей администрации');
+              await updated.roles.add(roleId);
+            } else {
+              await member.roles.add(roleId);
+            }
+          } catch (e) {
+            console.error(`[specialBlacklistReason] roles update failed for ${type}`, e);
+            roleOk = false;
           }
-          await member.roles.add(toAdd);
-        } catch (e) {
-          console.error(`[specialBlacklistReason] roles update failed for ${type}`, e);
-          roleOk = false;
         }
+
+        await upsertSpecialBlacklist({
+          guildId,
+          userId,
+          type,
+          reason,
+          reviewerId: interaction.user.id,
+        });
+
+        const baseReply = `Участник <@${userId}> занесён в ${name} (${type}).`;
+        await interaction.editReply({
+          content: roleOk
+            ? baseReply
+            : `${baseReply}\n⚠️ Не удалось выдать роль — проверьте иерархию ролей бота.`,
+        });
+
+        const dmText =
+          type === 'ЧСЗ'
+            ? `Вы добавлены в черный список знакомств.\nПричина: \`${reason}\``
+            : `Вы добавлены в черный список администрации.\nПричина: \`${reason}\``;
+
+        logSettledFailures(
+          'specialBlacklistReason:add',
+          await Promise.allSettled([
+            user
+              .send({
+                embeds: [buildDmEmbed(`🚫 Вы добавлены в ${type}`, dmText, 0x992d22)],
+              })
+              .catch(() => null),
+            postDecisionMessage(interaction.client, logChannel, 'application', {
+              label: type,
+              color: 0x992d22,
+              reviewerId: interaction.user.id,
+              targetUserId: userId,
+              reason: { title: `Причина ${type}`, text: reason },
+              title: `Выдача ${type}`,
+            }),
+          ]),
+        );
+      } else {
+        if (!hasRole && !existing) {
+          await interaction.editReply({ content: `Участник не находится в ${name}.` });
+          return;
+        }
+
+        await removeSpecialBlacklist(guildId, userId, type);
+
+        let roleOk = true;
+        if (member && hasRole) {
+          roleOk = await member.roles
+            .remove(roleId)
+            .then(() => true)
+            .catch((e) => {
+              console.error(`[specialBlacklistReason] roles.remove failed for ${type}`, e);
+              return false;
+            });
+        }
+
+        const baseReply = `Участник <@${userId}> снят с ${name} (${type}).`;
+        await interaction.editReply({
+          content: roleOk
+            ? baseReply
+            : `${baseReply}\n⚠️ Не удалось снять роль — проверьте иерархию ролей бота.`,
+        });
+
+        const dmText =
+          type === 'ЧСЗ'
+            ? `С вас снят черный список знакомств.\nПричина: \`${reason}\``
+            : `С вас снят черный список администрации.\nПричина: \`${reason}\``;
+
+        logSettledFailures(
+          'specialBlacklistReason:remove',
+          await Promise.allSettled([
+            user
+              .send({
+                embeds: [buildDmEmbed(`✅ Снятие ${type}`, dmText, 0x57f287)],
+              })
+              .catch(() => null),
+            postDecisionMessage(interaction.client, logChannel, 'application', {
+              label: `Снят ${type}`,
+              color: 0x57f287,
+              reviewerId: interaction.user.id,
+              targetUserId: userId,
+              reason: { title: `Причина снятия ${type}`, text: reason },
+              title: `Снятие ${type}`,
+            }),
+          ]),
+        );
       }
-
-      await upsertSpecialBlacklist({
-        guildId,
-        userId,
-        type,
-        reason,
-        reviewerId: interaction.user.id,
-      });
-
-      const baseReply = `Участник <@${userId}> занесён в ${name} (${type}).`;
-      await interaction.editReply({
-        content: roleOk
-          ? baseReply
-          : `${baseReply}\n⚠️ Не удалось выдать роль — проверьте иерархию ролей бота.`,
-      });
-
-      const dmText =
-        type === 'ЧСЗ'
-          ? `Вы добавлены в черный список знакомств.\nПричина: \`${reason}\``
-          : `Вы добавлены в черный список администрации.\nПричина: \`${reason}\``;
-
-      logSettledFailures(
-        'specialBlacklistReason:add',
-        await Promise.allSettled([
-          user
-            .send({
-              embeds: [buildDmEmbed(`🚫 Вы добавлены в ${type}`, dmText, 0x992d22)],
-            })
-            .catch(() => null),
-          postDecisionMessage(interaction.client, logChannel, 'application', {
-            label: type,
-            color: 0x992d22,
-            reviewerId: interaction.user.id,
-            targetUserId: userId,
-            reason: { title: `Причина ${type}`, text: reason },
-            title: `Выдача ${type}`,
-          }),
-        ]),
-      );
-    } else {
-      if (!hasRole && !existing) {
-        await interaction.editReply({ content: `Участник не находится в ${name}.` });
-        return;
-      }
-
-      await removeSpecialBlacklist(guildId, userId, type);
-
-      let roleOk = true;
-      if (member && hasRole) {
-        roleOk = await member.roles
-          .remove(roleId)
-          .then(() => true)
-          .catch((e) => {
-            console.error(`[specialBlacklistReason] roles.remove failed for ${type}`, e);
-            return false;
-          });
-      }
-
-      const baseReply = `Участник <@${userId}> снят с ${name} (${type}).`;
-      await interaction.editReply({
-        content: roleOk
-          ? baseReply
-          : `${baseReply}\n⚠️ Не удалось снять роль — проверьте иерархию ролей бота.`,
-      });
-
-      const dmText =
-        type === 'ЧСЗ'
-          ? `С вас снят черный список знакомств.\nПричина: \`${reason}\``
-          : `С вас снят черный список администрации.\nПричина: \`${reason}\``;
-
-      logSettledFailures(
-        'specialBlacklistReason:remove',
-        await Promise.allSettled([
-          user
-            .send({
-              embeds: [buildDmEmbed(`✅ Снятие ${type}`, dmText, 0x57f287)],
-            })
-            .catch(() => null),
-          postDecisionMessage(interaction.client, logChannel, 'application', {
-            label: `Снят ${type}`,
-            color: 0x57f287,
-            reviewerId: interaction.user.id,
-            targetUserId: userId,
-            reason: { title: `Причина снятия ${type}`, text: reason },
-            title: `Снятие ${type}`,
-          }),
-        ]),
-      );
-    }
+    });
   },
 };
 

@@ -9,7 +9,7 @@ import {
   markReviewMessageResolved,
 } from './ui';
 import { deleteQuestionChannel } from './channels';
-import { mapWithConcurrency, logSettledFailures } from './concurrency';
+import { mapWithConcurrency, logSettledFailures, runUserExclusive } from './concurrency';
 
 const APPLICATION_TTL_MS = 2 * 24 * 60 * 60_000;
 
@@ -37,6 +37,7 @@ async function closeExpiredApplication(
     'expired',
     reviewerId,
     AUTO_CLOSE_REASON,
+    app.number,
   );
   if (!claimed) return;
 
@@ -90,7 +91,7 @@ async function sweepGuild(client: Client, guild: Guild, expiredBefore: number): 
   logSettledFailures(
     'applicationCleanup',
     await mapWithConcurrency(apps, CLOSE_CONCURRENCY, (app) =>
-      closeExpiredApplication(client, guild, gc, app),
+      runUserExclusive(app.userId, () => closeExpiredApplication(client, guild, gc, app)),
     ),
   );
 }

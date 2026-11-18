@@ -1,14 +1,15 @@
 import { Client, Events, Guild, GuildMember, PartialGuildMember } from 'discord.js';
 import {
   getApplication,
-  getAppeal,
-  markApplicationLeft,
-  markAppealLeft,
+  getPendingAppeals,
+  claimApplication,
+  claimAppeal,
   updateApplication,
-  updateAppeal,
+  updateAppealById,
 } from './storage';
 import { buildLeftServerButtonRow } from './ui';
 import { deleteQuestionChannel } from './channels';
+import { runUserExclusive } from './concurrency';
 
 interface ParsedMessageUrl {
   guildId: string;
@@ -48,43 +49,53 @@ async function handleMemberRemove(
   if (!guild) return;
   const guildId = guild.id;
   const userId = member.id;
+  const reviewerId = guild.client.user?.id ?? guildId;
 
   const app = await getApplication(guildId, userId);
-  if (app && app.status === 'pending' && (await markApplicationLeft(guildId, userId))) {
-
-    await markReviewMessageLeft(guild, app.reviewMessageUrl);
-    if (app.questionChannelId) {
-      await deleteQuestionChannel(guild, app.questionChannelId, {
-        reason: 'Участник покинул сервер с неразобранной заявкой',
-        targetUserId: userId,
-        number: app.number,
-        reviewMessageUrl: app.reviewMessageUrl,
-        kind: 'application',
-      });
-      await updateApplication(guildId, userId, { questionChannelId: undefined });
+  if (app?.status === 'pending') {
+    const claimed = await claimApplication(guildId, userId, 'left', reviewerId, undefined, app.number);
+    if (claimed) {
+      await markReviewMessageLeft(guild, claimed.reviewMessageUrl);
+      if (claimed.questionChannelId) {
+        const deleted = await deleteQuestionChannel(guild, claimed.questionChannelId, {
+          reason: 'Участник покинул сервер с неразобранной заявкой',
+          targetUserId: userId,
+          number: claimed.number,
+          reviewMessageUrl: claimed.reviewMessageUrl,
+          kind: 'application',
+        });
+        if (!deleted) {
+          await updateApplication(guildId, userId, { questionChannelId: claimed.questionChannelId });
+        }
+      }
     }
   }
 
-  const appeal = await getAppeal(guildId, userId);
-  if (appeal && appeal.status === 'pending' && (await markAppealLeft(guildId, userId))) {
-
-    await markReviewMessageLeft(guild, appeal.reviewMessageUrl);
-    if (appeal.questionChannelId) {
-      await deleteQuestionChannel(guild, appeal.questionChannelId, {
+  const appeals = await getPendingAppeals(guildId, userId);
+  for (const appeal of appeals) {
+    const claimed = await claimAppeal(
+      guildId, userId, 'left', reviewerId, undefined, Date.now(), appeal.blacklistType, appeal.id,
+    );
+    if (!claimed) continue;
+    await markReviewMessageLeft(guild, claimed.reviewMessageUrl);
+    if (claimed.questionChannelId) {
+      const deleted = await deleteQuestionChannel(guild, claimed.questionChannelId, {
         reason: 'Участник покинул сервер с неразобранной апелляцией',
         targetUserId: userId,
-        number: appeal.number,
-        reviewMessageUrl: appeal.reviewMessageUrl,
+        number: claimed.number,
+        reviewMessageUrl: claimed.reviewMessageUrl,
         kind: 'appeal',
       });
-      await updateAppeal(guildId, userId, { questionChannelId: undefined });
+      if (!deleted) {
+        await updateAppealById(guildId, claimed.id, { questionChannelId: claimed.questionChannelId });
+      }
     }
   }
 }
 
 export function registerLeaveCleanupEvents(client: Client): void {
   client.on(Events.GuildMemberRemove, (member) => {
-    void handleMemberRemove(member).catch((e) =>
+    void runUserExclusive(member.id, () => handleMemberRemove(member)).catch((e) =>
       console.error('[leaveCleanup] handler failed', e),
     );
   });

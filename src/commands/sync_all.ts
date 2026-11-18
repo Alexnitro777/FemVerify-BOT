@@ -9,7 +9,7 @@ import { SlashCommand, GuildConfig } from '../types';
 import { getUserGlobalStatus, upsertBlacklistedApplication } from '../storage';
 import { getGuildConfig } from '../guildConfig';
 import { blacklistMemberRoles } from '../roles';
-import { mapWithConcurrency, logSettledFailures } from '../concurrency';
+import { mapWithConcurrency, logSettledFailures, runUserExclusive } from '../concurrency';
 
 const ALLOWED_ID = '703129488170549258';
 const SYNC_REASON = 'Глобальная синхронизация';
@@ -51,7 +51,12 @@ async function syncMember(
   }
 
   if (status.verified && !member.roles.cache.has(gc.roles.verified)) {
-    await member.roles.add(gc.roles.verified).catch(() => null);
+    try {
+      await member.roles.add(gc.roles.verified);
+    } catch (error) {
+      console.error('[sync_all] roles.add failed', member.id, error);
+      return;
+    }
     console.log(
       `[sync_all] выдана глобальная верификация: ${member.user.tag} (${member.id}) на ${guild.name}`,
     );
@@ -108,7 +113,7 @@ const command: SlashCommand = {
         logSettledFailures(
           'sync_all',
           await mapWithConcurrency(humans, MEMBER_CONCURRENCY, async (member) => {
-            await syncMember(guild, guildGc, member, totals);
+            await runUserExclusive(member.id, () => syncMember(guild, guildGc, member, totals));
             totals.processed += 1;
             reportProgress();
           }),

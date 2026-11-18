@@ -16,7 +16,8 @@ import { ButtonHandler, GuildConfig } from '../types';
 import {
 	getApplication,
 	claimApplication,
-	updateApplication,
+	rollbackApplicationClaim,
+	getUserGlobalStatus,
 	claimApplicationQuestionChannel,
 	recordQuestionCreated,
 } from '../storage';
@@ -30,7 +31,7 @@ import {
 import { deleteQuestionChannel } from '../channels';
 import { hasButtonAccess, getGuild } from '../permissions';
 import { applyGlobalVerification } from '../sync';
-import { logSettledFailures } from '../concurrency';
+import { logSettledFailures, runUserExclusive } from '../concurrency';
 
 const LEFT_SERVER = 'Пользователь покинул сервер.';
 
@@ -43,96 +44,103 @@ async function handleApprove(
 	gc: GuildConfig,
 	guild: Guild,
 	userId: string,
+	expectedNumber: number,
 ): Promise<void> {
 	await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+	await runUserExclusive(userId, async () => {
+		const member = await resolveMember(guild, userId);
+		if (!member) {
+			await interaction.editReply({ content: LEFT_SERVER });
+			return;
+		}
 
-	const member = await resolveMember(guild, userId);
-	if (!member) {
-		await interaction.editReply({ content: LEFT_SERVER });
-		return;
-	}
+		const status = await getUserGlobalStatus(userId);
+		if (status.blacklisted || member.roles.cache.has(gc.roles.blacklist)) {
+			await interaction.editReply({ content: 'Участник находится в чёрном списке.' });
+			return;
+		}
+		const claimed = await claimApplication(guild.id, userId, 'approved', interaction.user.id, undefined, expectedNumber);
+		if (!claimed) {
+			const fresh = await getApplication(guild.id, userId);
+			await interaction.editReply({
+				content: `Заявка уже обработана (${fresh?.status ?? 'не найдена'}).`,
+			});
+			return;
+		}
 
-	const claimed = await claimApplication(guild.id, userId, 'approved', interaction.user.id);
-	if (!claimed) {
-		const fresh = await getApplication(guild.id, userId);
-		await interaction.editReply({
-			content: `Заявка уже обработана (${fresh?.status ?? 'не найдена'}).`,
-		});
-		return;
-	}
+		try {
+			await member.roles.add(gc.roles.verified);
+		} catch (e) {
+			console.error('[review] roles.add failed', e);
+			await rollbackApplicationClaim(guild.id, userId, 'approved', expectedNumber, {
+				status: 'pending',
+				reviewerId: undefined,
+				questionChannelId: claimed.questionChannelId,
+			});
+			await interaction.editReply({
+				content:
+					'❌ Не удалось выдать роль — проверьте, что роль бота выше выдаваемой. Статус заявки возвращён в ожидание.',
+			});
+			return;
+		}
 
-	try {
-		await member.roles.add(gc.roles.verified);
-	} catch (e) {
-		console.error('[review] roles.add failed', e);
-		await updateApplication(guild.id, userId, {
-			status: 'pending',
-			reviewerId: undefined,
-			questionChannelId: claimed.questionChannelId,
-		});
-		await interaction.editReply({
-			content:
-				'❌ Не удалось выдать роль — проверьте, что роль бота выше выдаваемой. Статус заявки возвращён в ожидание.',
-		});
-		return;
-	}
+		const accepted = `✅ Анкета пользователя <@${userId}> принята.`;
+		await interaction.editReply({ content: accepted, components: [] });
 
-	const accepted = `✅ Анкета пользователя <@${userId}> принята.`;
-	await interaction.editReply({ content: accepted, components: [] });
+		await applyGlobalVerification(interaction.client, userId, guild.id).catch((e) =>
+			console.error('[review] applyGlobalVerification failed', e),
+		);
 
-	void applyGlobalVerification(interaction.client, userId, guild.id).catch((e) =>
-		console.error('[review] applyGlobalVerification failed', e),
-	);
+		const reviewUrl =
+			claimed.reviewMessageUrl ??
+			(interaction.message.flags.has(MessageFlags.Ephemeral) ? undefined : interaction.message.url);
 
-	const reviewUrl =
-		claimed.reviewMessageUrl ??
-		(interaction.message.flags.has(MessageFlags.Ephemeral) ? undefined : interaction.message.url);
+		const results = await Promise.allSettled([
+			member
+				.send({
+					embeds: [buildDmEmbed('✅ Заявка одобрена', 'Добро пожаловать на сервер!', 0x57f287)],
+				})
+				.then(() => true)
+				.catch(() => false),
+			markReviewMessageResolved(interaction.client, reviewUrl, {
+				kind: 'application',
+				label: 'Принято',
+				color: 0x57f287,
+				reviewerId: interaction.user.id,
+				known: interaction.message,
+			}),
+			postDecisionMessage(interaction.client, gc.channels.decisions, 'application', {
+				label: 'Принято',
+				color: 0x57f287,
+				reviewerId: interaction.user.id,
+				targetUserId: userId,
+				reviewMessageUrl: reviewUrl,
+				number: claimed.number,
+			}),
+			deleteQuestionChannel(guild, claimed.questionChannelId, {
+				reason: 'Заявка одобрена',
+				closedByUserId: interaction.user.id,
+				targetUserId: userId,
+				number: claimed.number,
+				reviewMessageUrl: reviewUrl,
+				kind: 'application',
+			}),
+			postWelcomeMessage(interaction.client, gc.channels.welcome, member),
+		]);
 
-	const results = await Promise.allSettled([
-		member
-			.send({
-				embeds: [buildDmEmbed('✅ Заявка одобрена', 'Добро пожаловать на сервер!', 0x57f287)],
-			})
-			.then(() => true)
-			.catch(() => false),
-		markReviewMessageResolved(interaction.client, reviewUrl, {
-			kind: 'application',
-			label: 'Принято',
-			color: 0x57f287,
-			reviewerId: interaction.user.id,
-			known: interaction.message,
-		}),
-		postDecisionMessage(interaction.client, gc.channels.decisions, 'application', {
-			label: 'Принято',
-			color: 0x57f287,
-			reviewerId: interaction.user.id,
-			targetUserId: userId,
-			reviewMessageUrl: reviewUrl,
-			number: claimed.number,
-		}),
-		deleteQuestionChannel(guild, claimed.questionChannelId, {
-			reason: 'Заявка одобрена',
-			closedByUserId: interaction.user.id,
-			targetUserId: userId,
-			number: claimed.number,
-			reviewMessageUrl: reviewUrl,
-			kind: 'application',
-		}),
-		postWelcomeMessage(interaction.client, gc.channels.welcome, member),
-	]);
+		logSettledFailures('review', results.slice(1));
 
-	logSettledFailures('review', results.slice(1));
-
-	const dmResult = results[0];
-	const dmOk = dmResult.status === 'fulfilled' && dmResult.value === true;
-	if (!dmOk) {
-		await interaction
-			.editReply({
-				content: `${accepted}\n⚠️ Отправить ЛС не удалось (закрыты личные сообщения).`,
-				components: [],
-			})
-			.catch(() => null);
-	}
+		const dmResult = results[0];
+		const dmOk = dmResult.status === 'fulfilled' && dmResult.value === true;
+		if (!dmOk) {
+			await interaction
+				.editReply({
+					content: `${accepted}\n⚠️ Отправить ЛС не удалось (закрыты личные сообщения).`,
+					components: [],
+				})
+				.catch(() => null);
+		}
+	});
 }
 
 async function handleQuestion(
@@ -142,143 +150,149 @@ async function handleQuestion(
 	userId: string,
 	reviewMessageUrl: string | undefined,
 	currentQuestionChannelId: string | undefined,
+	expectedNumber: number,
 ): Promise<void> {
 	await interaction.deferUpdate();
+	await runUserExclusive(userId, async () => {
 
-	if (currentQuestionChannelId) {
-		const existing = await guild.channels.fetch(currentQuestionChannelId).catch(() => null);
-		if (existing) {
+		if (currentQuestionChannelId) {
+			const existing = await guild.channels.fetch(currentQuestionChannelId).catch(() => null);
+			if (existing) {
+				await interaction.followUp({
+					content: `Канал с вопросом уже существует: <#${existing.id}>.`,
+					flags: MessageFlags.Ephemeral,
+				});
+				return;
+			}
+		}
+
+		const placeholder = `pending:${interaction.id}`;
+		const reserved = await claimApplicationQuestionChannel(
+			guild.id,
+			userId,
+			placeholder,
+			currentQuestionChannelId ?? null,
+			expectedNumber,
+		);
+		if (!reserved) {
+			const fresh = await getApplication(guild.id, userId);
 			await interaction.followUp({
-				content: `Канал с вопросом уже существует: <#${existing.id}>.`,
+				content:
+					fresh?.questionChannelId && !fresh.questionChannelId.startsWith('pending:')
+						? `Канал с вопросом уже существует: <#${fresh.questionChannelId}>.`
+						: 'Канал с вопросом уже создаётся.',
 				flags: MessageFlags.Ephemeral,
 			});
 			return;
 		}
-	}
 
-	const placeholder = `pending:${interaction.id}`;
-	const reserved = await claimApplicationQuestionChannel(
-		guild.id,
-		userId,
-		placeholder,
-		currentQuestionChannelId ?? null,
-	);
-	if (!reserved) {
-		const fresh = await getApplication(guild.id, userId);
-		await interaction.followUp({
-			content:
-				fresh?.questionChannelId && !fresh.questionChannelId.startsWith('pending:')
+		const member = await resolveMember(guild, userId);
+		if (!member) {
+			await claimApplicationQuestionChannel(guild.id, userId, null, placeholder, expectedNumber);
+			await interaction.followUp({ content: LEFT_SERVER, flags: MessageFlags.Ephemeral });
+			return;
+		}
+
+		const staffRoles = [...new Set([...gc.roles.staff, ...gc.roles.ststaff])];
+		const channel = await guild.channels
+			.create({
+				name: `вопрос-${member.user.username}`.slice(0, 90),
+				type: ChannelType.GuildText,
+				parent: gc.questionCategoryId,
+				topic: `femverify:question:application:${userId}:${expectedNumber}`,
+				permissionOverwrites: [
+					{ id: guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] },
+					{ id: interaction.client.user!.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory, PermissionFlagsBits.AttachFiles, PermissionFlagsBits.EmbedLinks] },
+					{
+						id: userId,
+						allow: [
+							PermissionFlagsBits.ViewChannel,
+							PermissionFlagsBits.SendMessages,
+							PermissionFlagsBits.ReadMessageHistory,
+							PermissionFlagsBits.AttachFiles,
+							PermissionFlagsBits.EmbedLinks,
+						],
+					},
+					...staffRoles.map((roleId) => ({
+						id: roleId,
+						allow: [
+							PermissionFlagsBits.ViewChannel,
+							PermissionFlagsBits.SendMessages,
+							PermissionFlagsBits.ReadMessageHistory,
+							PermissionFlagsBits.AttachFiles,
+							PermissionFlagsBits.EmbedLinks,
+						],
+					})),
+				],
+			})
+			.catch((e) => {
+				console.error('[review] не удалось создать канал-вопрос', e);
+				return null;
+			});
+
+		if (!channel) {
+			await claimApplicationQuestionChannel(guild.id, userId, null, placeholder, expectedNumber);
+			await interaction.followUp({
+				content: '❌ Не удалось создать канал с вопросом — проверьте права бота.',
+				flags: MessageFlags.Ephemeral,
+			});
+			return;
+		}
+
+		const claimed = await claimApplicationQuestionChannel(guild.id, userId, channel.id, placeholder, expectedNumber);
+		if (!claimed) {
+			await channel.delete('Дублирующий канал-вопрос').catch(() => null);
+			const fresh = await getApplication(guild.id, userId);
+			await interaction.followUp({
+				content: fresh?.questionChannelId
 					? `Канал с вопросом уже существует: <#${fresh.questionChannelId}>.`
 					: 'Канал с вопросом уже создаётся.',
-			flags: MessageFlags.Ephemeral,
-		});
-		return;
-	}
+				flags: MessageFlags.Ephemeral,
+			});
+			return;
+		}
 
-	const member = await resolveMember(guild, userId);
-	if (!member) {
-		await claimApplicationQuestionChannel(guild.id, userId, null, placeholder);
-		await interaction.followUp({ content: LEFT_SERVER, flags: MessageFlags.Ephemeral });
-		return;
-	}
+		await recordQuestionCreated(guild.id, channel.id, userId, interaction.user.id, 'application');
 
-	const staffRoles = [...new Set([...gc.roles.staff, ...gc.roles.ststaff])];
-	const channel = await guild.channels
-		.create({
-			name: `вопрос-${member.user.username}`.slice(0, 90),
-			type: ChannelType.GuildText,
-			parent: gc.questionCategoryId,
-			permissionOverwrites: [
-				{ id: guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] },
-				{
-					id: userId,
-					allow: [
-						PermissionFlagsBits.ViewChannel,
-						PermissionFlagsBits.SendMessages,
-						PermissionFlagsBits.ReadMessageHistory,
-						PermissionFlagsBits.AttachFiles,
-						PermissionFlagsBits.EmbedLinks,
-					],
-				},
-				...staffRoles.map((roleId) => ({
-					id: roleId,
-					allow: [
-						PermissionFlagsBits.ViewChannel,
-						PermissionFlagsBits.SendMessages,
-						PermissionFlagsBits.ReadMessageHistory,
-						PermissionFlagsBits.AttachFiles,
-						PermissionFlagsBits.EmbedLinks,
-					],
-				})),
-			],
-		})
-		.catch((e) => {
-			console.error('[review] не удалось создать канал-вопрос', e);
-			return null;
-		});
+		const embed = new EmbedBuilder()
+			.setTitle('Уточнение по заявке')
+			.setDescription(
+				`<@${userId}>, у модерации появился вопрос по вашей анкете.\n` +
+					'Ответьте здесь. Кнопки ниже — для модерации.',
+			)
+			.setColor(0x5865f2);
 
-	if (!channel) {
-		await claimApplicationQuestionChannel(guild.id, userId, null, placeholder);
-		await interaction.followUp({
-			content: '❌ Не удалось создать канал с вопросом — проверьте права бота.',
-			flags: MessageFlags.Ephemeral,
-		});
-		return;
-	}
+		const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
+			new ButtonBuilder()
+				.setLabel('Открыть анкету')
+				.setStyle(ButtonStyle.Link)
+				.setURL(reviewMessageUrl ?? interaction.message.url),
+			new ButtonBuilder()
+				.setCustomId(`question:close:${channel.id}`)
+				.setLabel('Закрыть канал')
+				.setStyle(ButtonStyle.Danger)
+				.setEmoji('🗑️'),
+		);
 
-	const claimed = await claimApplicationQuestionChannel(guild.id, userId, channel.id, placeholder);
-	if (!claimed) {
-		await channel.delete('Дублирующий канал-вопрос').catch(() => null);
-		const fresh = await getApplication(guild.id, userId);
-		await interaction.followUp({
-			content: fresh?.questionChannelId
-				? `Канал с вопросом уже существует: <#${fresh.questionChannelId}>.`
-				: 'Канал с вопросом уже создаётся.',
-			flags: MessageFlags.Ephemeral,
-		});
-		return;
-	}
+		const mentionUserIds = [...new Set([userId, interaction.user.id])];
 
-	await recordQuestionCreated(guild.id, channel.id, userId, interaction.user.id, 'application');
-
-	const embed = new EmbedBuilder()
-		.setTitle('Уточнение по заявке')
-		.setDescription(
-			`<@${userId}>, у модерации появился вопрос по вашей анкете.\n` +
-				'Ответьте здесь. Кнопки ниже — для модерации.',
-		)
-		.setColor(0x5865f2);
-
-	const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
-		new ButtonBuilder()
-			.setLabel('Открыть анкету')
-			.setStyle(ButtonStyle.Link)
-			.setURL(reviewMessageUrl ?? interaction.message.url),
-		new ButtonBuilder()
-			.setCustomId(`question:close:${channel.id}`)
-			.setLabel('Закрыть канал')
-			.setStyle(ButtonStyle.Danger)
-			.setEmoji('🗑️'),
-	);
-
-	const mentionUserIds = [...new Set([userId, interaction.user.id])];
-
-	logSettledFailures(
-		'review',
-		await Promise.allSettled([
-			channel.send({
-				content: mentionUserIds.map((id) => `<@${id}>`).join(' '),
-				embeds: [embed],
-				components: [row],
-				allowedMentions: { users: mentionUserIds },
-			}),
-			interaction.editReply({ components: [buildReviewButtons(userId, channel.url)] }),
-		]),
-	);
+		logSettledFailures(
+			'review',
+			await Promise.allSettled([
+				channel.send({
+					content: mentionUserIds.map((id) => `<@${id}>`).join(' '),
+					embeds: [embed],
+					components: [row],
+					allowedMentions: { users: mentionUserIds },
+				}),
+				interaction.editReply({ components: [buildReviewButtons(userId, channel.url, expectedNumber)] }),
+			]),
+		);
+	});
 }
 
 const handler: ButtonHandler = {
-	customId: /^review:(approve|reject|question|blacklist):\d+$/,
+	customId: /^review:(approve|reject|question|blacklist):\d+(?::\d+)?$/,
 
 	async execute(interaction: ButtonInteraction, gc: GuildConfig): Promise<void> {
 		if (!hasButtonAccess(interaction, gc, 'staff')) {
@@ -295,12 +309,7 @@ const handler: ButtonHandler = {
 			return;
 		}
 
-		const [, action, userId] = interaction.customId.split(':');
-
-		if (action === 'approve') {
-			await handleApprove(interaction, gc, guild, userId);
-			return;
-		}
+		const [, action, userId, rawNumber] = interaction.customId.split(':');
 
 		const app = await getApplication(guild.id, userId);
 		if (!app) {
@@ -308,6 +317,10 @@ const handler: ButtonHandler = {
 			return;
 		}
 
+		if (!app.number || (rawNumber ? Number(rawNumber) !== app.number : interaction.message.url !== app.reviewMessageUrl)) {
+			await interaction.reply({ content: 'Кнопка относится к другой анкете. Откройте актуальное обращение.', flags: MessageFlags.Ephemeral });
+			return;
+		}
 		if (app.status !== 'pending') {
 			await interaction.reply({
 				content: `Заявка уже обработана (${app.status}).`,
@@ -316,6 +329,10 @@ const handler: ButtonHandler = {
 			return;
 		}
 
+		if (action === 'approve') {
+			await handleApprove(interaction, gc, guild, userId, app.number);
+			return;
+		}
 		if (action === 'question') {
 			await handleQuestion(
 				interaction,
@@ -324,12 +341,13 @@ const handler: ButtonHandler = {
 				userId,
 				app.reviewMessageUrl,
 				app.questionChannelId,
+				app.number,
 			);
 			return;
 		}
 
 		const modal = new ModalBuilder()
-			.setCustomId(`review:reason:${action}:${userId}`)
+			.setCustomId(`review:reason:${action}:${userId}:${app.number}`)
 			.setTitle(action === 'reject' ? 'Причина отказа' : 'Причина ЧС');
 		const input = new TextInputBuilder()
 			.setCustomId('reason')

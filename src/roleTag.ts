@@ -45,9 +45,13 @@ export function hasServerTag(user: User, guildId: string): boolean {
 function rawUserHasServerTag(
   rawUser: Record<string, unknown> | undefined | null,
   guildId: string,
-): boolean {
-  if (!rawUser) return false;
-  const pg = (rawUser.primary_guild ?? rawUser.primaryGuild) as
+): boolean | undefined {
+  if (!rawUser) return undefined;
+  const field = 'primary_guild' in rawUser
+    ? 'primary_guild'
+    : 'primaryGuild' in rawUser ? 'primaryGuild' : undefined;
+  if (!field) return undefined;
+  const pg = rawUser[field] as
     | Record<string, unknown>
     | null
     | undefined;
@@ -105,9 +109,10 @@ function runExclusive(key: string, task: () => Promise<void>): Promise<void> {
   const prev = tagRoleLocks.get(key) ?? Promise.resolve();
   const next = prev.catch(() => undefined).then(task);
   tagRoleLocks.set(key, next);
-  void next.finally(() => {
+  const cleanup = (): void => {
     if (tagRoleLocks.get(key) === next) tagRoleLocks.delete(key);
-  });
+  };
+  void next.then(cleanup, cleanup);
   return next;
 }
 
@@ -188,6 +193,7 @@ export function registerTagRoleEvents(client: Client): void {
     if (!guild) return;
 
     const shouldHave = rawUserHasServerTag(rawUser, guildId);
+    if (shouldHave === undefined) return;
     const roles = data.roles;
     const packetRoles = Array.isArray(roles) ? (roles as string[]) : null;
 

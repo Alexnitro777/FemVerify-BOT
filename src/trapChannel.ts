@@ -26,7 +26,7 @@ import {
 import { deleteQuestionChannel } from './channels';
 import { isMainGuild, getMainGuildInvite } from './config';
 import { isOwner } from './permissions';
-import { logSettledFailures } from './concurrency';
+import { logSettledFailures, runUserExclusive } from './concurrency';
 
 const REASON = 'Автовыдача: Взлом/Реклама';
 
@@ -37,18 +37,6 @@ function hasStaffImmunity(member: GuildMember, gc: GuildConfig): boolean {
   );
 }
 
-const trapLocks = new Map<string, Promise<void>>();
-
-function runExclusive(key: string, task: () => Promise<void>): Promise<void> {
-  const prev = trapLocks.get(key) ?? Promise.resolve();
-  const next = prev.catch(() => undefined).then(task);
-  trapLocks.set(key, next);
-  void next.finally(() => {
-    if (trapLocks.get(key) === next) trapLocks.delete(key);
-  });
-  return next;
-}
-
 const activeTrapMessages = new Map<string, string>();
 const channelLocks = new Map<string, Promise<void>>();
 
@@ -56,9 +44,10 @@ function runExclusiveChannel(channelId: string, task: () => Promise<void>): Prom
   const prev = channelLocks.get(channelId) ?? Promise.resolve();
   const next = prev.catch(() => undefined).then(task);
   channelLocks.set(channelId, next);
-  void next.finally(() => {
+  const cleanup = (): void => {
     if (channelLocks.get(channelId) === next) channelLocks.delete(channelId);
-  });
+  };
+  void next.then(cleanup, cleanup);
   return next;
 }
 
@@ -156,12 +145,9 @@ async function handleTrapMessage(client: Client, message: Message): Promise<void
 
   if (isOwner(message.author.id)) return;
 
-  const member =
-    message.member ?? (await message.guild.members.fetch(message.author.id).catch(() => null));
-
-  if (member && hasStaffImmunity(member, gc)) return;
-
-  await runExclusive(message.author.id, async () => {
+  await runUserExclusive(message.author.id, async () => {
+    const member = await message.guild!.members.fetch(message.author.id).catch(() => null);
+    if (member && hasStaffImmunity(member, gc)) return;
     if (member && member.roles.cache.has(gc.roles.blacklist)) return;
 
     const guild = message.guild!;
@@ -310,7 +296,7 @@ export function initAllTrapChannels(client: Client): void {
           console.error(`[trapChannel] initAllTrapChannels failed for ${channelId}`, e),
         );
       }
-    })();
+    })().catch((e) => console.error('[trapChannel] trap initialization failed', guild.id, e));
   }
 }
 
@@ -342,7 +328,7 @@ export function registerTrapChannel(client: Client): void {
           console.error(`[trapChannel] guildCreate trap init failed for ${channelId}`, e),
         );
       }
-    })();
+    })().catch((e) => console.error('[trapChannel] guild trap initialization failed', guild.id, e));
   });
 
   if (client.isReady()) {

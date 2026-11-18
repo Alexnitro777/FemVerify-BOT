@@ -1,11 +1,15 @@
 import { Client, Events, GuildMember } from 'discord.js';
 import { getGuildConfig } from './guildConfig';
-import { getUserGlobalStatus, upsertBlacklistedApplication, getSpecialBlacklistsForUser } from './storage';
+import {
+  getUserGlobalStatus, upsertBlacklistedApplication, getSpecialBlacklistsForUser,
+  getApplication, clearApplicationRemovedRoles,
+} from './storage';
 import { postDecisionMessage } from './ui';
 import { hasServerTag } from './roleTag';
 import { resolveJoinMethod } from './inviteTracker';
 import { sendWelcomeDM } from './welcomeDM';
-import { logSettledFailures } from './concurrency';
+import { logSettledFailures, runUserExclusive } from './concurrency';
+import { restoreMemberRoles } from './roles';
 
 const BLACKLIST_REASON = 'Глобальный ЧС при входе';
 const VERIFY_REASON = 'Уже верифицирован на другом сервере проекта';
@@ -47,6 +51,16 @@ async function handleMemberJoin(member: GuildMember): Promise<void> {
 
   const blacklistRoleGranted = rolesApplied && toAdd.includes(gc.roles.blacklist);
   const verifiedRoleGranted = rolesApplied && toAdd.includes(gc.roles.verified);
+
+  if (!status.blacklisted) {
+    const application = await getApplication(guildId, member.id);
+    if (application?.status === 'amnestied' && application.removedRoles?.length) {
+      const blacklistRemoved = await member.roles.remove(gc.roles.blacklist).then(() => true).catch(() => false);
+      if (blacklistRemoved && await restoreMemberRoles(member, gc, application.removedRoles)) {
+        await clearApplicationRemovedRoles(guildId, member.id, application.removedRoles);
+      }
+    }
+  }
 
   const tail: Promise<unknown>[] = [resolveJoinMethod(guild, member.id)];
 
@@ -93,7 +107,7 @@ async function handleMemberJoin(member: GuildMember): Promise<void> {
 
 export function registerMemberJoin(client: Client): void {
   client.on(Events.GuildMemberAdd, (member) => {
-    void handleMemberJoin(member).catch((e) =>
+    void runUserExclusive(member.id, () => handleMemberJoin(member)).catch((e) =>
       console.error('[memberJoin] handler failed', e),
     );
   });

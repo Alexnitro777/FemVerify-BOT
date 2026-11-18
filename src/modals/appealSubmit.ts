@@ -1,170 +1,94 @@
 import { ModalSubmitInteraction, TextChannel, MessageFlags } from 'discord.js';
 import { ModalHandler, GuildConfig } from '../types';
 import { appealQuestions } from '../questions';
-import { getApplication, getAppeal, getPendingAppeals, reserveAppeal, nextAppealNumber, getSpecialBlacklist } from '../storage';
-import { db } from '../db';
-import * as schema from '../schema';
-import { eq, and, desc } from 'drizzle-orm';
+import {
+  getApplication, getAppealsForUser, reserveAppealSubmission, nextAppealNumber,
+  getSpecialBlacklist, setAppealReviewMessage, deletePendingAppealSubmission,
+} from '../storage';
 import { buildAppealEmbed, buildAppealReviewButtons } from '../ui';
 import { isMainGuild } from '../config';
-
-const DENY_COOLDOWN_MS = 48 * 60 * 60 * 1000;
+import { appealSubmissionError, isBlacklistType } from '../appealPolicy';
+import { runUserExclusive } from '../concurrency';
 
 const handler: ModalHandler = {
-	customId: /^appeal:submit:(.+)$/,
+  customId: /^appeal:submit:(ЧСП|ЧСЗ|ЧСА)$/,
 
-	async execute(interaction: ModalSubmitInteraction, gc: GuildConfig): Promise<void> {
-		const [, type] = interaction.customId.split('submit:');
-		const text = appealQuestions
-			.slice(0, 5)
-			.map((q) => {
-				try {
-					return interaction.fields.getTextInputValue(q.id);
-				} catch {
-					return '';
-				}
-			})
-			.map((value) => value.trim())
-			.filter((value) => value.length > 0)
-			.join('\n\n');
-
-		await interaction.deferReply({ flags: MessageFlags.Ephemeral });
-
-		const guildId = interaction.guildId!;
-		if (!isMainGuild(guildId)) {
-			await interaction.editReply({
-				content: 'Подать апелляцию можно только на основном сервере проекта.',
-			});
-			return;
-		}
-
-		const member = await interaction.guild?.members
-			.fetch(interaction.user.id)
-			.catch(() => null);
-		if (!member) {
-			await interaction.editReply({
-				content: 'Апелляция доступна только участникам в чёрном списке.',
-			});
-			return;
-		}
-
-		const hasBlacklist = member.roles.cache.has(gc.roles.blacklist);
-		const hasBlacklistZ = gc.roles.blacklistZ ? member.roles.cache.has(gc.roles.blacklistZ) : false;
-		const hasBlacklistA = gc.roles.blacklistA ? member.roles.cache.has(gc.roles.blacklistA) : false;
-		
-		if (!hasBlacklist && !hasBlacklistZ && !hasBlacklistA) {
-			await interaction.editReply({
-				content: 'Апелляция доступна только участникам в чёрном списке.',
-			});
-			return;
-		}
-
-		const userAppeals = await db.select().from(schema.appeals).where(and(eq(schema.appeals.guildId, guildId), eq(schema.appeals.userId, interaction.user.id))).orderBy(desc(schema.appeals.submittedAt));
-		const pendingAppeals = userAppeals.filter(a => a.status === 'pending');
-		
-		if (pendingAppeals.some(a => a.blacklistType === type || (!a.blacklistType && type === 'ЧСП'))) {
-			await interaction.editReply({ content: 'Ваша апелляция на этот тип блокировки уже на рассмотрении.' });
-			return;
-		}
-
-		const existingAppealForType = userAppeals.find(a => a.blacklistType === type || (!a.blacklistType && type === 'ЧСП'));
-		if (
-			existingAppealForType?.status === 'denied' &&
-			existingAppealForType.resolvedAt &&
-			Date.now() < existingAppealForType.resolvedAt + DENY_COOLDOWN_MS
-		) {
-			const ts = Math.floor((existingAppealForType.resolvedAt + DENY_COOLDOWN_MS) / 1000);
-			await interaction.editReply({
-				content: `⛔ Вашу прошлую апелляцию отклонили. Новую можно подать <t:${ts}:R> (<t:${ts}:f>).`,
-			});
-			return;
-		}
-
-		const application = await getApplication(guildId, interaction.user.id);
-		let blacklistReason =
-			application?.status === 'blacklisted' ? application.reason : undefined;
-		if (!blacklistReason && (type === 'ЧСА' || type === 'ЧСЗ')) {
-			const special = await getSpecialBlacklist(guildId, interaction.user.id, type);
-			blacklistReason = special?.reason;
-		}
-
-		if (!gc.channels.appealReview) {
-			await interaction.editReply({
-				content: '❌ Не удалось отправить апелляцию: канал модерации недоступен. Сообщите администрации.',
-			});
-			return;
-		}
-
-		const channel = await interaction.client.channels
-			.fetch(gc.channels.appealReview)
-			.catch(() => null);
-		if (!channel || !channel.isTextBased()) {
-			console.error('[appealSubmit] appeal review channel unavailable:', gc.channels.appealReview);
-			await interaction.editReply({
-				content: '❌ Не удалось отправить апелляцию: канал модерации недоступен. Сообщите администрации.',
-			});
-			return;
-		}
-
-		const number = await nextAppealNumber(guildId);
-		
-		let pingText = type;
-		if (type === 'ЧСП') pingText = `<@&${gc.roles.blacklist}>`;
-		else if (type === 'ЧСЗ' && gc.roles.blacklistZ) pingText = `<@&${gc.roles.blacklistZ}>`;
-		else if (type === 'ЧСА' && gc.roles.blacklistA) pingText = `<@&${gc.roles.blacklistA}>`;
-
-		const embed = buildAppealEmbed(interaction.user, text, blacklistReason, number, pingText);
-
-		const row = buildAppealReviewButtons(interaction.user.id, undefined, type);
-
-		const msg = await (channel as TextChannel)
-			.send({
-				content: `<@${interaction.user.id}>`,
-				embeds: [embed],
-				components: [row],
-				allowedMentions: { users: [interaction.user.id] },
-			})
-			.catch((e) => {
-				console.error('[appealSubmit] failed to post appeal message:', e);
-				return null;
-			});
-
-		if (!msg) {
-			await interaction.editReply({
-				content: '❌ Не удалось отправить апелляцию модерации. Попробуйте позже или сообщите администрации.',
-			});
-			return;
-		}
-
-		let reserved = false;
-		try {
-			reserved = await reserveAppeal({
-				userId: interaction.user.id,
-				guildId,
-				username: interaction.user.tag,
-				text,
-				submittedAt: Date.now(),
-				status: 'pending',
-				reviewMessageUrl: msg.url,
-				blacklistReason,
-				blacklistType: type,
-				number,
-			});
-		} catch (err) {
-			console.error('[appealSubmit] reserveAppeal error:', err);
-		}
-
-		if (!reserved) {
-			await msg.delete().catch(() => null);
-			await interaction.editReply({ content: 'Произошла ошибка или ваша апелляция уже на рассмотрении.' });
-			return;
-		}
-
-
-		await interaction.editReply({
-			content: '✅ Апелляция отправлена. Ожидайте решения модерации.',
-		});
-	},
+  async execute(interaction: ModalSubmitInteraction, gc: GuildConfig): Promise<void> {
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+    await runUserExclusive(interaction.user.id, async () => {
+      const type = interaction.customId.split(':')[2];
+      const guildId = interaction.guildId!;
+      if (!isMainGuild(guildId) || !isBlacklistType(type)) {
+        await interaction.editReply({ content: 'Подать апелляцию можно только на основном сервере проекта.' });
+        return;
+      }
+      const text = interaction.fields.getTextInputValue('text').trim();
+      const question = appealQuestions[0];
+      if (text.length < (question.minLength ?? 0) || text.length > (question.maxLength ?? 4000)) {
+        await interaction.editReply({ content: 'Текст апелляции не соответствует ограничениям формы.' });
+        return;
+      }
+      const member = await interaction.guild?.members.fetch(interaction.user.id).catch(() => null);
+      const roleId = type === 'ЧСП' ? gc.roles.blacklist : type === 'ЧСЗ' ? gc.roles.blacklistZ : gc.roles.blacklistA;
+      if (!member || !roleId || !member.roles.cache.has(roleId) || (type !== 'ЧСП' && member.roles.cache.has(gc.roles.blacklist))) {
+        await interaction.editReply({ content: 'Этот тип блокировки больше недоступен для обжалования.' });
+        return;
+      }
+      const error = appealSubmissionError(await getAppealsForUser(guildId, interaction.user.id), type);
+      if (error) {
+        await interaction.editReply({ content: error });
+        return;
+      }
+      const channel = gc.channels.appealReview
+        ? await interaction.client.channels.fetch(gc.channels.appealReview).catch(() => null)
+        : null;
+      if (!channel?.isTextBased()) {
+        await interaction.editReply({ content: '❌ Не удалось отправить апелляцию: канал модерации недоступен. Сообщите администрации.' });
+        return;
+      }
+      const application = type === 'ЧСП' ? await getApplication(guildId, interaction.user.id) : undefined;
+      const special = type !== 'ЧСП' ? await getSpecialBlacklist(guildId, interaction.user.id, type) : undefined;
+      const blacklistReason = type === 'ЧСП' ? application?.reason : special?.reason;
+      const number = await nextAppealNumber(guildId);
+      const appealId = await reserveAppealSubmission({
+        userId: interaction.user.id,
+        guildId,
+        username: interaction.user.tag,
+        text,
+        submittedAt: Date.now(),
+        status: 'pending',
+        blacklistReason,
+        blacklistType: type,
+        number,
+      });
+      if (appealId === false) {
+        await interaction.editReply({ content: 'Апелляция не отправлена: проверьте лимит обращений и срок повторной подачи.' });
+        return;
+      }
+      let message;
+      try {
+        message = await (channel as TextChannel).send({
+          content: `<@${interaction.user.id}>`,
+          embeds: [buildAppealEmbed(interaction.user, text, blacklistReason, number, `<@&${roleId}>`)],
+          components: [buildAppealReviewButtons(interaction.user.id, undefined, type, appealId)],
+          allowedMentions: { users: [interaction.user.id] },
+        });
+      } catch (error) {
+        console.error('[appealSubmit] failed to post appeal message', error);
+        await deletePendingAppealSubmission(guildId, appealId);
+        await interaction.editReply({ content: '❌ Не удалось отправить апелляцию модерации. Попробуйте позже.' });
+        return;
+      }
+      try {
+        await setAppealReviewMessage(guildId, appealId, message.url);
+      } catch (error) {
+        console.error('[appealSubmit] failed to confirm review link', appealId, error);
+        await interaction.editReply({ content: 'Апелляция размещена в канале модерации, но не удалось сохранить ссылку. Сообщите администрации.' });
+        return;
+      }
+      await interaction.editReply({ content: '✅ Апелляция отправлена. Ожидайте решения модерации.' });
+    });
+  },
 };
 
 export default handler;

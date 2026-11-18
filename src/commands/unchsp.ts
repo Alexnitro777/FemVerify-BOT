@@ -51,7 +51,7 @@ const command: SlashCommand = {
       getApplication(interaction.guild.id, user.id),
     ]);
 
-    if (target && !target.roles.cache.has(gc.roles.blacklist)) {
+    if (!target?.roles.cache.has(gc.roles.blacklist) && existing?.status !== 'blacklisted' && !existing?.removedRoles?.length) {
       await interaction.reply({
         content: 'Участник не находится в чёрном списке.',
         flags: MessageFlags.Ephemeral,
